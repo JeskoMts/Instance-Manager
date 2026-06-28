@@ -1,0 +1,39 @@
+name: CI
+
+on:
+  push:
+    branches:
+      - main
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  build-and-test:
+    runs-on: windows-latest
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Set up .NET 8
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: 8.0.x
+
+      - name: Restore dependencies
+        run: dotnet restore InstanceManager.sln --locked-mode
+
+      - name: Scan source and release archives for secrets
+        shell: pwsh
+        run: pwsh -NoProfile -ExecutionPolicy Bypass -File ./scripts/security-scan.ps1
+
+      - name: Report vulnerable dependencies
+        run: dotnet list InstanceManager.sln package --vulnerable --include-transitive
+
+      - name: Build
+        run: dotnet build InstanceManager.sln --configuration Release --no-restore
+
+      - name: Test
+        run: dotnet test InstanceManager.sln --configuration Release --no-build
