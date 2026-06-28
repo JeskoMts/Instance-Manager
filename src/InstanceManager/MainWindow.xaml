@@ -1,0 +1,1571 @@
+<Window x:Class="InstanceManager.MainWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:shell="clr-namespace:System.Windows.Shell;assembly=PresentationFramework"
+        xmlns:vm="clr-namespace:InstanceManager.ViewModels"
+        xmlns:behaviors="clr-namespace:InstanceManager.Behaviors"
+        Title="Instance Manager" Height="680" Width="1000" MinWidth="820" MinHeight="520"
+        WindowStartupLocation="CenterScreen"
+        Background="{DynamicResource Brush.Window}"
+        TextElement.Foreground="{DynamicResource Brush.TextPrimary}"
+        TextElement.FontFamily="Segoe UI" TextElement.FontSize="13"
+        TextOptions.TextFormattingMode="Ideal">
+
+    <shell:WindowChrome.WindowChrome>
+        <shell:WindowChrome CaptionHeight="48" ResizeBorderThickness="6"
+                            CornerRadius="0" GlassFrameThickness="0" UseAeroCaptionButtons="False" />
+    </shell:WindowChrome.WindowChrome>
+
+    <Window.Resources>
+        <BooleanToVisibilityConverter x:Key="BoolToVis" />
+
+        <Style x:Key="UndoButton" TargetType="Button">
+            <Setter Property="Background" Value="#2563EB" />
+            <Setter Property="Foreground" Value="#FFFFFF" />
+            <Setter Property="FontWeight" Value="SemiBold" />
+            <Setter Property="FontSize" Value="11" />
+            <Setter Property="Cursor" Value="Hand" />
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="Button">
+                        <Border x:Name="Bd" CornerRadius="7" Background="{TemplateBinding Background}"
+                                BorderBrush="#1D4ED8" BorderThickness="1"
+                                Padding="{TemplateBinding Padding}">
+                            <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center" />
+                        </Border>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsMouseOver" Value="True">
+                                <Setter TargetName="Bd" Property="Background" Value="#1D4ED8" />
+                            </Trigger>
+                            <Trigger Property="IsPressed" Value="True">
+                                <Setter TargetName="Bd" Property="Background" Value="#1E40AF" />
+                            </Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+
+        <Style x:Key="DismissButton" TargetType="Button">
+            <Setter Property="Background" Value="{DynamicResource Brush.Elevated}" />
+            <Setter Property="Foreground" Value="{DynamicResource Brush.TextSecondary}" />
+            <Setter Property="FontWeight" Value="SemiBold" />
+            <Setter Property="FontSize" Value="11" />
+            <Setter Property="Cursor" Value="Hand" />
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="Button">
+                        <Border x:Name="Bd" CornerRadius="7" Background="{TemplateBinding Background}"
+                                BorderBrush="{DynamicResource Brush.BorderStrong}" BorderThickness="1"
+                                Padding="{TemplateBinding Padding}">
+                            <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center" />
+                        </Border>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsMouseOver" Value="True">
+                                <Setter TargetName="Bd" Property="Background" Value="{DynamicResource Brush.ElevatedHover}" />
+                                <Setter Property="Foreground" Value="{DynamicResource Brush.TextPrimary}" />
+                            </Trigger>
+                            <Trigger Property="IsPressed" Value="True">
+                                <Setter TargetName="Bd" Property="Background" Value="{DynamicResource Brush.SurfaceActive}" />
+                            </Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+
+        <Style x:Key="CaptionButton" TargetType="Button">
+            <Setter Property="Width" Value="46" />
+            <Setter Property="Height" Value="32" />
+            <Setter Property="Foreground" Value="{DynamicResource Brush.TextSecondary}" />
+            <Setter Property="Background" Value="Transparent" />
+            <Setter Property="FontFamily" Value="Segoe MDL2 Assets" />
+            <Setter Property="FontSize" Value="11" />
+            <Setter Property="shell:WindowChrome.IsHitTestVisibleInChrome" Value="True" />
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="Button">
+                        <Border x:Name="Bd" Background="{TemplateBinding Background}" CornerRadius="6">
+                            <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center" />
+                        </Border>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsMouseOver" Value="True">
+                                <Setter TargetName="Bd" Property="Background" Value="{DynamicResource Brush.SurfaceHover}" />
+                                <Setter Property="Foreground" Value="{DynamicResource Brush.TextPrimary}" />
+                            </Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+        <Style x:Key="CloseButton" TargetType="Button" BasedOn="{StaticResource CaptionButton}">
+            <Style.Triggers>
+                <Trigger Property="IsMouseOver" Value="True">
+                    <Setter Property="Foreground" Value="White" />
+                </Trigger>
+            </Style.Triggers>
+        </Style>
+
+
+        <Style x:Key="PageHost" TargetType="Grid">
+            <Style.Triggers>
+                <Trigger Property="IsVisible" Value="True">
+                    <Trigger.EnterActions>
+                        <BeginStoryboard>
+                            <Storyboard>
+                                <DoubleAnimation Storyboard.TargetProperty="Opacity" From="0" To="1"
+                                                 Duration="0:0:0.22" EasingFunction="{StaticResource EaseOutStandard}" />
+                                <DoubleAnimation Storyboard.TargetProperty="(UIElement.RenderTransform).(TranslateTransform.X)"
+                                                 From="12" To="0" Duration="0:0:0.28" EasingFunction="{StaticResource EaseOutEmphasized}" />
+                            </Storyboard>
+                        </BeginStoryboard>
+                    </Trigger.EnterActions>
+                </Trigger>
+            </Style.Triggers>
+        </Style>
+
+        <Style x:Key="ThemeCardItem" TargetType="ListBoxItem">
+            <Setter Property="Foreground" Value="{DynamicResource Brush.TextPrimary}" />
+            <Setter Property="Margin" Value="0,0,10,10" />
+            <Setter Property="Cursor" Value="Hand" />
+            <Setter Property="HorizontalContentAlignment" Value="Stretch" />
+            <Setter Property="AllowDrop" Value="True" />
+            <Setter Property="Visibility">
+                <Setter.Value>
+                    <MultiBinding Converter="{StaticResource ThemeCardVis}">
+                        <Binding RelativeSource="{RelativeSource Self}" Path="(ItemsControl.AlternationIndex)" />
+                        <Binding RelativeSource="{RelativeSource AncestorType=ListBox}" Path="DataContext.Theme.ShowAllThemes" />
+                    </MultiBinding>
+                </Setter.Value>
+            </Setter>
+            <EventSetter Event="PreviewMouseLeftButtonDown" Handler="ThemeCard_PreviewMouseLeftButtonDown" />
+            <EventSetter Event="PreviewMouseLeftButtonUp" Handler="ThemeCard_PreviewMouseLeftButtonUp" />
+            <EventSetter Event="DragOver" Handler="ThemeCard_DragOver" />
+            <EventSetter Event="DragLeave" Handler="ThemeCard_DragLeave" />
+            <EventSetter Event="Drop" Handler="ThemeCard_Drop" />
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="ListBoxItem">
+                        <Border x:Name="Card" CornerRadius="9" BorderThickness="2" HorizontalAlignment="Stretch"
+                                BorderBrush="{DynamicResource Brush.Border}" Background="{DynamicResource Brush.Window}">
+                            <Grid>
+                              <StackPanel>
+                                <Border Height="40" CornerRadius="7,7,0,0"
+                                        Background="{Binding Palette.Window, Converter={StaticResource HexToBrush}}">
+                                    <StackPanel Orientation="Horizontal" VerticalAlignment="Center" Margin="9,0">
+                                        <Border Width="36" Height="8" CornerRadius="4" Margin="0,0,6,0"
+                                                Background="{Binding Palette.Accent, Converter={StaticResource HexToBrush}}" />
+                                        <Border Width="22" Height="8" CornerRadius="4" Margin="0,0,6,0"
+                                                Background="{Binding Palette.TextSecondary, Converter={StaticResource HexToBrush}}" />
+                                        <Border Width="14" Height="14" CornerRadius="7"
+                                                Background="{Binding Palette.Surface, Converter={StaticResource HexToBrush}}"
+                                                BorderBrush="{Binding Palette.BorderStrong, Converter={StaticResource HexToBrush}}" BorderThickness="1" />
+                                    </StackPanel>
+                                </Border>
+                                <Grid Margin="9,7,9,8">
+                                    <TextBlock Text="{Binding Name}" FontWeight="SemiBold" TextTrimming="CharacterEllipsis" VerticalAlignment="Center" />
+                                    <TextBlock Text="Custom" FontSize="10" Foreground="{DynamicResource Brush.TextMuted}"
+                                               HorizontalAlignment="Right" VerticalAlignment="Center">
+                                        <TextBlock.Style>
+                                            <Style TargetType="TextBlock">
+                                                <Setter Property="Visibility" Value="Visible" />
+                                                <Style.Triggers>
+                                                    <DataTrigger Binding="{Binding IsBuiltIn}" Value="True">
+                                                        <Setter Property="Visibility" Value="Collapsed" />
+                                                    </DataTrigger>
+                                                </Style.Triggers>
+                                            </Style>
+                                        </TextBlock.Style>
+                                    </TextBlock>
+                                </Grid>
+                              </StackPanel>
+                              <Border x:Name="ActivatePulse" CornerRadius="7" IsHitTestVisible="False"
+                                      Background="{DynamicResource Brush.Accent}" Opacity="0" />
+                            </Grid>
+                        </Border>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsSelected" Value="True">
+                                <Setter TargetName="Card" Property="BorderBrush" Value="{DynamicResource Brush.Accent}" />
+                                <Trigger.EnterActions>
+                                    <BeginStoryboard>
+                                        <Storyboard>
+                                            <DoubleAnimation Storyboard.TargetName="ActivatePulse"
+                                                             Storyboard.TargetProperty="Opacity"
+                                                             From="0.3" To="0" Duration="0:0:0.25"
+                                                             EasingFunction="{StaticResource EaseOutStandard}"
+                                                             FillBehavior="Stop" />
+                                        </Storyboard>
+                                    </BeginStoryboard>
+                                </Trigger.EnterActions>
+                            </Trigger>
+                            <Trigger Property="IsMouseOver" Value="True">
+                                <Setter TargetName="Card" Property="BorderBrush" Value="{DynamicResource Brush.BorderStrong}" />
+                            </Trigger>
+                            <Trigger Property="behaviors:ThemeDrag.IsDropTarget" Value="True">
+                                <Setter TargetName="Card" Property="BorderBrush" Value="{DynamicResource Brush.Accent}" />
+                            </Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+    </Window.Resources>
+
+    <Grid x:Name="Root">
+        <Grid.RowDefinitions>
+            <RowDefinition Height="48" />
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="*" />
+        </Grid.RowDefinitions>
+
+        <Grid.Triggers>
+            <EventTrigger RoutedEvent="Loaded">
+                <BeginStoryboard>
+                    <Storyboard>
+                        <DoubleAnimation Storyboard.TargetProperty="Opacity" From="0" To="1"
+                                         Duration="0:0:0.28" EasingFunction="{StaticResource EaseOutStandard}" />
+                        <DoubleAnimation Storyboard.TargetName="RootScale" Storyboard.TargetProperty="ScaleX"
+                                         From="0.99" To="1" Duration="0:0:0.3" EasingFunction="{StaticResource EaseOutEmphasized}" />
+                        <DoubleAnimation Storyboard.TargetName="RootScale" Storyboard.TargetProperty="ScaleY"
+                                         From="0.99" To="1" Duration="0:0:0.3" EasingFunction="{StaticResource EaseOutEmphasized}" />
+                    </Storyboard>
+                </BeginStoryboard>
+            </EventTrigger>
+        </Grid.Triggers>
+        <Grid.RenderTransform>
+            <ScaleTransform x:Name="RootScale" ScaleX="1" ScaleY="1" />
+        </Grid.RenderTransform>
+        <Grid.RenderTransformOrigin>0.5,0.5</Grid.RenderTransformOrigin>
+
+        <Grid Grid.Row="0" Background="{DynamicResource Brush.Window}">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="Auto" />
+                <ColumnDefinition Width="*" />
+                <ColumnDefinition Width="Auto" />
+            </Grid.ColumnDefinitions>
+
+            <StackPanel Grid.Column="0" Orientation="Horizontal" VerticalAlignment="Center" Margin="16,0,0,0">
+                <Border Width="26" Height="26" CornerRadius="8" Background="{DynamicResource Brush.Elevated}"
+                        BorderBrush="{DynamicResource Brush.BorderStrong}" BorderThickness="1">
+                    <TextBlock Text="A" FontWeight="Bold" FontSize="14" Foreground="{DynamicResource Brush.Accent}"
+                               HorizontalAlignment="Center" VerticalAlignment="Center" />
+                </Border>
+                <TextBlock Text="Instance Manager" FontSize="15" FontWeight="SemiBold" Margin="11,0,0,0" VerticalAlignment="Center" />
+                <Border Background="{DynamicResource Brush.Surface}" CornerRadius="6" Padding="8,2" Margin="11,0,0,0"
+                        VerticalAlignment="Center" BorderBrush="{DynamicResource Brush.Border}" BorderThickness="1">
+                    <TextBlock Text="{Binding AccountList.AccountCount, StringFormat='{}{0} accounts'}"
+                               Foreground="{DynamicResource Brush.TextSecondary}" FontSize="11" />
+                </Border>
+            </StackPanel>
+
+            <StackPanel Grid.Column="1" Orientation="Horizontal" HorizontalAlignment="Right" VerticalAlignment="Center"
+                        Margin="0,0,12,0" Visibility="{Binding IsBusy, Converter={StaticResource BoolToVis}}">
+                <Ellipse Width="7" Height="7" Fill="{DynamicResource Brush.Accent}" VerticalAlignment="Center" Margin="0,0,6,0" />
+                <TextBlock Text="Working…" FontSize="11" Foreground="{DynamicResource Brush.TextMuted}" VerticalAlignment="Center" />
+            </StackPanel>
+
+            <StackPanel Grid.Column="2" Orientation="Horizontal" VerticalAlignment="Top" Margin="0,8,8,0">
+                <Grid shell:WindowChrome.IsHitTestVisibleInChrome="True">
+                    <Button x:Name="BellButton" Style="{StaticResource CaptionButton}" Content="&#xE7E7;"
+                            Command="{Binding Notifications.ToggleCenterCommand}" ToolTip="Notifications" />
+                    <Border IsHitTestVisible="False" MinWidth="16" Height="16" CornerRadius="8" Padding="3,0"
+                            Background="{DynamicResource Brush.Accent}" HorizontalAlignment="Right" VerticalAlignment="Top"
+                            Margin="0,3,5,0"
+                            Visibility="{Binding Notifications.HasUnread, Converter={StaticResource BoolToVis}}">
+                        <TextBlock Text="{Binding Notifications.UnreadBadge}" Foreground="{DynamicResource Brush.OnAccent}"
+                                   FontSize="9" FontWeight="Bold" HorizontalAlignment="Center" VerticalAlignment="Center" />
+                    </Border>
+                </Grid>
+                <Button x:Name="MinButton" Style="{StaticResource CaptionButton}" Content="&#xE921;" Click="MinButton_Click" />
+                <Button x:Name="MaxButton" Style="{StaticResource CaptionButton}" Content="&#xE922;" Click="MaxButton_Click" />
+                <Button x:Name="CloseButton" Style="{StaticResource CloseButton}" Content="&#xE8BB;" Click="CloseButton_Click" />
+            </StackPanel>
+        </Grid>
+
+        <Border Grid.Row="1" BorderBrush="{DynamicResource Brush.Border}" BorderThickness="0,0,0,1">
+            <StackPanel Orientation="Horizontal" Margin="14,2,0,0">
+                <RadioButton Style="{StaticResource TabButton}" GroupName="section"
+                             IsChecked="{Binding SelectedSection, Converter={StaticResource EnumBool}, ConverterParameter=Accounts}">
+                    <StackPanel Orientation="Horizontal">
+                        <TextBlock Style="{StaticResource Glyph}" Text="&#xE77B;" FontSize="15" Margin="0,0,8,0" />
+                        <TextBlock Text="Accounts" VerticalAlignment="Center" />
+                    </StackPanel>
+                </RadioButton>
+                <RadioButton Style="{StaticResource TabButton}" GroupName="section"
+                             IsChecked="{Binding SelectedSection, Converter={StaticResource EnumBool}, ConverterParameter=Games}">
+                    <StackPanel Orientation="Horizontal">
+                        <TextBlock Style="{StaticResource Glyph}" Text="&#xE7FC;" FontFamily="Segoe MDL2 Assets"
+                                   FontSize="18" Margin="0,0,8,0"
+                                   TextOptions.TextFormattingMode="Display"
+                                   TextOptions.TextRenderingMode="ClearType" />
+                        <TextBlock Text="Games" VerticalAlignment="Center" />
+                    </StackPanel>
+                </RadioButton>
+                <RadioButton Style="{StaticResource TabButton}" GroupName="section"
+                             IsChecked="{Binding SelectedSection, Converter={StaticResource EnumBool}, ConverterParameter=Settings}">
+                    <StackPanel Orientation="Horizontal">
+                        <TextBlock Style="{StaticResource Glyph}" Text="&#xE713;" FontSize="15" Margin="0,0,8,0" />
+                        <TextBlock Text="Settings" VerticalAlignment="Center" />
+                    </StackPanel>
+                </RadioButton>
+            </StackPanel>
+        </Border>
+
+        <Grid Grid.Row="2">
+
+            <Grid x:Name="AccountsPage" Style="{StaticResource PageHost}"
+                  Visibility="{Binding SelectedSection, Converter={StaticResource EnumVis}, ConverterParameter=Accounts}">
+                <Grid.RenderTransform>
+                    <TranslateTransform X="0" />
+                </Grid.RenderTransform>
+                <Grid.RowDefinitions>
+                    <RowDefinition Height="Auto" />
+                    <RowDefinition Height="*" />
+                    <RowDefinition Height="Auto" />
+                </Grid.RowDefinitions>
+
+                <Grid Grid.Row="0" Margin="16,12,16,8">
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="*" />
+                        <ColumnDefinition Width="Auto" />
+                        <ColumnDefinition Width="Auto" />
+                        <ColumnDefinition Width="Auto" />
+                    </Grid.ColumnDefinitions>
+
+                    <Grid Grid.Column="0" Width="360" HorizontalAlignment="Left">
+                        <TextBox x:Name="SearchBox" Style="{StaticResource SearchTextBox}" Height="36"
+                                 VerticalContentAlignment="Center"
+                                 Text="{Binding AccountList.SearchText, UpdateSourceTrigger=PropertyChanged, Delay=200}" />
+                        <TextBlock Style="{StaticResource Glyph}" Text="&#xE721;" HorizontalAlignment="Left" Margin="12,0,0,0"
+                                   FontSize="14" Foreground="{DynamicResource Brush.TextMuted}" IsHitTestVisible="False" />
+                        <TextBlock Style="{StaticResource WatermarkText}" Margin="34,0,0,0" Text="Search accounts…"
+                                   IsHitTestVisible="False">
+                            <TextBlock.Visibility>
+                                <MultiBinding Converter="{StaticResource EmptyUnfocusedToVis}">
+                                    <Binding Path="Text" ElementName="SearchBox" />
+                                    <Binding Path="IsKeyboardFocused" ElementName="SearchBox" />
+                                </MultiBinding>
+                            </TextBlock.Visibility>
+                        </TextBlock>
+                        <Button Style="{StaticResource IconButton}" HorizontalAlignment="Right" VerticalAlignment="Center"
+                                Width="26" Height="26" Padding="0" Margin="0,0,5,0" ToolTip="Clear search"
+                                Command="{Binding AccountList.ClearSearchCommand}"
+                                Visibility="{Binding AccountList.IsSearching, Converter={StaticResource BoolToVis}}">
+                            <TextBlock Style="{StaticResource Glyph}" Text="&#xE711;" FontSize="11" />
+                        </Button>
+                    </Grid>
+
+                    <StackPanel Grid.Column="1" Orientation="Horizontal" VerticalAlignment="Center" Margin="12,0,0,0">
+                        <TextBlock Text="Version" Foreground="{DynamicResource Brush.TextSecondary}"
+                                   VerticalAlignment="Center" Margin="0,0,8,0" FontSize="12" />
+                        <ComboBox Style="{StaticResource ModernComboBox}" Width="190" Height="36"
+                                  ItemsSource="{Binding VersionBar.Versions}" SelectedItem="{Binding VersionBar.SelectedVersion}">
+                            <ComboBox.ItemTemplate>
+                                <DataTemplate>
+                                    <TextBlock Text="{Binding DisplayLabel}" />
+                                </DataTemplate>
+                            </ComboBox.ItemTemplate>
+                        </ComboBox>
+                        <Button Style="{StaticResource IconButton}" Margin="4,0,0,0" Width="34" Height="34"
+                                Command="{Binding VersionBar.RefreshVersionsCommand}"
+                                ToolTip="Re-detect the installed Roblox version (use after Roblox updates or you install a new version)">
+                            <TextBlock Style="{StaticResource Glyph}" Text="&#xE72C;" FontSize="14" />
+                        </Button>
+                    </StackPanel>
+
+                    <Button Grid.Column="2" Style="{StaticResource GhostButton}" Margin="8,0,0,0" Height="36"
+                            Command="{Binding AccountList.CreateGroupCommand}">
+                        <StackPanel Orientation="Horizontal">
+                            <TextBlock Style="{StaticResource Glyph}" Text="&#xE716;" Margin="0,0,7,0" />
+                            <TextBlock Text="Group" VerticalAlignment="Center" />
+                        </StackPanel>
+                    </Button>
+                    <Button Grid.Column="3" Style="{StaticResource PrimaryButton}" Margin="8,0,0,0" Height="36"
+                            Command="{Binding AccountList.AddAccountCommand}">
+                        <StackPanel Orientation="Horizontal">
+                            <TextBlock Style="{StaticResource Glyph}" Text="&#xE8FA;" Margin="0,0,7,0" />
+                            <TextBlock Text="Add account" VerticalAlignment="Center" />
+                        </StackPanel>
+                    </Button>
+                </Grid>
+
+                <Grid Grid.Row="1" Margin="16,0,16,0">
+                    <ListBox x:Name="AccountsList" ItemsSource="{Binding AccountList.Rows}"
+                             Background="Transparent" BorderThickness="0" Padding="0,0,6,0"
+                             HorizontalContentAlignment="Stretch"
+                             AllowDrop="True" DragOver="AccountsList_DragOver"
+                             behaviors:SmoothScroll.Enabled="True"
+                             ScrollViewer.HorizontalScrollBarVisibility="Disabled"
+                             ScrollViewer.VerticalScrollBarVisibility="Auto"
+                             ScrollViewer.CanContentScroll="True"
+                             VirtualizingPanel.IsVirtualizing="True"
+                             VirtualizingPanel.VirtualizationMode="Recycling"
+                             VirtualizingPanel.ScrollUnit="Pixel"
+                             Visibility="{Binding AccountList.ShowList, Converter={StaticResource BoolToVis}}">
+                        <ListBox.ItemContainerStyle>
+                            <Style TargetType="ListBoxItem">
+                                <Setter Property="Padding" Value="0" />
+                                <Setter Property="Margin" Value="0" />
+                                <Setter Property="Focusable" Value="False" />
+                                <Setter Property="Foreground" Value="{DynamicResource Brush.TextPrimary}" />
+                                <Setter Property="HorizontalContentAlignment" Value="Stretch" />
+                                <Setter Property="Template">
+                                    <Setter.Value>
+                                        <ControlTemplate TargetType="ListBoxItem">
+                                            <ContentPresenter x:Name="cp" RenderTransformOrigin="0,0.5">
+                                                <ContentPresenter.RenderTransform>
+                                                    <TranslateTransform Y="0" />
+                                                </ContentPresenter.RenderTransform>
+                                            </ContentPresenter>
+                                            <ControlTemplate.Triggers>
+                                                <EventTrigger RoutedEvent="Loaded">
+                                                    <BeginStoryboard>
+                                                        <Storyboard>
+                                                            <DoubleAnimation Storyboard.TargetName="cp" Storyboard.TargetProperty="Opacity"
+                                                                             From="0" To="1" Duration="0:0:0.18" EasingFunction="{StaticResource EaseOutStandard}" />
+                                                            <DoubleAnimation Storyboard.TargetName="cp"
+                                                                             Storyboard.TargetProperty="(UIElement.RenderTransform).(TranslateTransform.Y)"
+                                                                             From="8" To="0" Duration="0:0:0.22" EasingFunction="{StaticResource EaseOutEmphasized}" />
+                                                        </Storyboard>
+                                                    </BeginStoryboard>
+                                                </EventTrigger>
+                                            </ControlTemplate.Triggers>
+                                        </ControlTemplate>
+                                    </Setter.Value>
+                                </Setter>
+                            </Style>
+                        </ListBox.ItemContainerStyle>
+                        <ListBox.Resources>
+                            <DataTemplate DataType="{x:Type vm:GroupViewModel}">
+                                <Border Background="{DynamicResource Brush.Surface}" CornerRadius="10" Padding="8,7" Margin="0,8,0,2"
+                                        BorderBrush="{DynamicResource Brush.Border}" BorderThickness="1"
+                                        AllowDrop="True" DragOver="GroupHeader_DragOver"
+                                        DragLeave="GroupHeader_DragLeave" Drop="GroupHeader_Drop"
+                                        ToolTip="Drag accounts here to add them to this group">
+                                    <StackPanel>
+                                    <Grid>
+                                        <Grid.ColumnDefinitions>
+                                            <ColumnDefinition Width="Auto" />
+                                            <ColumnDefinition Width="Auto" />
+                                            <ColumnDefinition Width="*" />
+                                            <ColumnDefinition Width="Auto" />
+                                            <ColumnDefinition Width="Auto" />
+                                        </Grid.ColumnDefinitions>
+                                        <ToggleButton Grid.Column="0" Style="{StaticResource ChevronToggle}"
+                                                      IsChecked="{Binding IsExpanded}" VerticalAlignment="Center" Margin="2,0,4,0" />
+                                        <Ellipse Grid.Column="1" Width="9" Height="9" Margin="4,0,8,0" VerticalAlignment="Center"
+                                                 Fill="{Binding ColorHex, Converter={StaticResource HexToBrush}}" />
+                                        <StackPanel Grid.Column="2" Orientation="Horizontal" VerticalAlignment="Center">
+                                            <TextBlock Text="{Binding Name}" FontWeight="SemiBold" FontSize="13" />
+                                            <TextBlock Text="{Binding Count, StringFormat=' ({0})'}"
+                                                       Foreground="{DynamicResource Brush.TextMuted}" VerticalAlignment="Center" />
+                                        </StackPanel>
+                                        <Button Grid.Column="3" Style="{StaticResource IconButton}"
+                                                Command="{Binding LaunchGroupCommand}" ToolTip="Launch this group">
+                                            <StackPanel Orientation="Horizontal">
+                                                <TextBlock Style="{StaticResource Glyph}" Text="&#xE768;"
+                                                           Foreground="{DynamicResource Brush.Accent}" Margin="0,0,6,0" />
+                                                <TextBlock Text="Launch group" Foreground="{DynamicResource Brush.Accent}" VerticalAlignment="Center" />
+                                            </StackPanel>
+                                        </Button>
+                                        <Button Grid.Column="4" Style="{StaticResource IconButton}" Width="30" Height="30"
+                                                Padding="0" Margin="4,0,0,0" ToolTip="More group actions"
+                                                Click="GroupMenu_Click" Tag="InlineMenuToggle">
+                                            <TextBlock Style="{StaticResource Glyph}" Text="&#xE712;" FontSize="14" />
+                                        </Button>
+                                    </Grid>
+
+                                    <Border Style="{StaticResource InlineMenuPanel}" Tag="InlineActionMenu">
+                                        <Border Background="{DynamicResource Brush.Window}" CornerRadius="8" Margin="0,8,0,0" Padding="5"
+                                                BorderBrush="{DynamicResource Brush.Border}" BorderThickness="1">
+                                            <StackPanel>
+                                                <Button Style="{StaticResource InlineMenuItem}" Command="{Binding LaunchGroupCommand}">
+                                                    <StackPanel Orientation="Horizontal">
+                                                        <TextBlock Style="{StaticResource Glyph}" Text="&#xE768;" FontSize="13"
+                                                                   Foreground="{DynamicResource Brush.Accent}" Margin="0,0,10,0" />
+                                                        <TextBlock Text="Launch group" VerticalAlignment="Center" />
+                                                    </StackPanel>
+                                                </Button>
+                                                <Button Style="{StaticResource InlineMenuItem}" Command="{Binding RenameGroupCommand}">
+                                                    <StackPanel Orientation="Horizontal">
+                                                        <TextBlock Style="{StaticResource Glyph}" Text="&#xE70F;" FontSize="13" Margin="0,0,10,0" />
+                                                        <TextBlock Text="Rename group" VerticalAlignment="Center" />
+                                                    </StackPanel>
+                                                </Button>
+                                                <Button Style="{StaticResource InlineMenuItem}" Command="{Binding DeleteGroupCommand}"
+                                                        Foreground="{DynamicResource Brush.Danger}">
+                                                    <StackPanel Orientation="Horizontal">
+                                                        <TextBlock Style="{StaticResource Glyph}" Text="&#xE74D;" FontSize="13"
+                                                                   Foreground="{DynamicResource Brush.Danger}" Margin="0,0,10,0" />
+                                                        <TextBlock Text="Delete group" VerticalAlignment="Center" />
+                                                    </StackPanel>
+                                                </Button>
+                                            </StackPanel>
+                                        </Border>
+                                    </Border>
+                                    </StackPanel>
+                                </Border>
+                            </DataTemplate>
+
+                            <DataTemplate DataType="{x:Type vm:AccountRowViewModel}">
+                                <Border CornerRadius="10" Padding="10,8" BorderThickness="1"
+                                        BorderBrush="{DynamicResource Brush.Border}"
+                                        MouseLeftButtonUp="AccountRow_Click"
+                                        PreviewMouseLeftButtonDown="AccountRow_PreviewMouseLeftButtonDown"
+                                        PreviewMouseMove="AccountRow_PreviewMouseMove"
+                                        AllowDrop="True" DragOver="AccountRow_DragOver"
+                                        DragLeave="AccountRow_DragLeave" Drop="AccountRow_Drop">
+                                    <Border.Style>
+                                        <Style TargetType="Border">
+                                            <Setter Property="Margin" Value="0,3" />
+                                            <Setter Property="Background" Value="{DynamicResource Brush.Surface}" />
+                                            <Style.Triggers>
+                                                <DataTrigger Binding="{Binding IsGrouped}" Value="True">
+                                                    <Setter Property="Margin" Value="16,3,0,3" />
+                                                </DataTrigger>
+                                                <Trigger Property="IsMouseOver" Value="True">
+                                                    <Setter Property="BorderBrush" Value="{DynamicResource Brush.BorderStrong}" />
+                                                    <Setter Property="Background" Value="{DynamicResource Brush.SurfaceHover}" />
+                                                </Trigger>
+                                            </Style.Triggers>
+                                        </Style>
+                                    </Border.Style>
+                                    <StackPanel>
+                                    <Grid>
+                                        <Grid.ColumnDefinitions>
+                                            <ColumnDefinition Width="Auto" />
+                                            <ColumnDefinition Width="Auto" />
+                                            <ColumnDefinition Width="*" />
+                                            <ColumnDefinition Width="Auto" />
+                                            <ColumnDefinition Width="Auto" />
+                                            <ColumnDefinition Width="Auto" />
+                                            <ColumnDefinition Width="Auto" />
+                                            <ColumnDefinition Width="Auto" />
+                                        </Grid.ColumnDefinitions>
+
+                                        <CheckBox Grid.Column="0" Style="{StaticResource RowCheckBox}"
+                                                  IsChecked="{Binding IsSelected}" Margin="4,0,12,0" />
+
+                                        <Grid Grid.Column="1" Width="34" Height="34" Margin="0,0,11,0">
+                                            <Ellipse Fill="{DynamicResource Brush.Elevated}" Stroke="{DynamicResource Brush.BorderStrong}" StrokeThickness="1" />
+                                            <TextBlock Text="{Binding Initials}" FontSize="12" FontWeight="SemiBold"
+                                                       Foreground="{DynamicResource Brush.TextPrimary}"
+                                                       HorizontalAlignment="Center" VerticalAlignment="Center" />
+                                            <Image Width="32" Height="32" Source="{Binding AvatarImage}" Stretch="UniformToFill">
+                                                <Image.Clip>
+                                                    <EllipseGeometry Center="16,16" RadiusX="16" RadiusY="16" />
+                                                </Image.Clip>
+                                            </Image>
+                                            <Ellipse Width="10" Height="10" HorizontalAlignment="Right" VerticalAlignment="Bottom"
+                                                     Margin="0,0,-1,-1" Stroke="{DynamicResource Brush.Window}" StrokeThickness="2">
+                                                <Ellipse.Style>
+                                                    <Style TargetType="Ellipse">
+                                                        <Setter Property="Fill" Value="{DynamicResource Brush.TextMuted}" />
+                                                        <Style.Triggers>
+                                                            <DataTrigger Binding="{Binding IsRunning}" Value="True">
+                                                                <Setter Property="Fill" Value="{DynamicResource Brush.Success}" />
+                                                            </DataTrigger>
+                                                        </Style.Triggers>
+                                                    </Style>
+                                                </Ellipse.Style>
+                                            </Ellipse>
+                                        </Grid>
+
+                                        <StackPanel Grid.Column="2" VerticalAlignment="Center">
+                                            <TextBlock Text="{Binding DisplayLabel}" FontSize="13" FontWeight="SemiBold"
+                                                       TextTrimming="CharacterEllipsis" />
+                                            <TextBlock Text="{Binding Username, StringFormat=@{0}}" FontSize="12"
+                                                       TextTrimming="CharacterEllipsis"
+                                                       Foreground="{DynamicResource Brush.TextSecondary}" Margin="0,1,0,0" />
+                                        </StackPanel>
+
+                                        <Border Grid.Column="3" CornerRadius="10" Padding="8,3" Margin="0,0,10,0" VerticalAlignment="Center"
+                                                Background="{DynamicResource Brush.Window}" BorderBrush="{DynamicResource Brush.Border}" BorderThickness="1">
+                                            <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
+                                                <Ellipse Width="7" Height="7" Margin="0,0,6,0" VerticalAlignment="Center">
+                                                    <Ellipse.Style>
+                                                        <Style TargetType="Ellipse">
+                                                            <Setter Property="Fill" Value="{DynamicResource Brush.TextMuted}" />
+                                                            <Style.Triggers>
+                                                                <DataTrigger Binding="{Binding IsRunning}" Value="True">
+                                                                    <Setter Property="Fill" Value="{DynamicResource Brush.Success}" />
+                                                                </DataTrigger>
+                                                            </Style.Triggers>
+                                                        </Style>
+                                                    </Ellipse.Style>
+                                                </Ellipse>
+                                                <TextBlock Text="{Binding StatusText}" FontSize="11"
+                                                           Foreground="{DynamicResource Brush.TextSecondary}" VerticalAlignment="Center" />
+                                            </StackPanel>
+                                        </Border>
+
+                                        <ComboBox Grid.Column="4" Style="{StaticResource CompactComboBox}" Width="150" Margin="0,0,8,0"
+                                                  VerticalAlignment="Center"
+                                                  ItemsSource="{Binding VersionChoices}"
+                                                  SelectedItem="{Binding SelectedVersionChoice, Mode=TwoWay}"
+                                                  ToolTip="Roblox version this account launches on">
+                                            <ComboBox.ItemTemplate>
+                                                <DataTemplate>
+                                                    <TextBlock Text="{Binding Label}" TextTrimming="CharacterEllipsis" />
+                                                </DataTemplate>
+                                            </ComboBox.ItemTemplate>
+                                        </ComboBox>
+
+                                        <Button Grid.Column="5" Style="{StaticResource IconButton}" Margin="0,0,2,0"
+                                                VerticalAlignment="Center"
+                                                Command="{Binding StopCommand}" IsEnabled="{Binding IsRunning}"
+                                                ToolTip="Stop this instance">
+                                            <StackPanel Orientation="Horizontal">
+                                                <TextBlock Style="{StaticResource Glyph}" Text="&#xE7E8;"
+                                                           Foreground="{DynamicResource Brush.Danger}" Margin="0,0,6,0" />
+                                                <TextBlock Text="Stop" Foreground="{DynamicResource Brush.Danger}" VerticalAlignment="Center" />
+                                            </StackPanel>
+                                        </Button>
+
+                                        <Button Grid.Column="6" Style="{StaticResource IconButton}"
+                                                VerticalAlignment="Center"
+                                                Command="{Binding LaunchCommand}" ToolTip="Launch this account">
+                                            <StackPanel Orientation="Horizontal">
+                                                <TextBlock Style="{StaticResource Glyph}" Text="&#xE768;"
+                                                           Foreground="{DynamicResource Brush.Accent}" Margin="0,0,6,0" />
+                                                <TextBlock Text="Launch" Foreground="{DynamicResource Brush.Accent}" VerticalAlignment="Center" />
+                                            </StackPanel>
+                                        </Button>
+
+                                        <Button Grid.Column="7" Style="{StaticResource IconButton}" Width="30" Height="30"
+                                                Padding="0" Margin="4,0,0,0" VerticalAlignment="Center"
+                                                ToolTip="More actions" Click="AccountMenu_Click" Tag="InlineMenuToggle">
+                                            <TextBlock Style="{StaticResource Glyph}" Text="&#xE712;" FontSize="14" />
+                                        </Button>
+                                    </Grid>
+
+                                    <Border Style="{StaticResource InlineMenuPanel}" Tag="InlineActionMenu">
+                                        <Border Background="{DynamicResource Brush.Window}" CornerRadius="8" Margin="0,8,0,0" Padding="5"
+                                                BorderBrush="{DynamicResource Brush.Border}" BorderThickness="1">
+                                            <StackPanel>
+                                                <Button Style="{StaticResource InlineMenuItem}" Command="{Binding LaunchCommand}">
+                                                    <StackPanel Orientation="Horizontal">
+                                                        <TextBlock Style="{StaticResource Glyph}" Text="&#xE768;" FontSize="13"
+                                                                   Foreground="{DynamicResource Brush.Accent}" Margin="0,0,10,0" />
+                                                        <TextBlock Text="Launch" VerticalAlignment="Center" />
+                                                    </StackPanel>
+                                                </Button>
+                                                <Button Style="{StaticResource InlineMenuItem}" Command="{Binding RenameCommand}">
+                                                    <StackPanel Orientation="Horizontal">
+                                                        <TextBlock Style="{StaticResource Glyph}" Text="&#xE70F;" FontSize="13" Margin="0,0,10,0" />
+                                                        <TextBlock Text="Rename…" VerticalAlignment="Center" />
+                                                    </StackPanel>
+                                                </Button>
+
+                                                <StackPanel Visibility="{Binding HasGroups, Converter={StaticResource BoolToVis}}">
+                                                    <TextBlock Text="GROUPS" FontSize="10" FontWeight="SemiBold" Margin="6,2,0,6"
+                                                               Foreground="{DynamicResource Brush.TextMuted}" />
+                                                    <ItemsControl ItemsSource="{Binding GroupMemberships}" Margin="3,0,0,0">
+                                                        <ItemsControl.ItemsPanel>
+                                                            <ItemsPanelTemplate>
+                                                                <WrapPanel Orientation="Horizontal" />
+                                                            </ItemsPanelTemplate>
+                                                        </ItemsControl.ItemsPanel>
+                                                        <ItemsControl.ItemTemplate>
+                                                            <DataTemplate>
+                                                                <Button Style="{StaticResource InlineMenuChip}" Margin="0,0,6,6"
+                                                                        Command="{Binding ToggleCommand}">
+                                                                    <StackPanel Orientation="Horizontal">
+                                                                        <Ellipse Width="8" Height="8" Margin="0,0,6,0" VerticalAlignment="Center"
+                                                                                 Fill="{Binding ColorHex, Converter={StaticResource HexToBrush}}" />
+                                                                        <TextBlock Text="{Binding Name}" VerticalAlignment="Center" />
+                                                                    </StackPanel>
+                                                                </Button>
+                                                            </DataTemplate>
+                                                        </ItemsControl.ItemTemplate>
+                                                    </ItemsControl>
+                                                    <Button Style="{StaticResource InlineMenuItem}" Command="{Binding ClearGroupsCommand}"
+                                                            Visibility="{Binding IsGrouped, Converter={StaticResource BoolToVis}}">
+                                                        <StackPanel Orientation="Horizontal">
+                                                            <TextBlock Style="{StaticResource Glyph}" Text="&#xE8E6;" FontSize="13" Margin="0,0,10,0" />
+                                                            <TextBlock Text="Clear all groups" VerticalAlignment="Center" />
+                                                        </StackPanel>
+                                                    </Button>
+                                                </StackPanel>
+
+                                                <Button Style="{StaticResource InlineMenuItem}" Command="{Binding RemoveCommand}"
+                                                        Foreground="{DynamicResource Brush.Danger}">
+                                                    <StackPanel Orientation="Horizontal">
+                                                        <TextBlock Style="{StaticResource Glyph}" Text="&#xE74D;" FontSize="13"
+                                                                   Foreground="{DynamicResource Brush.Danger}" Margin="0,0,10,0" />
+                                                        <TextBlock Text="Remove" VerticalAlignment="Center" />
+                                                    </StackPanel>
+                                                </Button>
+                                            </StackPanel>
+                                        </Border>
+                                    </Border>
+                                    </StackPanel>
+                                </Border>
+                            </DataTemplate>
+                        </ListBox.Resources>
+                    </ListBox>
+
+                    <StackPanel VerticalAlignment="Center" HorizontalAlignment="Center" MaxWidth="360"
+                                Visibility="{Binding AccountList.ShowEmptyState, Converter={StaticResource BoolToVis}}">
+                        <TextBlock Text="&#xE77B;" FontFamily="Segoe MDL2 Assets" FontSize="40" HorizontalAlignment="Center"
+                                   Foreground="{DynamicResource Brush.BorderStrong}" />
+                        <TextBlock Text="No accounts yet" FontSize="16" FontWeight="SemiBold" HorizontalAlignment="Center" Margin="0,14,0,0" />
+                        <TextBlock Text="Add your first Roblox account to get started." TextAlignment="Center" TextWrapping="Wrap"
+                                   Foreground="{DynamicResource Brush.TextSecondary}" Margin="0,6,0,0" />
+                        <Button Style="{StaticResource PrimaryButton}" HorizontalAlignment="Center" Margin="0,16,0,0"
+                                Command="{Binding AccountList.AddAccountCommand}">
+                            <StackPanel Orientation="Horizontal">
+                                <TextBlock Style="{StaticResource Glyph}" Text="&#xE8FA;" Margin="0,0,7,0" />
+                                <TextBlock Text="Add account" VerticalAlignment="Center" />
+                            </StackPanel>
+                        </Button>
+                    </StackPanel>
+
+                    <StackPanel VerticalAlignment="Center" HorizontalAlignment="Center" MaxWidth="360"
+                                Visibility="{Binding AccountList.ShowNoResults, Converter={StaticResource BoolToVis}}">
+                        <TextBlock Text="&#xE721;" FontFamily="Segoe MDL2 Assets" FontSize="36" HorizontalAlignment="Center"
+                                   Foreground="{DynamicResource Brush.BorderStrong}" />
+                        <TextBlock Text="No matching accounts" FontSize="15" FontWeight="SemiBold" HorizontalAlignment="Center" Margin="0,12,0,0" />
+                        <TextBlock Text="{Binding AccountList.SearchText, StringFormat='Nothing matches “{0}”.'}" TextAlignment="Center"
+                                   TextWrapping="Wrap" Foreground="{DynamicResource Brush.TextSecondary}" Margin="0,6,0,0" />
+                    </StackPanel>
+                </Grid>
+
+                <Border Grid.Row="2" Background="{DynamicResource Brush.Surface}" BorderBrush="{DynamicResource Brush.Border}"
+                        BorderThickness="0,1,0,0" Padding="16,12">
+                    <StackPanel>
+                        <Grid Margin="0,0,0,8">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="Auto" />
+                                <ColumnDefinition Width="*" />
+                                <ColumnDefinition Width="Auto" />
+                                <ColumnDefinition Width="Auto" />
+                            </Grid.ColumnDefinitions>
+
+                            <Border Grid.Column="0" Height="36" VerticalAlignment="Center" Background="{DynamicResource Brush.Window}" CornerRadius="9" Padding="3"
+                                    BorderBrush="{DynamicResource Brush.Border}" BorderThickness="1">
+                                <StackPanel Orientation="Horizontal">
+                                    <RadioButton Style="{StaticResource SegmentRadio}" GroupName="mode" Content="Game ID (public server)"
+                                                 IsChecked="{Binding LaunchPanel.SelectedMode, Converter={StaticResource EnumBool}, ConverterParameter=PublicByLink}" />
+                                    <RadioButton Style="{StaticResource SegmentRadio}" GroupName="mode" Content="Job ID (specific server)"
+                                                 Margin="4,0,0,0"
+                                                 IsChecked="{Binding LaunchPanel.SelectedMode, Converter={StaticResource EnumBool}, ConverterParameter=PrivateByJobId}" />
+                                </StackPanel>
+                            </Border>
+
+                            <Grid Grid.Column="1" Margin="8,0,0,0" VerticalAlignment="Center">
+                                <Grid>
+                                    <Grid.Style>
+                                        <Style TargetType="Grid">
+                                            <Setter Property="Visibility" Value="Visible" />
+                                            <Style.Triggers>
+                                                <DataTrigger Binding="{Binding LaunchPanel.IsJobIdMode}" Value="True">
+                                                    <Setter Property="Visibility" Value="Collapsed" />
+                                                </DataTrigger>
+                                            </Style.Triggers>
+                                        </Style>
+                                    </Grid.Style>
+                                    <TextBox x:Name="TargetBox" Style="{StaticResource ModernTextBox}" Height="36"
+                                             Text="{Binding LaunchPanel.TargetInput, UpdateSourceTrigger=PropertyChanged, Delay=300}" />
+                                    <TextBlock Style="{StaticResource WatermarkText}"
+                                               Text="Enter a Game ID — place ID or game link">
+                                        <TextBlock.Visibility>
+                                            <MultiBinding Converter="{StaticResource EmptyUnfocusedToVis}">
+                                                <Binding Path="Text" ElementName="TargetBox" />
+                                                <Binding Path="IsKeyboardFocused" ElementName="TargetBox" />
+                                            </MultiBinding>
+                                        </TextBlock.Visibility>
+                                    </TextBlock>
+                                </Grid>
+
+                                <Grid Visibility="{Binding LaunchPanel.IsJobIdMode, Converter={StaticResource BoolToVis}}">
+                                    <TextBox x:Name="JobBox" Style="{StaticResource ModernTextBox}" Height="36"
+                                             Text="{Binding LaunchPanel.JobIdInput, UpdateSourceTrigger=PropertyChanged, Delay=300}" />
+                                    <TextBlock Style="{StaticResource WatermarkText}" Text="Enter a Job ID — server instance ID or link">
+                                        <TextBlock.Visibility>
+                                            <MultiBinding Converter="{StaticResource EmptyUnfocusedToVis}">
+                                                <Binding Path="Text" ElementName="JobBox" />
+                                                <Binding Path="IsKeyboardFocused" ElementName="JobBox" />
+                                            </MultiBinding>
+                                        </TextBlock.Visibility>
+                                    </TextBlock>
+                                </Grid>
+                            </Grid>
+
+                            <StackPanel Grid.Column="2" Orientation="Horizontal" VerticalAlignment="Center" Margin="8,0,0,0">
+                                <TextBlock Text="Favorite" Foreground="{DynamicResource Brush.TextSecondary}" VerticalAlignment="Center" Margin="0,0,8,0" />
+                                <ComboBox x:Name="FavoritesCombo" Style="{StaticResource FavoritesComboBox}" Width="200" Height="36"
+                                          DropDownOpened="FavoritesCombo_DropDownOpened"
+                                          DropDownClosed="FavoritesCombo_DropDownClosed"
+                                          Tag="{Binding LaunchPanel.FavoriteSearchText, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
+                                          ItemsSource="{Binding LaunchPanel.FilteredFavorites}"
+                                          SelectedItem="{Binding LaunchPanel.SelectedFavorite, Mode=TwoWay}">
+                                    <ComboBox.ItemTemplate>
+                                        <DataTemplate>
+                                            <TextBlock Text="{Binding Name}" VerticalAlignment="Center" TextTrimming="CharacterEllipsis" />
+                                        </DataTemplate>
+                                    </ComboBox.ItemTemplate>
+                                    <ComboBox.ItemContainerStyle>
+                                        <Style TargetType="ComboBoxItem">
+                                            <Setter Property="Foreground" Value="{DynamicResource Brush.TextPrimary}" />
+                                            <Setter Property="Padding" Value="8,5" />
+                                            <Setter Property="Template">
+                                                <Setter.Value>
+                                                    <ControlTemplate TargetType="ComboBoxItem">
+                                                        <DockPanel>
+                                                            <Border x:Name="Bd" Background="Transparent" CornerRadius="6" Padding="{TemplateBinding Padding}"
+                                                                    BorderBrush="{DynamicResource Brush.Border}" BorderThickness="1" AllowDrop="True"
+                                                                    PreviewMouseLeftButtonDown="FavoriteRow_PreviewMouseLeftButtonDown"
+                                                                    PreviewMouseMove="FavoriteRow_PreviewMouseMove"
+                                                                    DragOver="FavoriteRow_DragOver" DragLeave="FavoriteRow_DragLeave"
+                                                                    Drop="FavoriteRow_Drop">
+                                                                <Grid>
+                                                                    <Grid.ColumnDefinitions>
+                                                                        <ColumnDefinition Width="Auto" />
+                                                                        <ColumnDefinition Width="*" />
+                                                                        <ColumnDefinition Width="Auto" />
+                                                                        <ColumnDefinition Width="Auto" />
+                                                                        <ColumnDefinition Width="Auto" />
+                                                                        <ColumnDefinition Width="Auto" />
+                                                                    </Grid.ColumnDefinitions>
+                                                                    <Button Grid.Column="0" Style="{StaticResource IconButton}" Width="22" Height="24" Padding="0"
+                                                                            ToolTip="Pin / unpin favorite" Click="FavoriteRowButton_Click"
+                                                                            Command="{Binding DataContext.LaunchPanel.TogglePrimaryCommand, RelativeSource={RelativeSource AncestorType=ComboBox}}"
+                                                                            CommandParameter="{Binding}">
+                                                                        <TextBlock FontFamily="Segoe MDL2 Assets" FontSize="12" VerticalAlignment="Center">
+                                                                            <TextBlock.Style>
+                                                                                <Style TargetType="TextBlock">
+                                                                                    <Setter Property="Text" Value="&#xE734;" />
+                                                                                    <Setter Property="Foreground" Value="{DynamicResource Brush.TextMuted}" />
+                                                                                    <Style.Triggers>
+                                                                                        <DataTrigger Binding="{Binding IsPrimary}" Value="True">
+                                                                                            <Setter Property="Text" Value="&#xE735;" />
+                                                                                            <Setter Property="Foreground" Value="{DynamicResource Brush.Accent}" />
+                                                                                        </DataTrigger>
+                                                                                    </Style.Triggers>
+                                                                                </Style>
+                                                                            </TextBlock.Style>
+                                                                        </TextBlock>
+                                                                    </Button>
+                                                                    <ContentPresenter Grid.Column="1" VerticalAlignment="Center" Margin="4,0,0,0" />
+                                                                    <Button Grid.Column="2" Style="{StaticResource IconButton}" Width="22" Height="24" Padding="0"
+                                                                            ToolTip="Move up" Click="FavoriteRowButton_Click"
+                                                                            Command="{Binding DataContext.LaunchPanel.MoveFavoriteUpCommand, RelativeSource={RelativeSource AncestorType=ComboBox}}"
+                                                                            CommandParameter="{Binding}">
+                                                                        <TextBlock Style="{StaticResource Glyph}" Text="&#xE70E;" FontSize="11" />
+                                                                    </Button>
+                                                                    <Button Grid.Column="3" Style="{StaticResource IconButton}" Width="22" Height="24" Padding="0"
+                                                                            ToolTip="Move down" Click="FavoriteRowButton_Click"
+                                                                            Command="{Binding DataContext.LaunchPanel.MoveFavoriteDownCommand, RelativeSource={RelativeSource AncestorType=ComboBox}}"
+                                                                            CommandParameter="{Binding}">
+                                                                        <TextBlock Style="{StaticResource Glyph}" Text="&#xE70D;" FontSize="11" />
+                                                                    </Button>
+                                                                    <Button Grid.Column="4" Style="{StaticResource IconButton}" Width="22" Height="24" Padding="0" Margin="2,0,0,0"
+                                                                            ToolTip="Edit favorite" Click="FavoriteRowButton_Click"
+                                                                            Command="{Binding DataContext.LaunchPanel.EditFavoriteCommand, RelativeSource={RelativeSource AncestorType=ComboBox}}"
+                                                                            CommandParameter="{Binding}">
+                                                                        <TextBlock Style="{StaticResource Glyph}" Text="&#xE70F;" FontSize="11" />
+                                                                    </Button>
+                                                                    <Button Grid.Column="5" Style="{StaticResource IconButton}" Width="22" Height="24" Padding="0" Margin="2,0,0,0"
+                                                                            ToolTip="Delete favorite" Click="FavoriteRowButton_Click"
+                                                                            Command="{Binding DataContext.LaunchPanel.RemoveFavoriteCommand, RelativeSource={RelativeSource AncestorType=ComboBox}}"
+                                                                            CommandParameter="{Binding}">
+                                                                        <TextBlock Style="{StaticResource Glyph}" Text="&#xE74D;" FontSize="11" Foreground="{DynamicResource Brush.Danger}" />
+                                                                    </Button>
+                                                                </Grid>
+                                                            </Border>
+                                                        </DockPanel>
+                                                        <ControlTemplate.Triggers>
+                                                            <Trigger Property="IsHighlighted" Value="True">
+                                                                <Setter TargetName="Bd" Property="Background" Value="{DynamicResource Brush.SurfaceActive}" />
+                                                            </Trigger>
+                                                        </ControlTemplate.Triggers>
+                                                    </ControlTemplate>
+                                                </Setter.Value>
+                                            </Setter>
+                                        </Style>
+                                    </ComboBox.ItemContainerStyle>
+                                </ComboBox>
+                            </StackPanel>
+
+                            <Button Grid.Column="3" Style="{StaticResource GhostButton}" Margin="8,0,0,0" Padding="10,7" Height="36"
+                                    VerticalAlignment="Center"
+                                    Command="{Binding LaunchPanel.AddFavoriteCommand}" ToolTip="Save current target as a favorite">
+                                <StackPanel Orientation="Horizontal">
+                                    <TextBlock Style="{StaticResource Glyph}" Text="&#xE74E;" Margin="0,0,6,0" />
+                                    <TextBlock Text="Save" VerticalAlignment="Center" />
+                                </StackPanel>
+                            </Button>
+                        </Grid>
+
+                        <Grid Margin="0,10,0,0">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="*" />
+                                <ColumnDefinition Width="Auto" />
+                            </Grid.ColumnDefinitions>
+
+                            <StackPanel Grid.Column="0" Orientation="Horizontal" VerticalAlignment="Center"
+                                        Visibility="{Binding AccountList.ShowList, Converter={StaticResource BoolToVis}}">
+                                <Button Style="{StaticResource IconButton}" Content="Select all visible"
+                                        Command="{Binding AccountList.SelectAllVisibleCommand}" />
+                                <Button Style="{StaticResource IconButton}" Margin="6,0,0,0" Content="Clear"
+                                        ToolTip="Clear selection"
+                                        Command="{Binding AccountList.ClearSelectionCommand}" />
+                            </StackPanel>
+
+                            <StackPanel Grid.Column="1" Orientation="Horizontal" VerticalAlignment="Center">
+                                <ComboBox Style="{StaticResource StopInstanceComboBox}" Width="180" Height="36"
+                                          VerticalAlignment="Center" Margin="0,0,8,0"
+                                          IsEnabled="{Binding AccountList.HasRunning}"
+                                          ItemsSource="{Binding AccountList.RunningInstances}"
+                                          SelectedItem="{Binding AccountList.SelectedInstanceToStop, Mode=TwoWay}"
+                                          ToolTip="Stop one running instance — it won't auto-restart">
+                                    <ComboBox.ItemTemplate>
+                                        <DataTemplate>
+                                            <TextBlock Text="{Binding DisplayLabel}" VerticalAlignment="Center" TextTrimming="CharacterEllipsis" />
+                                        </DataTemplate>
+                                    </ComboBox.ItemTemplate>
+                                </ComboBox>
+
+                                <Button Style="{StaticResource GhostButton}" Height="36" Margin="0,0,8,0"
+                                        VerticalAlignment="Center"
+                                        Command="{Binding AccountList.StopAllInstancesCommand}"
+                                        IsEnabled="{Binding AccountList.HasRunning}"
+                                        ToolTip="Stop all running instances">
+                                    <StackPanel Orientation="Horizontal">
+                                        <Ellipse Width="8" Height="8" Fill="{DynamicResource Brush.Danger}" VerticalAlignment="Center" Margin="0,0,7,0" />
+                                        <TextBlock Text="{Binding AccountList.RunningCount, StringFormat='Stop all ({0})'}" VerticalAlignment="Center" />
+                                    </StackPanel>
+                                </Button>
+
+                                <Button Style="{StaticResource PrimaryButton}"
+                                        Command="{Binding LaunchSelectedCommand}"
+                                        IsEnabled="{Binding IsBusy, Converter={StaticResource InverseBool}}">
+                                    <StackPanel Orientation="Horizontal">
+                                        <TextBlock Style="{StaticResource Glyph}" Text="&#xE768;" Margin="0,0,7,0" />
+                                        <TextBlock Text="Launch selected" VerticalAlignment="Center" />
+                                    </StackPanel>
+                                </Button>
+                            </StackPanel>
+                        </Grid>
+                    </StackPanel>
+                </Border>
+            </Grid>
+
+            <Grid x:Name="GamesPage" Style="{StaticResource PageHost}"
+                  Visibility="{Binding SelectedSection, Converter={StaticResource EnumVis}, ConverterParameter=Games}">
+                <Grid.RenderTransform>
+                    <TranslateTransform X="0" />
+                </Grid.RenderTransform>
+
+                <Grid DataContext="{Binding Games}">
+                    <Grid.RowDefinitions>
+                        <RowDefinition Height="Auto" />
+                        <RowDefinition Height="*" />
+                    </Grid.RowDefinitions>
+
+                    <Grid Grid.Row="0" Margin="16,12,16,8">
+                        <Grid Width="360" HorizontalAlignment="Left">
+                            <TextBox x:Name="GamesSearchBox" Style="{StaticResource SearchTextBox}" Height="36"
+                                     VerticalContentAlignment="Center"
+                                     Text="{Binding SearchText, UpdateSourceTrigger=PropertyChanged, Delay=300}" />
+                            <TextBlock Style="{StaticResource Glyph}" Text="&#xE721;" HorizontalAlignment="Left" Margin="12,0,0,0"
+                                       FontSize="14" Foreground="{DynamicResource Brush.TextMuted}" IsHitTestVisible="False" />
+                            <TextBlock Style="{StaticResource WatermarkText}" Margin="34,0,0,0" Text="Search games or Game ID…"
+                                       IsHitTestVisible="False">
+                                <TextBlock.Visibility>
+                                    <MultiBinding Converter="{StaticResource EmptyUnfocusedToVis}">
+                                        <Binding Path="Text" ElementName="GamesSearchBox" />
+                                        <Binding Path="IsKeyboardFocused" ElementName="GamesSearchBox" />
+                                    </MultiBinding>
+                                </TextBlock.Visibility>
+                            </TextBlock>
+                            <Button Style="{StaticResource IconButton}" HorizontalAlignment="Right" VerticalAlignment="Center"
+                                    Width="26" Height="26" Padding="0" Margin="0,0,5,0" ToolTip="Clear search"
+                                    Command="{Binding ClearSearchCommand}"
+                                    Visibility="{Binding IsSearching, Converter={StaticResource BoolToVis}}">
+                                <TextBlock Style="{StaticResource Glyph}" Text="&#xE711;" FontSize="11" />
+                            </Button>
+                        </Grid>
+                    </Grid>
+
+                    <Grid Grid.Row="1" Margin="16,0,16,12">
+                        <ScrollViewer behaviors:SmoothScroll.Enabled="True"
+                                      VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled"
+                                      Padding="0,0,6,0">
+                            <ItemsControl ItemsSource="{Binding Games}">
+                                <ItemsControl.ItemsPanel>
+                                    <ItemsPanelTemplate>
+                                        <UniformGrid Columns="3" />
+                                    </ItemsPanelTemplate>
+                                </ItemsControl.ItemsPanel>
+                                <ItemsControl.ItemTemplate>
+                                    <DataTemplate>
+                                        <Border Margin="0,0,10,10" CornerRadius="10" BorderThickness="2"
+                                                BorderBrush="{DynamicResource Brush.Border}"
+                                                Background="{DynamicResource Brush.Surface}">
+                                            <Border.Style>
+                                                <Style TargetType="Border">
+                                                    <Style.Triggers>
+                                                        <DataTrigger Binding="{Binding IsSelected}" Value="True">
+                                                            <Setter Property="BorderBrush" Value="{DynamicResource Brush.Accent}" />
+                                                        </DataTrigger>
+                                                    </Style.Triggers>
+                                                </Style>
+                                            </Border.Style>
+                                            <StackPanel>
+                                                <Border CornerRadius="8" Height="150" ClipToBounds="True"
+                                                        Background="{DynamicResource Brush.Elevated}">
+                                                    <Image Source="{Binding Thumbnail}" Stretch="UniformToFill" />
+                                                </Border>
+                                                <StackPanel Margin="10,8,10,0">
+                                                    <TextBlock Text="{Binding Name}" FontWeight="SemiBold" FontSize="14"
+                                                               TextTrimming="CharacterEllipsis"
+                                                               Foreground="{DynamicResource Brush.TextPrimary}" />
+                                                    <TextBlock Text="{Binding CreatorName}" FontSize="12" Margin="0,2,0,0"
+                                                               TextTrimming="CharacterEllipsis"
+                                                               Foreground="{DynamicResource Brush.TextSecondary}" />
+                                                    <StackPanel Orientation="Horizontal" Margin="0,4,0,0">
+                                                        <TextBlock Style="{StaticResource Glyph}" Text="&#xE77B;" FontSize="11"
+                                                                   VerticalAlignment="Center" Foreground="{DynamicResource Brush.TextMuted}" />
+                                                        <TextBlock Text="{Binding PlayerCountText}" FontSize="12" Margin="5,0,0,0"
+                                                                   VerticalAlignment="Center" Foreground="{DynamicResource Brush.TextMuted}" />
+                                                        <TextBlock Text="playing" FontSize="12" Margin="4,0,0,0"
+                                                                   VerticalAlignment="Center" Foreground="{DynamicResource Brush.TextMuted}" />
+                                                    </StackPanel>
+                                                </StackPanel>
+                                                <Button Style="{StaticResource PrimaryButton}" Margin="10,10,10,10" Height="34"
+                                                        HorizontalAlignment="Stretch"
+                                                        Command="{Binding DataContext.SelectGameCommand, RelativeSource={RelativeSource AncestorType=ItemsControl}}"
+                                                        CommandParameter="{Binding}">
+                                                    <TextBlock Text="Select" VerticalAlignment="Center" />
+                                                </Button>
+                                            </StackPanel>
+                                        </Border>
+                                    </DataTemplate>
+                                </ItemsControl.ItemTemplate>
+                            </ItemsControl>
+                        </ScrollViewer>
+
+                        <TextBlock Text="Loading games…" HorizontalAlignment="Center" VerticalAlignment="Center"
+                                   Foreground="{DynamicResource Brush.TextMuted}"
+                                   Visibility="{Binding IsLoading, Converter={StaticResource BoolToVis}}" />
+
+                        <TextBlock Text="No games found" HorizontalAlignment="Center" VerticalAlignment="Center"
+                                   Foreground="{DynamicResource Brush.TextSecondary}">
+                            <TextBlock.Style>
+                                <Style TargetType="TextBlock">
+                                    <Setter Property="Visibility" Value="Collapsed" />
+                                    <Style.Triggers>
+                                        <MultiDataTrigger>
+                                            <MultiDataTrigger.Conditions>
+                                                <Condition Binding="{Binding IsEmpty}" Value="True" />
+                                                <Condition Binding="{Binding IsLoading}" Value="False" />
+                                            </MultiDataTrigger.Conditions>
+                                            <Setter Property="Visibility" Value="Visible" />
+                                        </MultiDataTrigger>
+                                    </Style.Triggers>
+                                </Style>
+                            </TextBlock.Style>
+                        </TextBlock>
+                    </Grid>
+                </Grid>
+            </Grid>
+
+            <Grid x:Name="SettingsPage" Style="{StaticResource PageHost}"
+                  Visibility="{Binding SelectedSection, Converter={StaticResource EnumVis}, ConverterParameter=Settings}">
+                <Grid.RenderTransform>
+                    <TranslateTransform X="0" />
+                </Grid.RenderTransform>
+                <ScrollViewer VerticalScrollBarVisibility="Auto"
+                              HorizontalScrollBarVisibility="Disabled"
+                              HorizontalContentAlignment="Stretch"
+                              behaviors:SmoothScroll.Enabled="True">
+                    <StackPanel x:Name="SettingsContent" Margin="16,12,16,16">
+                        <TextBlock Style="{StaticResource SectionHeader}" Text="APPEARANCE" Margin="2,0,0,10" />
+                        <Border Style="{StaticResource Card}">
+                            <StackPanel>
+                                <TextBlock Text="Theme" />
+                                <TextBlock Text="Pick a built-in theme or craft your own. Changes apply instantly."
+                                           FontSize="11" Foreground="{DynamicResource Brush.TextMuted}" Margin="0,2,0,12" />
+                                <ListBox x:Name="ThemesList" ItemsSource="{Binding Theme.Themes}"
+                                         SelectedItem="{Binding Theme.SelectedTheme, Mode=TwoWay}"
+                                         ItemContainerStyle="{StaticResource ThemeCardItem}"
+                                         AlternationCount="2147483647"
+                                         Background="Transparent" BorderThickness="0" Padding="0"
+                                         HorizontalContentAlignment="Stretch"
+                                         AllowDrop="True"
+                                         PreviewMouseMove="ThemeCard_PreviewMouseMove"
+                                         DragOver="ThemesList_DragOver"
+                                         Drop="ThemesList_Drop"
+                                         ScrollViewer.HorizontalScrollBarVisibility="Disabled">
+                                    <ListBox.ItemsPanel>
+                                        <ItemsPanelTemplate>
+                                            <UniformGrid Columns="{Binding ActualWidth, RelativeSource={RelativeSource AncestorType=ListBox}, Converter={StaticResource ThemeGridColumns}}" />
+                                        </ItemsPanelTemplate>
+                                    </ListBox.ItemsPanel>
+                                </ListBox>
+
+                                <WrapPanel x:Name="ThemeActions" Margin="0,2,0,0">
+                                    <ToggleButton Style="{StaticResource GhostToggleButton}" Content="More themes"
+                                                  IsChecked="{Binding Theme.ShowAllThemes, Mode=TwoWay}"
+                                                  Visibility="{Binding Theme.HasMoreThemes, Converter={StaticResource BoolToVis}}" />
+                                    <Button Style="{StaticResource GhostButton}" Margin="8,0,0,0" Command="{Binding Theme.CreateThemeCommand}">
+                                        <StackPanel Orientation="Horizontal">
+                                            <TextBlock Style="{StaticResource Glyph}" Text="&#xE710;" Margin="0,0,6,0" />
+                                            <TextBlock Text="New theme" VerticalAlignment="Center" />
+                                        </StackPanel>
+                                    </Button>
+                                    <Button Style="{StaticResource GhostButton}" Content="Edit" Margin="8,0,0,0"
+                                            Command="{Binding Theme.EditThemeCommand}" CommandParameter="{Binding Theme.SelectedTheme}"
+                                            IsEnabled="{Binding Theme.IsCustomSelected}" />
+                                    <Button Style="{StaticResource GhostButton}" Content="Delete" Margin="8,0,0,0"
+                                            Command="{Binding Theme.DeleteThemeCommand}" CommandParameter="{Binding Theme.SelectedTheme}"
+                                            IsEnabled="{Binding Theme.IsCustomSelected}" />
+                                    <Button Style="{StaticResource GhostButton}" Content="Export" Margin="8,0,0,0"
+                                            ToolTip="Copy the selected theme as a shareable code (custom themes only)"
+                                            Command="{Binding Theme.ExportThemeCommand}" CommandParameter="{Binding Theme.SelectedTheme}"
+                                            IsEnabled="{Binding Theme.IsCustomSelected}" />
+                                    <Button Style="{StaticResource GhostButton}" Content="Import" Margin="8,0,0,0"
+                                            ToolTip="Create a theme from a code on the clipboard"
+                                            Command="{Binding Theme.ImportThemeCommand}" />
+                                </WrapPanel>
+                            </StackPanel>
+                        </Border>
+
+                        <TextBlock Style="{StaticResource SectionHeader}" Text="LAUNCHING" Margin="2,18,0,10" />
+                        <Border Style="{StaticResource Card}">
+                            <StackPanel>
+                                <Grid>
+                                    <TextBlock Text="Launch delay" VerticalAlignment="Center" />
+                                    <TextBlock Text="{Binding Value, ElementName=DelaySlider, Converter={StaticResource MsToSec}}" HorizontalAlignment="Right"
+                                               Foreground="{DynamicResource Brush.Accent}" FontWeight="SemiBold" />
+                                </Grid>
+                                <Slider x:Name="DelaySlider" Style="{StaticResource ModernSlider}" Margin="0,12,0,2" Minimum="0" Maximum="30000"
+                                        SmallChange="500" LargeChange="500" TickFrequency="500" IsSnapToTickEnabled="True"
+                                        Value="{Binding Settings.LaunchDelayMs, Delay=150}" />
+                                <TextBlock Text="Delay between staggered multi-launches." FontSize="11"
+                                           Foreground="{DynamicResource Brush.TextMuted}" Margin="0,8,0,0" />
+
+                                <Border Height="1" Background="{DynamicResource Brush.Border}" Margin="0,14" />
+
+                                <Grid>
+                                    <StackPanel VerticalAlignment="Center" Margin="0,0,12,0">
+                                        <TextBlock Text="Multi-instance" />
+                                        <TextBlock Text="Run several Roblox clients at the same time." FontSize="11"
+                                                   Foreground="{DynamicResource Brush.TextMuted}" Margin="0,2,0,0" />
+                                    </StackPanel>
+                                    <CheckBox Style="{StaticResource ToggleSwitch}" HorizontalAlignment="Right"
+                                              IsChecked="{Binding Settings.MultiInstanceEnabled}" />
+                                </Grid>
+
+                                <Border Height="1" Background="{DynamicResource Brush.Border}" Margin="0,14" />
+
+                                <Grid>
+                                    <StackPanel VerticalAlignment="Center" Margin="0,0,12,0">
+                                        <TextBlock Text="Switch to Accounts after selecting a game" />
+                                        <TextBlock Text="When you pick a game on the Games tab, jump straight to the Accounts tab. When off, the Game ID is filled in the background and you stay on Games."
+                                                   FontSize="11" TextWrapping="Wrap"
+                                                   Foreground="{DynamicResource Brush.TextMuted}" Margin="0,2,0,0" />
+                                    </StackPanel>
+                                    <CheckBox Style="{StaticResource ToggleSwitch}" HorizontalAlignment="Right" VerticalAlignment="Top"
+                                              IsChecked="{Binding Settings.SwitchToAccountsOnGameSelect}" />
+                                </Grid>
+                            </StackPanel>
+                        </Border>
+
+                        <TextBlock Style="{StaticResource SectionHeader}" Text="AUTO RECONNECT" Margin="2,18,0,10" />
+                        <Border Style="{StaticResource Card}">
+                            <StackPanel>
+                                <Grid>
+                                    <StackPanel VerticalAlignment="Center" Margin="0,0,12,0">
+                                        <TextBlock Text="Auto Reconnect" />
+                                        <TextBlock Text="Master switch. When off, no instance reconnects automatically. When on, the individual triggers below decide."
+                                                   FontSize="11" TextWrapping="Wrap"
+                                                   Foreground="{DynamicResource Brush.TextMuted}" Margin="0,2,0,0" />
+                                    </StackPanel>
+                                    <CheckBox Style="{StaticResource ToggleSwitch}" HorizontalAlignment="Right" VerticalAlignment="Top"
+                                              IsChecked="{Binding Settings.AutoReconnectMaster}" />
+                                </Grid>
+
+                                <Border Height="1" Background="{DynamicResource Brush.Border}" Margin="0,14" />
+
+                                <Grid Margin="0,0,0,9">
+                                    <TextBlock Text="Reconnect after Kick/Error" VerticalAlignment="Center"
+                                               ToolTip="Covers kicks, removals, moderation messages, Roblox error 267, plus lost connections, offline/shutdown servers, and being sent back to the Roblox menu."
+                                               Foreground="{DynamicResource Brush.TextSecondary}" FontSize="12" />
+                                    <CheckBox Style="{StaticResource ToggleSwitch}" HorizontalAlignment="Right"
+                                              IsChecked="{Binding Settings.AutoReconnectOnKickError}" />
+                                </Grid>
+                                <Grid>
+                                    <TextBlock Text="Reconnect after Instance Crash" VerticalAlignment="Center"
+                                               ToolTip="Covers the Roblox client process dying while in-game without leaving cleanly."
+                                               Foreground="{DynamicResource Brush.TextSecondary}" FontSize="12" />
+                                    <CheckBox Style="{StaticResource ToggleSwitch}" HorizontalAlignment="Right"
+                                              IsChecked="{Binding Settings.AutoReconnectOnCrash}" />
+                                </Grid>
+
+                                <Border Height="1" Background="{DynamicResource Brush.Border}" Margin="0,14" />
+
+                                <Grid>
+                                    <TextBlock Text="Retry limit" VerticalAlignment="Center" />
+                                    <TextBlock Text="{Binding Value, ElementName=RetrySlider, Converter={StaticResource AttemptsLabel}}"
+                                               HorizontalAlignment="Right"
+                                               Foreground="{DynamicResource Brush.Accent}" FontWeight="SemiBold" />
+                                </Grid>
+                                <Slider x:Name="RetrySlider" Style="{StaticResource ModernSlider}" Margin="0,12,0,2"
+                                        Minimum="1" Maximum="31" SmallChange="1" LargeChange="1" TickFrequency="1"
+                                        IsSnapToTickEnabled="True"
+                                        Value="{Binding Settings.AutoReconnectMaxAttempts, Delay=150}" />
+                                <TextBlock Text="How many times an instance reconnects automatically before giving up. The last stop is Unlimited."
+                                           FontSize="11" TextWrapping="Wrap"
+                                           Foreground="{DynamicResource Brush.TextMuted}" Margin="0,8,0,0" />
+                            </StackPanel>
+                        </Border>
+
+                        <TextBlock Style="{StaticResource SectionHeader}" Text="NOTIFICATIONS" Margin="2,18,0,10" />
+                        <Border Style="{StaticResource Card}">
+                            <StackPanel>
+                                <Grid>
+                                    <TextBlock Text="Display time" VerticalAlignment="Center" />
+                                    <TextBlock Text="{Binding Value, ElementName=ToastSlider, Converter={StaticResource MsToSec}}" HorizontalAlignment="Right"
+                                               Foreground="{DynamicResource Brush.Accent}" FontWeight="SemiBold" />
+                                </Grid>
+                                <Slider x:Name="ToastSlider" Style="{StaticResource ModernSlider}" Margin="0,12,0,2" Minimum="500" Maximum="5000"
+                                        SmallChange="100" LargeChange="500" TickFrequency="100" IsSnapToTickEnabled="True"
+                                        Value="{Binding Settings.ToastDurationMs, Delay=150}" />
+                                <TextBlock Text="How long a toast stays on screen before sliding away." FontSize="11"
+                                           Foreground="{DynamicResource Brush.TextMuted}" Margin="0,8,0,0" />
+
+                                <Border Height="1" Background="{DynamicResource Brush.Border}" Margin="0,14" />
+
+                                <Grid>
+                                    <StackPanel VerticalAlignment="Center" Margin="0,0,12,0">
+                                        <TextBlock Text="Mute notifications" />
+                                        <TextBlock Text="Master switch. When on, all notifications appear only in the bell tray. When off, the individual choices below still apply."
+                                                   FontSize="11" TextWrapping="Wrap"
+                                                   Foreground="{DynamicResource Brush.TextMuted}" Margin="0,2,0,0" />
+                                    </StackPanel>
+                                    <CheckBox Style="{StaticResource ToggleSwitch}" HorizontalAlignment="Right" VerticalAlignment="Top"
+                                              IsChecked="{Binding Settings.NotifyMuteMaster}" />
+                                </Grid>
+
+                                <Border Height="1" Background="{DynamicResource Brush.Border}" Margin="0,14" />
+
+                                <ItemsControl ItemsSource="{Binding Settings.NotificationMutes}">
+                                    <ItemsControl.ItemTemplate>
+                                        <DataTemplate>
+                                            <Grid Margin="0,0,0,9">
+                                                <TextBlock Text="{Binding Label}" VerticalAlignment="Center"
+                                                           Foreground="{DynamicResource Brush.TextSecondary}" FontSize="12" />
+                                                <CheckBox Style="{StaticResource ToggleSwitch}" HorizontalAlignment="Right"
+                                                          IsChecked="{Binding IsMuted}" />
+                                            </Grid>
+                                        </DataTemplate>
+                                    </ItemsControl.ItemTemplate>
+                                </ItemsControl>
+                            </StackPanel>
+                        </Border>
+
+                        <TextBlock Style="{StaticResource SectionHeader}" Text="CONFIRMATIONS" Margin="2,18,0,10" />
+                        <Border Style="{StaticResource Card}">
+                            <StackPanel>
+                                <Grid>
+                                    <StackPanel VerticalAlignment="Center" Margin="0,0,12,0">
+                                        <TextBlock Text="Skip confirmations" />
+                                        <TextBlock Text="Master switch. When on, all confirmations are skipped. When off, the individual choices below still apply."
+                                                   FontSize="11" TextWrapping="Wrap"
+                                                   Foreground="{DynamicResource Brush.TextMuted}" Margin="0,2,0,0" />
+                                    </StackPanel>
+                                    <CheckBox Style="{StaticResource ToggleSwitch}" HorizontalAlignment="Right" VerticalAlignment="Top"
+                                              IsChecked="{Binding Settings.ConfirmBypassMaster}" />
+                                </Grid>
+
+                                <Border Height="1" Background="{DynamicResource Brush.Border}" Margin="0,14" />
+
+                                <Grid Margin="0,0,0,9">
+                                    <TextBlock Text="Removing an account" VerticalAlignment="Center"
+                                               Foreground="{DynamicResource Brush.TextSecondary}" FontSize="12" />
+                                    <CheckBox Style="{StaticResource ToggleSwitch}" HorizontalAlignment="Right"
+                                              IsChecked="{Binding Settings.ConfirmBypassRemoveAccount}" />
+                                </Grid>
+                                <Grid Margin="0,0,0,9">
+                                    <TextBlock Text="Deleting a group" VerticalAlignment="Center"
+                                               Foreground="{DynamicResource Brush.TextSecondary}" FontSize="12" />
+                                    <CheckBox Style="{StaticResource ToggleSwitch}" HorizontalAlignment="Right"
+                                              IsChecked="{Binding Settings.ConfirmBypassDeleteGroup}" />
+                                </Grid>
+                                <Grid Margin="0,0,0,9">
+                                    <TextBlock Text="Deleting a favorite" VerticalAlignment="Center"
+                                               Foreground="{DynamicResource Brush.TextSecondary}" FontSize="12" />
+                                    <CheckBox Style="{StaticResource ToggleSwitch}" HorizontalAlignment="Right"
+                                               IsChecked="{Binding Settings.ConfirmBypassDeleteFavorite}" />
+                                </Grid>
+                                <Grid Margin="0,0,0,9">
+                                    <TextBlock Text="Stopping all instances" VerticalAlignment="Center"
+                                               Foreground="{DynamicResource Brush.TextSecondary}" FontSize="12" />
+                                    <CheckBox Style="{StaticResource ToggleSwitch}" HorizontalAlignment="Right"
+                                              IsChecked="{Binding Settings.ConfirmBypassStopAllInstances}" />
+                                </Grid>
+                                <Grid Margin="0,0,0,9">
+                                    <TextBlock Text="Clearing account groups" VerticalAlignment="Center"
+                                               Foreground="{DynamicResource Brush.TextSecondary}" FontSize="12" />
+                                    <CheckBox Style="{StaticResource ToggleSwitch}" HorizontalAlignment="Right"
+                                              IsChecked="{Binding Settings.ConfirmBypassClearAccountGroups}" />
+                                </Grid>
+                                <Grid>
+                                    <TextBlock Text="Deleting a theme" VerticalAlignment="Center"
+                                               Foreground="{DynamicResource Brush.TextSecondary}" FontSize="12" />
+                                    <CheckBox Style="{StaticResource ToggleSwitch}" HorizontalAlignment="Right"
+                                              IsChecked="{Binding Settings.ConfirmBypassDeleteTheme}" />
+                                </Grid>
+                            </StackPanel>
+                        </Border>
+
+                        <TextBlock Style="{StaticResource SectionHeader}" Text="VERSIONS" Margin="2,18,0,10" />
+                        <Border Style="{StaticResource Card}">
+                            <StackPanel>
+                                <TextBlock Text="Custom versions folder" />
+                                <TextBlock Text="Leave empty for the default path. Only folders on a local fixed drive are allowed." FontSize="11"
+                                           Foreground="{DynamicResource Brush.TextMuted}" Margin="0,2,0,8" />
+                                <Grid>
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="*" />
+                                        <ColumnDefinition Width="Auto" />
+                                        <ColumnDefinition Width="Auto" />
+                                    </Grid.ColumnDefinitions>
+                                    <TextBox Style="{StaticResource ModernTextBox}" Text="{Binding Settings.VersionsPathOverride}" />
+                                    <Button Grid.Column="1" Style="{StaticResource GhostButton}" Content="Browse" Margin="8,0,0,0"
+                                            Command="{Binding Settings.BrowseVersionsPathCommand}" />
+                                    <Button Grid.Column="2" Style="{StaticResource IconButton}" Content="Reset" Margin="2,0,0,0"
+                                            Command="{Binding Settings.ResetVersionsPathCommand}" />
+                                </Grid>
+                            </StackPanel>
+                        </Border>
+
+                        <TextBlock Style="{StaticResource SectionHeader}" Text="DATA &amp; SECURITY" Margin="2,18,0,10" />
+                        <Border Style="{StaticResource Card}">
+                            <StackPanel>
+                                <Button Style="{StaticResource GhostButton}" HorizontalAlignment="Left"
+                                        Command="{Binding Settings.OpenDataFolderCommand}">
+                                    <StackPanel Orientation="Horizontal">
+                                        <TextBlock Style="{StaticResource Glyph}" Text="&#xE8B7;" Margin="0,0,7,0" />
+                                        <TextBlock Text="Open data folder" VerticalAlignment="Center" />
+                                    </StackPanel>
+                                </Button>
+                                <TextBlock Text="{Binding Settings.DataFolder}" FontSize="11" TextWrapping="Wrap"
+                                           Foreground="{DynamicResource Brush.TextMuted}" Margin="0,8,0,0" />
+                                <Border Height="1" Background="{DynamicResource Brush.Border}" Margin="0,14" />
+                                <TextBlock TextWrapping="Wrap" FontSize="12" Foreground="{DynamicResource Brush.TextSecondary}"
+                                           Text="Cookies are encrypted locally with Windows DPAPI. Instance Manager only talks to official Roblox endpoints — no telemetry, no third-party servers." />
+                            </StackPanel>
+                        </Border>
+
+                        <TextBlock Style="{StaticResource SectionHeader}" Text="ABOUT" Margin="2,18,0,10" />
+                        <Border Style="{StaticResource Card}">
+                            <StackPanel>
+                                <TextBlock>
+                                    <Run Text="Instance Manager " FontWeight="SemiBold" /><Run Text="v" /><Run Text="{Binding Settings.AppVersion, Mode=OneWay}" />
+                                </TextBlock>
+                                <TextBlock Text="Local Roblox account manager focused on multi-instance." FontSize="12"
+                                           Foreground="{DynamicResource Brush.TextMuted}" Margin="0,4,0,0" />
+                            </StackPanel>
+                        </Border>
+                    </StackPanel>
+                </ScrollViewer>
+            </Grid>
+        </Grid>
+
+        <ItemsControl Grid.RowSpan="3" Panel.ZIndex="100"
+                      ItemsSource="{Binding Notifications.Items}"
+                      HorizontalAlignment="Right" VerticalAlignment="Top"
+                      Margin="0,58,18,0" IsHitTestVisible="True">
+            <ItemsControl.ItemsPanel>
+                <ItemsPanelTemplate>
+                    <StackPanel Width="320" />
+                </ItemsPanelTemplate>
+            </ItemsControl.ItemsPanel>
+            <ItemsControl.ItemTemplate>
+                <DataTemplate>
+                    <Border x:Name="Card" Margin="0,0,0,12" CornerRadius="16" BorderThickness="1" Opacity="0"
+                            Background="{DynamicResource Brush.SurfaceHover}"
+                            BorderBrush="{DynamicResource Brush.BorderStrong}">
+                        <Border.RenderTransform>
+                            <TranslateTransform X="22" />
+                        </Border.RenderTransform>
+                        <Border.Effect>
+                            <DropShadowEffect BlurRadius="24" ShadowDepth="4" Direction="270" Opacity="0.5" Color="#000000" />
+                        </Border.Effect>
+                        <DockPanel SizeChanged="ToastContent_SizeChanged">
+                            <Border DockPanel.Dock="Bottom" Height="2" Background="{DynamicResource Brush.Border}">
+                                <Border x:Name="Life" Background="{DynamicResource Brush.Accent}" RenderTransformOrigin="0,0"
+                                        Loaded="ToastLife_Loaded">
+                                    <Border.RenderTransform>
+                                        <ScaleTransform x:Name="LifeScale" ScaleX="1" />
+                                    </Border.RenderTransform>
+                                </Border>
+                            </Border>
+                            <Grid Margin="15,14,15,13">
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="Auto" />
+                                    <ColumnDefinition Width="*" />
+                                </Grid.ColumnDefinitions>
+                                <Border x:Name="Chip" Grid.Column="0" Width="30" Height="30" CornerRadius="15"
+                                        Margin="0,1,12,0" VerticalAlignment="Top" Background="{DynamicResource Brush.Accent}">
+                                    <TextBlock x:Name="ChipGlyph" Text="&#xE946;" FontFamily="Segoe MDL2 Assets" FontSize="14"
+                                               Foreground="{DynamicResource Brush.OnAccent}"
+                                               HorizontalAlignment="Center" VerticalAlignment="Center" />
+                                </Border>
+                                <StackPanel Grid.Column="1">
+                                    <TextBlock Text="{Binding Title}" FontWeight="SemiBold" FontSize="13" TextWrapping="Wrap" />
+                                    <TextBlock Text="{Binding Message}" TextWrapping="Wrap" Margin="0,3,0,0"
+                                               Foreground="{DynamicResource Brush.TextSecondary}" FontSize="12" LineHeight="16" />
+                                    <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" Margin="0,12,0,1">
+                                        <Button Content="Undo" Style="{StaticResource UndoButton}" Width="78" Height="26"
+                                                Command="{Binding DataContext.Notifications.UndoCommand, RelativeSource={RelativeSource AncestorType=Window}}"
+                                                CommandParameter="{Binding}"
+                                                Visibility="{Binding CanUndo, Converter={StaticResource BoolToVis}}"
+                                                shell:WindowChrome.IsHitTestVisibleInChrome="True" />
+                                        <Button Content="Dismiss" Style="{StaticResource DismissButton}" Width="78" Height="26" Margin="8,0,0,0"
+                                                Command="{Binding DataContext.Notifications.DismissCommand, RelativeSource={RelativeSource AncestorType=Window}}"
+                                                CommandParameter="{Binding}"
+                                                shell:WindowChrome.IsHitTestVisibleInChrome="True" />
+                                    </StackPanel>
+                                </StackPanel>
+                            </Grid>
+                        </DockPanel>
+                    </Border>
+                    <DataTemplate.Triggers>
+                        <DataTrigger Binding="{Binding Kind}" Value="{x:Static vm:NotificationKind.Success}">
+                            <Setter TargetName="Chip" Property="Background" Value="{DynamicResource Brush.Success}" />
+                            <Setter TargetName="Life" Property="Background" Value="{DynamicResource Brush.Success}" />
+                            <Setter TargetName="ChipGlyph" Property="Text" Value="&#xE73E;" />
+                        </DataTrigger>
+                        <DataTrigger Binding="{Binding Kind}" Value="{x:Static vm:NotificationKind.Error}">
+                            <Setter TargetName="Chip" Property="Background" Value="{DynamicResource Brush.Danger}" />
+                            <Setter TargetName="Life" Property="Background" Value="{DynamicResource Brush.Danger}" />
+                            <Setter TargetName="ChipGlyph" Property="Text" Value="&#xE7BA;" />
+                        </DataTrigger>
+                        <DataTrigger Binding="{Binding IsClosing}" Value="True">
+                            <DataTrigger.EnterActions>
+                                <BeginStoryboard>
+                                    <Storyboard>
+                                        <DoubleAnimation Storyboard.TargetName="Card" Storyboard.TargetProperty="Opacity"
+                                                         To="0" Duration="0:0:0.08" EasingFunction="{StaticResource EaseOutStandard}" />
+                                        <DoubleAnimation Storyboard.TargetName="Card"
+                                                         Storyboard.TargetProperty="(UIElement.RenderTransform).(TranslateTransform.X)"
+                                                         To="22" Duration="0:0:0.08" EasingFunction="{StaticResource EaseOutStandard}" />
+                                    </Storyboard>
+                                </BeginStoryboard>
+                            </DataTrigger.EnterActions>
+                        </DataTrigger>
+                        <EventTrigger RoutedEvent="Loaded">
+                            <BeginStoryboard>
+                                <Storyboard>
+                                    <DoubleAnimation Storyboard.TargetName="Card" Storyboard.TargetProperty="Opacity"
+                                                     To="1" Duration="0:0:0.2" EasingFunction="{StaticResource EaseOutStandard}" />
+                                    <DoubleAnimation Storyboard.TargetName="Card"
+                                                     Storyboard.TargetProperty="(UIElement.RenderTransform).(TranslateTransform.X)"
+                                                     To="0" Duration="0:0:0.28" EasingFunction="{StaticResource EaseOutEmphasized}" />
+                                </Storyboard>
+                            </BeginStoryboard>
+                        </EventTrigger>
+                    </DataTemplate.Triggers>
+                </DataTemplate>
+            </ItemsControl.ItemTemplate>
+        </ItemsControl>
+
+        <Border Grid.RowSpan="3" Panel.ZIndex="90" Background="Transparent"
+                shell:WindowChrome.IsHitTestVisibleInChrome="True"
+                Visibility="{Binding Notifications.IsCenterOpen, Converter={StaticResource BoolToVis}}"
+                MouseLeftButtonDown="NotificationScrim_Click" />
+
+        <Border Grid.RowSpan="3" Panel.ZIndex="95" Width="362" MaxHeight="460"
+                HorizontalAlignment="Right" VerticalAlignment="Top" Margin="0,50,12,0"
+                Background="{DynamicResource Brush.SurfaceHover}" BorderBrush="{DynamicResource Brush.BorderStrong}"
+                BorderThickness="1" CornerRadius="16"
+                shell:WindowChrome.IsHitTestVisibleInChrome="True"
+                Visibility="{Binding Notifications.IsCenterOpen, Converter={StaticResource BoolToVis}}">
+            <DockPanel Margin="6">
+                <Grid DockPanel.Dock="Top" Margin="8,7,6,8">
+                    <TextBlock Text="Notifications" FontWeight="SemiBold" FontSize="14" VerticalAlignment="Center" />
+                    <Button Style="{StaticResource IconButton}" HorizontalAlignment="Right" Padding="9,4" Content="Clear all"
+                            Command="{Binding Notifications.ClearHistoryCommand}"
+                            Visibility="{Binding Notifications.HasHistory, Converter={StaticResource BoolToVis}}" />
+                </Grid>
+                <Border DockPanel.Dock="Top" Height="1" Background="{DynamicResource Brush.Border}" Margin="2,0,2,4" />
+                <Grid>
+                    <StackPanel VerticalAlignment="Center" HorizontalAlignment="Center" Margin="0,34">
+                        <StackPanel.Style>
+                            <Style TargetType="StackPanel">
+                                <Setter Property="Visibility" Value="Visible" />
+                                <Style.Triggers>
+                                    <DataTrigger Binding="{Binding Notifications.HasHistory}" Value="True">
+                                        <Setter Property="Visibility" Value="Collapsed" />
+                                    </DataTrigger>
+                                </Style.Triggers>
+                            </Style>
+                        </StackPanel.Style>
+                        <TextBlock Text="&#xE7E7;" FontFamily="Segoe MDL2 Assets" FontSize="30" HorizontalAlignment="Center"
+                                   Foreground="{DynamicResource Brush.BorderStrong}" />
+                        <TextBlock Text="No notifications yet" Foreground="{DynamicResource Brush.TextSecondary}"
+                                   HorizontalAlignment="Center" Margin="0,10,0,0" />
+                    </StackPanel>
+                    <ScrollViewer VerticalScrollBarVisibility="Auto" behaviors:SmoothScroll.Enabled="True"
+                                  Visibility="{Binding Notifications.HasHistory, Converter={StaticResource BoolToVis}}">
+                        <ItemsControl ItemsSource="{Binding Notifications.History}">
+                            <ItemsControl.ItemTemplate>
+                                <DataTemplate>
+                                    <Border Margin="2,3" Padding="11,9" CornerRadius="12" Background="{DynamicResource Brush.Surface}"
+                                            BorderBrush="{DynamicResource Brush.Border}" BorderThickness="1">
+                                        <Grid>
+                                            <Grid.ColumnDefinitions>
+                                                <ColumnDefinition Width="Auto" />
+                                                <ColumnDefinition Width="*" />
+                                                <ColumnDefinition Width="Auto" />
+                                            </Grid.ColumnDefinitions>
+                                            <Ellipse Grid.Column="0" Width="9" Height="9" Margin="0,5,10,0" VerticalAlignment="Top">
+                                                <Ellipse.Style>
+                                                    <Style TargetType="Ellipse">
+                                                        <Setter Property="Fill" Value="{DynamicResource Brush.Accent}" />
+                                                        <Style.Triggers>
+                                                            <DataTrigger Binding="{Binding Kind}" Value="{x:Static vm:NotificationKind.Success}">
+                                                                <Setter Property="Fill" Value="{DynamicResource Brush.Success}" />
+                                                            </DataTrigger>
+                                                            <DataTrigger Binding="{Binding Kind}" Value="{x:Static vm:NotificationKind.Error}">
+                                                                <Setter Property="Fill" Value="{DynamicResource Brush.Danger}" />
+                                                            </DataTrigger>
+                                                        </Style.Triggers>
+                                                    </Style>
+                                                </Ellipse.Style>
+                                            </Ellipse>
+                                            <StackPanel Grid.Column="1">
+                                                <TextBlock Text="{Binding Title}" FontWeight="SemiBold" TextWrapping="Wrap" />
+                                                <TextBlock Text="{Binding Message}" TextWrapping="Wrap" Margin="0,2,0,0"
+                                                           Foreground="{DynamicResource Brush.TextSecondary}" FontSize="12" />
+                                                <Button Content="Undo" Style="{StaticResource UndoButton}" HorizontalAlignment="Left"
+                                                        Width="72" Height="26" Margin="0,6,0,0"
+                                                        Command="{Binding DataContext.Notifications.UndoCommand, RelativeSource={RelativeSource AncestorType=Window}}"
+                                                        CommandParameter="{Binding}"
+                                                        Visibility="{Binding CanUndo, Converter={StaticResource BoolToVis}}"
+                                                        shell:WindowChrome.IsHitTestVisibleInChrome="True" />
+                                                <TextBlock Text="{Binding Time}" Foreground="{DynamicResource Brush.TextMuted}"
+                                                           FontSize="10" Margin="0,4,0,0" />
+                                            </StackPanel>
+                                            <Button Grid.Column="2" Style="{StaticResource IconButton}" Width="24" Height="24" Padding="0"
+                                                    VerticalAlignment="Top" ToolTip="Dismiss"
+                                                    Command="{Binding DataContext.Notifications.RemoveFromHistoryCommand, RelativeSource={RelativeSource AncestorType=Window}}"
+                                                    CommandParameter="{Binding}">
+                                                <TextBlock Style="{StaticResource Glyph}" Text="&#xE711;" FontSize="10" />
+                                            </Button>
+                                        </Grid>
+                                    </Border>
+                                </DataTemplate>
+                            </ItemsControl.ItemTemplate>
+                        </ItemsControl>
+                    </ScrollViewer>
+                </Grid>
+            </DockPanel>
+        </Border>
+    </Grid>
+</Window>
