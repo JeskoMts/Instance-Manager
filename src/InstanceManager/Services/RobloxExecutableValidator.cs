@@ -1,7 +1,10 @@
 using System;
+using System.Collections.Concurrent;
+using System.Collections.Generic;
 using System.IO;
 using System.Runtime.InteropServices;
 using System.Security.Cryptography.X509Certificates;
+using Microsoft.Win32.SafeHandles;
 
 namespace InstanceManager.Services;
 
@@ -10,11 +13,13 @@ public interface IRobloxExecutableValidator
     bool TryValidate(string versionsRoot, string executablePath, out string error);
 }
 
-public sealed class RobloxExecutableValidator : IRobloxExecutableValidator
+public sealed class RobloxExecutableValidator : IRobloxExecutableValidator, IDisposable
 {
     private const string ExpectedFileName = "RobloxPlayerBeta.exe";
     private const string ExpectedSigner = "Roblox Corporation";
     private readonly Func<string, bool> _isTrustedRobloxBinary;
+
+    private readonly ConcurrentDictionary<string, SafeFileHandle> _verified = new(StringComparer.OrdinalIgnoreCase);
 
     public RobloxExecutableValidator() : this(IsTrustedRobloxBinary)
     {
@@ -66,12 +71,18 @@ public sealed class RobloxExecutableValidator : IRobloxExecutableValidator
                 return false;
             }
 
+            if (IsVerifiedAndUnchanged(candidate))
+                return true;
+
+            SafeFileHandle? pin = TryPinAgainstWrites(candidate);
             if (!_isTrustedRobloxBinary(candidate))
             {
+                pin?.Dispose();
                 error = "RobloxPlayerBeta.exe does not have a valid Roblox Authenticode signature.";
                 return false;
             }
 
+            Remember(candidate, pin);
             return true;
         }
         catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or
@@ -80,6 +91,83 @@ public sealed class RobloxExecutableValidator : IRobloxExecutableValidator
             error = "The Roblox executable could not be verified.";
             return false;
         }
+    }
+
+    private bool IsVerifiedAndUnchanged(string path)
+    {
+        if (!_verified.TryGetValue(path, out SafeFileHandle? pin))
+            return false;
+        if (IsSameFile(path, pin))
+            return true;
+
+        if (_verified.TryRemove(new KeyValuePair<string, SafeFileHandle>(path, pin)))
+            pin.Dispose();
+        return false;
+    }
+
+    private static SafeFileHandle? TryPinAgainstWrites(string path)
+    {
+        try
+        {
+            return File.OpenHandle(path, FileMode.Open, FileAccess.Read, FileShare.Read | FileShare.Delete);
+        }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+        {
+            return null;
+        }
+    }
+
+    private void Remember(string path, SafeFileHandle? pin)
+    {
+        if (pin == null)
+            return;
+        if (!IsSameFile(path, pin))
+        {
+            pin.Dispose();
+            return;
+        }
+
+        if (_verified.TryRemove(path, out SafeFileHandle? previous))
+            previous.Dispose();
+        if (!_verified.TryAdd(path, pin))
+            pin.Dispose();
+    }
+
+    private static bool IsSameFile(string path, SafeFileHandle pin)
+    {
+        try
+        {
+            using SafeFileHandle current = File.OpenHandle(
+                path, FileMode.Open, FileAccess.Read, FileShare.ReadWrite | FileShare.Delete);
+            return FileId.TryRead(current, out FileId now) && FileId.TryRead(pin, out FileId pinned) && now == pinned;
+        }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or ObjectDisposedException)
+        {
+            return false;
+        }
+    }
+
+    public void Dispose()
+    {
+        foreach (string path in _verified.Keys)
+        {
+            if (_verified.TryRemove(path, out SafeFileHandle? pin))
+                pin.Dispose();
+        }
+    }
+
+    [StructLayout(LayoutKind.Sequential)]
+    private readonly record struct FileId(ulong VolumeSerialNumber, Guid Id)
+    {
+        private const int FileIdInfoClass = 18;
+
+        public static bool TryRead(SafeFileHandle handle, out FileId id) =>
+            GetFileInformationByHandleEx(handle, FileIdInfoClass, out id, (uint)Marshal.SizeOf<FileId>());
+
+        [DllImport("kernel32.dll", SetLastError = true)]
+        [DefaultDllImportSearchPaths(DllImportSearchPath.System32)]
+        private static extern bool GetFileInformationByHandleEx(
+            SafeFileHandle file, int infoClass, out FileId info, uint size);
     }
 
     private static bool ContainsReparsePoint(string root, string directory)

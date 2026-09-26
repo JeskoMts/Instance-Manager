@@ -18,7 +18,8 @@ public sealed class RobloxLogWatcher : IDisposable
     private readonly object _gate = new();
 
     private string? _logPath;
-    private long _offset;
+    private FileStream? _stream;
+    private StreamReader? _reader;
     private bool _disposed;
 
     public event Action<RobloxSessionSignal>? Detected;
@@ -65,7 +66,7 @@ public sealed class RobloxLogWatcher : IDisposable
                 if (_logPath == null)
                     return;
 
-                ReadNewLines(_logPath);
+                ReadNewLines();
             }
             catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or ArgumentException)
             {
@@ -83,9 +84,10 @@ public sealed class RobloxLogWatcher : IDisposable
         long bestDistance = long.MaxValue;
         DateTime bestTime = DateTime.MaxValue;
 
-        foreach (string file in Directory.EnumerateFiles(_logsDirectory, "*.log"))
+        foreach (FileInfo info in new DirectoryInfo(_logsDirectory).EnumerateFiles("*.log"))
         {
-            DateTime sessionStart = GetSessionStartUtc(file);
+            string file = info.FullName;
+            DateTime sessionStart = GetSessionStartUtc(file, info.CreationTimeUtc);
             if (sessionStart < threshold)
                 continue;
 
@@ -107,9 +109,8 @@ public sealed class RobloxLogWatcher : IDisposable
         return best;
     }
 
-    private static DateTime GetSessionStartUtc(string path)
+    private static DateTime GetSessionStartUtc(string path, DateTime createdUtc)
     {
-        DateTime createdUtc = File.GetCreationTimeUtc(path);
         string name = Path.GetFileName(path);
         int marker = name.IndexOf("_Player_", StringComparison.OrdinalIgnoreCase);
         if (marker >= 16)
@@ -131,24 +132,27 @@ public sealed class RobloxLogWatcher : IDisposable
         return createdUtc;
     }
 
-    private void ReadNewLines(string path)
+    private void ReadNewLines()
     {
-        using var stream = new FileStream(path, FileMode.Open, FileAccess.Read, FileShare.ReadWrite);
-        if (stream.Length < _offset)
-            _offset = 0;
-
-        stream.Seek(_offset, SeekOrigin.Begin);
-        using var reader = new StreamReader(stream);
+        if (_reader == null)
+        {
+            _stream = new FileStream(_logPath!, FileMode.Open, FileAccess.Read,
+                FileShare.ReadWrite | FileShare.Delete, bufferSize: 1, FileOptions.SequentialScan);
+            _reader = new StreamReader(_stream, bufferSize: 16 * 1024);
+        }
+        else if (_stream!.Length < _stream.Position)
+        {
+            _stream.Position = 0;
+            _reader.DiscardBufferedData();
+        }
 
         string? line;
-        while ((line = reader.ReadLine()) != null)
+        while ((line = _reader.ReadLine()) != null)
         {
             RobloxSessionSignal? signal = RobloxLogClassifier.Classify(line);
             if (signal.HasValue)
                 Detected?.Invoke(signal.Value);
         }
-
-        _offset = stream.Position;
     }
 
     public void Dispose()
@@ -158,6 +162,9 @@ public sealed class RobloxLogWatcher : IDisposable
             if (_disposed)
                 return;
             _disposed = true;
+            _reader?.Dispose();
+            _reader = null;
+            _stream = null;
         }
 
         _timer.Dispose();

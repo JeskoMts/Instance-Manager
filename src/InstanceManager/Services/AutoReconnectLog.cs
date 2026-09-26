@@ -20,9 +20,12 @@ public sealed class AutoReconnectLog
 
     public void Attempt(Account account, AutoReconnectTrigger trigger, int attempt, int max, ServerTarget target)
     {
-        string where = target.Mode == JoinMode.PrivateByJobId
-            ? $"placeId={target.PlaceId} jobId={target.JobId}"
-            : $"placeId={target.PlaceId}";
+        string where = target.Mode switch
+        {
+            JoinMode.PrivateByJobId => $"placeId={target.PlaceId} jobId={target.JobId}",
+            JoinMode.Home => "home screen",
+            _ => $"placeId={target.PlaceId}"
+        };
         Write($"RECONNECT  '{account.DisplayLabel}' (userId {account.UserId})  trigger={trigger}  attempt {attempt}/{max}  -> {where}");
     }
 

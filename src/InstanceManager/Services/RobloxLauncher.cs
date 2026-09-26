@@ -56,8 +56,27 @@ public sealed class RobloxLauncher
 
     public static string BuildLaunchUrl(string authTicket, ServerTarget target, long browserTrackerId, long launchTimeMs)
     {
+        ArgumentNullException.ThrowIfNull(target);
+        if (target.Mode == JoinMode.Home)
+            return BuildHomeLaunchUrl(authTicket, browserTrackerId, launchTimeMs);
+
         string placeLauncher = BuildPlaceLauncherUrl(target, browserTrackerId);
         return BuildLaunchUrl(authTicket, placeLauncher, browserTrackerId, launchTimeMs);
+    }
+
+    public static string BuildHomeLaunchUrl(string authTicket, long browserTrackerId, long launchTimeMs)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(authTicket);
+
+        return "roblox-player:1" +
+               "+launchmode:app" +
+               $"+gameinfo:{authTicket}" +
+               $"+launchtime:{launchTimeMs}" +
+               $"+browsertrackerid:{browserTrackerId}" +
+               "+robloxLocale:en_us" +
+               "+gameLocale:en_us" +
+               "+channel:" +
+               "+LaunchExp:InApp";
     }
 
     public static long GenerateBrowserTrackerId() =>

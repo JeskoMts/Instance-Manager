@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Threading;
 using System.Threading.Tasks;
 using InstanceManager.Models;
 using InstanceManager.Services;
@@ -14,6 +15,7 @@ public partial class ShellViewModel : ObservableObject, IShellCoordinator
     private readonly LaunchService _launch;
     private readonly ISettingsService _settings;
     private readonly MultiInstanceManager _multiInstance;
+    private CancellationTokenSource? _launchCts;
 
     public ShellViewModel(
         IAccountRepository accounts,
@@ -43,6 +45,8 @@ public partial class ShellViewModel : ObservableObject, IShellCoordinator
         Settings = new SettingsViewModel(settings, dialogs, multiInstance);
         Theme = new ThemeViewModel(themeService, themes, settings, dialogs, this);
         Notifications = new NotificationCenterViewModel(settings);
+
+        AccountList.RebuildGroups();
     }
 
     public VersionBarViewModel VersionBar { get; }
@@ -56,12 +60,14 @@ public partial class ShellViewModel : ObservableObject, IShellCoordinator
     [ObservableProperty] private string statusText = "Ready.";
     [ObservableProperty] private bool isBusy;
     [ObservableProperty] private AppSection selectedSection = AppSection.Accounts;
+    [ObservableProperty] private double launchProgress;
+    [ObservableProperty] private string launchProgressText = string.Empty;
 
     partial void OnSelectedSectionChanged(AppSection oldValue, AppSection newValue)
     {
         if (oldValue == AppSection.Settings && newValue != AppSection.Settings)
         {
-            VersionBar.RefreshVersions();
+            _ = VersionBar.RefreshVersionsAsync();
             AccountList.RebuildGroups();
         }
 
@@ -81,12 +87,9 @@ public partial class ShellViewModel : ObservableObject, IShellCoordinator
 
     public async Task InitializeAsync()
     {
-        await VersionBar.InitializeAsync();
-        AccountList.RebuildGroups();
-
         _ = Games.EnsureLoadedAsync();
+        await VersionBar.InitializeAsync();
     }
-
 
     public void SetStatus(string message) => StatusText = message;
 
@@ -107,6 +110,10 @@ public partial class ShellViewModel : ObservableObject, IShellCoordinator
         }
 
         IsBusy = true;
+        LaunchProgress = 0;
+        LaunchProgressText = "Preparing…";
+        using var cts = new CancellationTokenSource();
+        _launchCts = cts;
         try
         {
             ServerTargetResolution targetResult = await LaunchPanel.ResolveTargetAsync();
@@ -116,6 +123,8 @@ public partial class ShellViewModel : ObservableObject, IShellCoordinator
                 return;
             }
 
+            if (VersionBar.Versions.Count == 0)
+                await VersionBar.RefreshVersionsAsync();
             if (VersionBar.Versions.Count == 0)
             {
                 Notify(NotificationId.RobloxNotFound, NotificationKind.Error, "Roblox not found", "No installed Roblox version was found.");
@@ -130,18 +139,46 @@ public partial class ShellViewModel : ObservableObject, IShellCoordinator
                     "A Roblox client is already running, so extra accounts can't open separately. Close every Roblox window, then launch again.");
             }
 
-            var progress = new Progress<string>(s => StatusText = s);
-            LaunchSummary summary = await _launch.LaunchAsync(accounts, targetResult.Target!, ResolveVersion, progress);
-            string message = summary.Failed == 0
-                ? $"Started {summary.Started} instance(s)."
-                : $"Started {summary.Started}, {summary.Failed} failed.";
+            AccountList.ClearLaunchStages();
+            var progress = new InlineProgress<LaunchProgress>(OnLaunchProgress);
+            LaunchSummary summary = await _launch.LaunchAsync(accounts, targetResult.Target!, ResolveVersion, progress, cts.Token);
             Notify(NotificationId.LaunchComplete, summary.Failed == 0 ? NotificationKind.Success : NotificationKind.Error,
-                summary.Failed == 0 ? "Launch complete" : "Launch completed with errors", message);
+                summary.Failed == 0 ? "Launch complete" : "Launch completed with errors", Describe(summary));
+        }
+        catch (OperationCanceledException) when (cts.IsCancellationRequested)
+        {
+            AccountList.ClearPendingLaunchStages();
+            Notify(NotificationId.LaunchComplete, NotificationKind.Info, "Launch cancelled", "The remaining accounts were not started.");
         }
         finally
         {
+            _launchCts = null;
             IsBusy = false;
+            LaunchProgress = 0;
+            LaunchProgressText = string.Empty;
         }
+    }
+
+    internal static string Describe(LaunchSummary summary)
+    {
+        var parts = new List<string> { $"Started {summary.Started}" };
+        if (summary.Failed > 0) parts.Add($"{summary.Failed} failed");
+        if (summary.Skipped > 0) parts.Add($"{summary.Skipped} already running");
+        return string.Join(" · ", parts) + ".";
+    }
+
+    private void OnLaunchProgress(LaunchProgress p)
+    {
+        StatusText = p.Message;
+        AccountList.SetLaunchStage(p.AccountId, p.Stage, p.Stage == LaunchStage.Failed ? p.Message : null, p.RequiresSignIn);
+        if (p.Stage == LaunchStage.Queued)
+            return;
+
+        bool done = p.Stage is LaunchStage.Started or LaunchStage.Failed or LaunchStage.Skipped;
+        LaunchProgress = (p.Index + (done ? 1.0 : 0.5)) / Math.Max(1, p.Total);
+        LaunchProgressText = done && p.Index + 1 < p.Total
+            ? $"Next account… ({p.Index + 2}/{p.Total})"
+            : $"Launching {p.Index + 1} of {p.Total}…";
     }
 
     private RobloxVersion? ResolveVersion(Account account)
@@ -157,7 +194,14 @@ public partial class ShellViewModel : ObservableObject, IShellCoordinator
         return VersionBar.SelectedVersion;
     }
 
-
     [RelayCommand]
     private Task LaunchSelected() => LaunchAsync(AccountList.SelectedAccounts());
+
+    [RelayCommand]
+    private void CancelLaunch() => _launchCts?.Cancel();
+
+    private sealed class InlineProgress<T>(Action<T> handler) : IProgress<T>
+    {
+        public void Report(T value) => handler(value);
+    }
 }

@@ -71,6 +71,21 @@ public sealed class AutoReconnectService : IDisposable
         }
     }
 
+    public async Task<bool> WaitForJoinAsync(Guid accountId, TimeSpan timeout, CancellationToken ct = default)
+    {
+        Task<bool> joined;
+        lock (_gate)
+        {
+            if (!_sessions.TryGetValue(accountId, out Session? session))
+                return false;
+            joined = session.Joined.Task;
+        }
+
+        Task finished = await Task.WhenAny(joined, Task.Delay(timeout, ct)).ConfigureAwait(false);
+        ct.ThrowIfCancellationRequested();
+        return finished == joined && joined.Result;
+    }
+
     public void NotifyManualStop(Guid accountId)
     {
         lock (_gate)
@@ -124,8 +139,10 @@ public sealed class AutoReconnectService : IDisposable
             {
                 case RobloxSessionSignal.InGame:
                     session.InGame = true;
+                    session.Joined.TrySetResult(true);
                     break;
                 case RobloxSessionSignal.GracefulLeave:
+                    session.Joined.TrySetResult(false);
                     if (session.InGame && !session.ActionTaken)
                     {
                         session.ActionTaken = true;
@@ -144,6 +161,7 @@ public sealed class AutoReconnectService : IDisposable
                     break;
                 case RobloxSessionSignal.Kicked:
                 case RobloxSessionSignal.Error:
+                    session.Joined.TrySetResult(false);
                     if (session.ActionTaken)
                     {
                         if (signal == RobloxSessionSignal.Kicked)
@@ -334,7 +352,10 @@ public sealed class AutoReconnectService : IDisposable
     private void Remove(Guid accountId)
     {
         if (_sessions.Remove(accountId, out Session? session))
+        {
+            session.Joined.TrySetResult(false);
             session.DisposeWatcher();
+        }
     }
 
     private bool IsCollateralReconnect(Guid accountId) =>
@@ -384,7 +405,10 @@ public sealed class AutoReconnectService : IDisposable
             _disposed = true;
             _tracker.RunningChanged -= OnRunningChanged;
             foreach (Session session in _sessions.Values)
+            {
+                session.Joined.TrySetResult(false);
                 session.DisposeWatcher();
+            }
             _sessions.Clear();
         }
     }
@@ -413,6 +437,10 @@ public sealed class AutoReconnectService : IDisposable
         public bool ActionTaken { get; set; }
         public AutoReconnectTrigger? PendingTrigger { get; set; }
         public RobloxLogWatcher? Watcher { get; set; }
+        public TaskCompletionSource<bool> Joined { get; private set; } = NewJoinSignal();
+
+        private static TaskCompletionSource<bool> NewJoinSignal() =>
+            new(TaskCreationOptions.RunContinuationsAsynchronously);
 
         public void PrepareForReconnect()
         {
@@ -427,6 +455,8 @@ public sealed class AutoReconnectService : IDisposable
             Process = process;
             RunId = Guid.NewGuid();
             ExitHandling = false;
+            Joined.TrySetResult(false);
+            Joined = NewJoinSignal();
             PrepareForReconnect();
         }
 

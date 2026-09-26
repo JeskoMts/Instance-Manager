@@ -11,7 +11,14 @@ public sealed record RobloxUserInfo(long Id, string Name, string DisplayName);
 
 public sealed class RobloxAuthException : Exception
 {
-    public RobloxAuthException(string message) : base(message) { }
+    public RobloxAuthException(string message, bool requiresSignIn = false) : base(message) =>
+        RequiresSignIn = requiresSignIn;
+
+    public bool RequiresSignIn { get; }
+
+    internal const string LoginExpiredMessage =
+        "Roblox no longer accepts this account's saved login. It expired or was signed out, for example after a " +
+        "password change or \"Log out of all sessions\". Add the account again to sign back in.";
 }
 
 public sealed class RobloxAuthService
@@ -28,7 +35,7 @@ public sealed class RobloxAuthService
     public async Task<string> GetAuthTicketAsync(string cookie, CancellationToken ct = default)
     {
         if (!IsValidCookieValue(cookie))
-            throw new RobloxAuthException("Cookie has an invalid format.");
+            throw new RobloxAuthException(RobloxAuthException.LoginExpiredMessage, requiresSignIn: true);
 
         string? csrf = null;
 
@@ -67,7 +74,7 @@ public sealed class RobloxAuthService
             }
 
             if (resp.StatusCode is HttpStatusCode.Unauthorized or HttpStatusCode.Forbidden)
-                throw new RobloxAuthException("Cookie is invalid or expired (Roblox rejected the sign-in).");
+                throw new RobloxAuthException(RobloxAuthException.LoginExpiredMessage, requiresSignIn: true);
 
             resp.EnsureSuccessStatusCode();
 

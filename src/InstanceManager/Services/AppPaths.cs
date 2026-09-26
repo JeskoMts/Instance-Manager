@@ -17,6 +17,7 @@ public static class AppPaths
     public static string ThemesFile => Path.Combine(DataDirectory, "themes.json");
 
     public static string WebViewDirectory => Path.Combine(LocalDataDirectory, "webview");
+    public static string AvatarCacheDirectory => Path.Combine(LocalDataDirectory, "avatars");
     internal static string LegacyWebViewDirectory => Path.Combine(DataDirectory, "webview");
 
     public static string DefaultRobloxVersionsPath { get; } =

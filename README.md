@@ -10,16 +10,16 @@ A quick map of what the app does and how to use each part. The full tour, with e
 
 | Feature | Details | How to use |
 |---|---|---|
-| Accounts | Store any number of Roblox accounts, each with its identity, an optional alias and notes, and an encrypted session cookie. Avatars load on demand. | Accounts tab, click Add Account, sign in to the real Roblox login. Re-adding an existing account refreshes its cookie. |
-| Groups | Colored, collapsible groups that can be launched as a unit. An account can belong to more than one group. | Click Create Group, then drag account rows onto a group header. Launch from the group header. |
-| Favorites | Saved games with a name, a place id, and an optional default private server. A primary favorite is pinned to the top and restored on startup. | Enter a target, use the save action, name it. Pick it later from the favorites dropdown. |
-| Launch targets | Join a public game by link or place id, or a private server by full server link or job id. Server links are validated and kept on Roblox domains. | Type a game link or id in the launch box. Switch to Job ID mode for a private server. |
-| Games tab | Browse a grid of popular games and turn one into your launch target with a click. | Open the Games tab and click a game. Optionally have it jump to Accounts. |
-| Multi-instance launch | Run many accounts in parallel, each as its own client, spaced out by a delay you set. One bad account never stops the rest. | Select accounts or a group, click Launch. Set the launch delay in Settings. |
-| Instance control | See which accounts are live and stop them one at a time or all at once. | Use the stop action on a running row, or Stop All. |
+| Accounts | Store any number of Roblox accounts, each with its identity, an optional alias and notes, and an encrypted session cookie. Avatars are cached locally and show instantly. | Accounts tab, click Add Account, sign in to the real Roblox login. Re-adding an existing account refreshes its cookie. |
+| Groups | Colored, collapsible groups that can be launched as a unit. An account can belong to more than one group. | Click New group, then drag accounts onto its header or use an account's ⋯ menu → Groups. Launch from the group header. |
+| Favorites | Saved games with a name, a place id, and an optional default private server. A primary favorite is pinned to the top and restored on startup. | Enter a target, click the star in the launch bar, name it. Pick it later from Favorites. |
+| Launch targets | Join a public game by link or place id, or a private server by full server link or job id, or leave the field empty to open the Roblox home screen. Server links are validated and kept on Roblox domains. | Type a game link or id in the launch bar. Switch to Server for one exact or private server. Leave it empty for the home screen. |
+| Games tab | Browse a grid of popular games and turn one into your launch target with a click. Preloaded at startup. | Open the Games tab and click a game. Optionally have it jump to Accounts. |
+| Multi-instance launch | Run many accounts in parallel, each as its own client. Accounts start one at a time: the next waits until the previous client has opened and joined its game, plus an optional pause. Already-running accounts are skipped, a client that dies while starting is retried once, and a batch can be cancelled. One bad account never stops the rest. | Click rows (or Ctrl+A) to select, then Launch, or use Launch group. Tune the pause in Settings. |
+| Instance control | See which accounts are live and what a launch is doing (queued, opening, joining, failed) and stop them one at a time or all at once. | Use the stop button on a running row, or Stop all above the list. |
 | Auto Reconnect | Bring an instance back after a kick, error, disconnect, or crash, up to a retry limit, each instance on its own log. | On by default. Tune it on the Settings tab under Auto Reconnect. A manual stop never reconnects. |
-| Roblox versions | Pick a global client version, check the latest online, or pin a per-account version. | Choose a version in the version bar, or per account on its row. Set a custom folder in Settings. |
-| Themes | Built-in color schemes plus an editor, shareable as a short text code, applied live. | Open the Themes tab to switch, edit, import, or export a theme. |
+| Roblox versions | Pick a default client version, or pin a per-account version. | Settings → Roblox version for the default; an account's ⋯ menu → Roblox version to pin one. |
+| Themes | Built-in color schemes plus an editor, shareable as a short text code, applied live. | Settings → Appearance to switch, edit, import, or export a theme. |
 | Notifications | On-screen toasts with a duration you set and per-message muting. | Settings tab, Notifications section. |
 | Confirmations | Skip confirmation prompts for actions you do often. | Settings tab, Confirmations section. |
 | Undo | Removing an account or deleting a group or favorite can be undone. | Click Undo on the toast right after the action. |
@@ -56,6 +56,12 @@ dotnet run --project src/InstanceManager/InstanceManager.csproj
 
 A Release build produces `InstanceManager.exe` under `src/InstanceManager/bin/Release/net8.0-windows/`.
 
+To produce the folder that ships in a release (x64, framework-dependent, app code precompiled for a faster start, no debug symbols or API docs):
+
+```bash
+dotnet publish src/InstanceManager/InstanceManager.csproj -c Release -r win-x64 --self-contained false -o publish
+```
+
 ## First run
 
 1. Open the app and go to the Accounts tab.
@@ -71,7 +77,7 @@ All settings live on the Settings tab and are written to `settings.json` in the 
 | Setting | What it does | Default |
 |---|---|---|
 | `MultiInstanceEnabled` | Holds the Roblox singleton objects so instances run in parallel | `true` |
-| `LaunchDelayMs` | Pause between consecutive launches, 0 to 60000 ms in 500 ms steps | `1500` |
+| `LaunchDelayMs` | Extra pause after each client is up, on top of the automatic wait for its window and game join; 0 to 30000 ms in 500 ms steps | `1500` |
 | `SelectedVersionGuid` | The globally selected Roblox version | none |
 | `VersionsPathOverride` | An alternate local fixed-drive path containing Authenticode-signed Roblox versions | none |
 | `CheckLatestVersionOnline` | Ask Roblox for the latest client version | `true` |
@@ -110,6 +116,7 @@ src/InstanceManager/
   Storage/              Repositories built on JsonFileStore plus SettingsService
   ViewModels/           The MVVM layer, coordinated by ShellViewModel
   Views/                Dialogs (login, confirmations, editors)
+  Controls/             Custom WPF elements (the vector icon set)
   Behaviors/ Converters/ Themes/   WPF helpers and XAML resources
 tests/InstanceManager.Tests/        The xUnit test suite
 .github/workflows/ci.yml            Build and test on windows-latest
@@ -131,13 +138,15 @@ Continuous integration performs locked/audited restore, vulnerable-package repor
 
 The most frequent issues are below. For the full guide, with version, multi-instance, Auto Reconnect, theme, and data problems all covered, see [docs/TROUBLESHOOTING.md](docs/TROUBLESHOOTING.md).
 
-**A launched account immediately fails.** The most common cause is an expired cookie. Remove the account and add it again. A failed account does not block the others in the same run; the rest still launch.
+**A launched account immediately fails.** The most common cause is an expired cookie; the row then says Login expired. Click Add again next to it and sign in. A failed account does not block the others in the same run; the rest still launch.
 
 **Multi-instance is not working.** Something else may already hold the Roblox singleton. Close any running Roblox client and any older helper processes, then try again. The app reestablishes the grip on the next launch or settings change.
 
 **The login window is blank or will not open.** Install or repair the WebView2 Runtime, then reopen the Add Account dialog.
 
 **A cookie cannot be decrypted.** DPAPI ties the encrypted cookie to your Windows user on this machine. If you copied `accounts.json` from another user or another PC, those cookies cannot be read here and the affected accounts will fail at launch. Add them again on this machine.
+
+**Still stuck, or have an idea?** Join the [Instance Manager Discord](https://discord.gg/8XyKcZdSGe) for suggestions, questions, and bug reports (also one click away via the Discord button next to the bell).
 
 ## Privacy and security in short
 
@@ -146,3 +155,5 @@ Your accounts and their cookies never leave your machine except as normal Roblox
 ## License
 
 Proprietary. All rights reserved. The source is published for inspection only. Use, reproduction, modification, and distribution are not permitted without prior written permission.
+
+The interface icons are based on Lucide and Feather; their licenses are reproduced in [docs/THIRD-PARTY-NOTICES.md](docs/THIRD-PARTY-NOTICES.md).

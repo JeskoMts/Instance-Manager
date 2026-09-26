@@ -37,20 +37,6 @@ public partial class GroupViewModel : ObservableObject
         _parent.PersistGroupState(Group);
     }
 
-    [ObservableProperty]
-    private bool isMenuOpen;
-
-    partial void OnIsMenuOpenChanged(bool value)
-    {
-        if (value)
-            _parent.NotifyMenuOpened(this);
-        else
-            _parent.NotifyMenuClosed(this);
-    }
-
-    public void CloseMenu() => IsMenuOpen = false;
-    public void ToggleMenu() => IsMenuOpen = !IsMenuOpen;
-
     public int Count => Accounts.Count;
 
     public void NotifyCountChanged() => OnPropertyChanged(nameof(Count));

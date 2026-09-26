@@ -19,13 +19,13 @@ public sealed class UiRefactorContractTests
     }
 
     [Fact]
-    public void LaunchPanel_UsesNewLabelsAndSingleServerLinkField()
+    public void LaunchPanel_UsesShortModeLabelsAndSingleServerLinkField()
     {
         string main = Read("src", "InstanceManager", "MainWindow.xaml");
 
-        Assert.Contains("Content=\"Game ID (public server)\"", main, StringComparison.Ordinal);
-        Assert.Contains("Content=\"Job ID (specific server)\"", main, StringComparison.Ordinal);
-        Assert.Contains("Enter a Job ID", main, StringComparison.Ordinal);
+        Assert.Contains("Content=\"Game\"", main, StringComparison.Ordinal);
+        Assert.Contains("Content=\"Server\"", main, StringComparison.Ordinal);
+        Assert.Contains("Server link, private server link or Job ID link", main, StringComparison.Ordinal);
         Assert.DoesNotContain("Job ID (GUID)", main, StringComparison.Ordinal);
     }
 

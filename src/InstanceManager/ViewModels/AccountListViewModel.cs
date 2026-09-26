@@ -62,28 +62,6 @@ public partial class AccountListViewModel : ObservableObject
 
     public BulkObservableCollection<object> Rows { get; } = new();
 
-    public ObservableCollection<AccountRowViewModel> RunningInstances { get; } = new();
-
-    [ObservableProperty] private AccountRowViewModel? selectedInstanceToStop;
-
-    partial void OnSelectedInstanceToStopChanged(AccountRowViewModel? value)
-    {
-        if (value == null) return;
-        StopAccount(value);
-        SelectedInstanceToStop = null;
-    }
-
-    private void RefreshRunningInstances()
-    {
-        var running = _allRows.Values
-            .Where(r => r.IsRunning)
-            .OrderBy(r => r.DisplayLabel, StringComparer.OrdinalIgnoreCase)
-            .ToList();
-        RunningInstances.Clear();
-        foreach (var row in running)
-            RunningInstances.Add(row);
-    }
-
     public ObservableCollection<VersionChoiceViewModel> VersionChoices { get; } = new();
 
     private void RebuildVersionChoices()
@@ -117,6 +95,27 @@ public partial class AccountListViewModel : ObservableObject
     public bool ShowNoResults => Groups.Count == 0 && IsSearching;
     public bool HasSelection => SelectedCount > 0;
 
+    public bool? AllSelected
+    {
+        get
+        {
+            int visible = 0, selected = 0;
+            foreach (var row in Groups.SelectMany(g => g.Accounts))
+            {
+                visible++;
+                if (row.IsSelected) selected++;
+            }
+            return selected == 0 || visible == 0 ? false : selected == visible ? true : null;
+        }
+    }
+
+    public string LaunchButtonText => SelectedCount switch
+    {
+        0 => "Launch",
+        1 => "Launch 1 account",
+        _ => $"Launch {SelectedCount} accounts"
+    };
+
     public int RunningCount => _tracker.RunningCount;
     public bool HasRunning => RunningCount > 0;
 
@@ -125,49 +124,73 @@ public partial class AccountListViewModel : ObservableObject
     public IReadOnlyList<Account> SelectedAccounts() =>
         _allRows.Values.Where(r => r.IsSelected).Select(r => r.Account).ToList();
 
+    private bool _bulkSelecting;
+
     public void RecountSelection()
     {
+        if (_bulkSelecting) return;
         SelectedCount = _allRows.Values.Count(r => r.IsSelected);
         OnPropertyChanged(nameof(HasSelection));
+        OnPropertyChanged(nameof(AllSelected));
+        OnPropertyChanged(nameof(LaunchButtonText));
     }
 
-    private object? _openMenuOwner;
-
-    public void NotifyMenuOpened(object owner)
+    private void SetSelection(IEnumerable<AccountRowViewModel> rows, bool value)
     {
-        if (ReferenceEquals(_openMenuOwner, owner)) return;
-        (_openMenuOwner as AccountRowViewModel)?.CloseMenu();
-        (_openMenuOwner as GroupViewModel)?.CloseMenu();
-        _openMenuOwner = owner;
-    }
-
-    public void NotifyMenuClosed(object owner)
-    {
-        if (ReferenceEquals(_openMenuOwner, owner))
-            _openMenuOwner = null;
-    }
-
-    public void CloseOpenMenu()
-    {
-        (_openMenuOwner as AccountRowViewModel)?.CloseMenu();
-        (_openMenuOwner as GroupViewModel)?.CloseMenu();
-        _openMenuOwner = null;
-    }
-
-    [RelayCommand]
-    private void SelectAllVisible()
-    {
-        foreach (var row in Groups.SelectMany(g => g.Accounts))
-            row.IsSelected = true;
+        _bulkSelecting = true;
+        try
+        {
+            foreach (var row in rows)
+                row.IsSelected = value;
+        }
+        finally
+        {
+            _bulkSelecting = false;
+        }
         RecountSelection();
     }
 
     [RelayCommand]
-    private void ClearSelection()
+    private void SelectAllVisible() => SetSelection(Groups.SelectMany(g => g.Accounts), true);
+
+    [RelayCommand]
+    private void ClearSelection() => SetSelection(_allRows.Values, false);
+
+    [RelayCommand]
+    private void ToggleSelectAll()
+    {
+        if (AllSelected == true)
+            ClearSelection();
+        else
+            SelectAllVisible();
+    }
+
+    public void SetLaunchStage(Guid accountId, LaunchStage stage, string? error = null, bool requiresSignIn = false)
+    {
+        if (!_allRows.TryGetValue(accountId, out AccountRowViewModel? row))
+            return;
+        row.LaunchStage = stage is LaunchStage.Started or LaunchStage.Skipped ? null : stage;
+        row.LaunchError = error;
+        row.RequiresSignIn = requiresSignIn;
+    }
+
+    public void ClearLaunchStages()
     {
         foreach (var row in _allRows.Values)
-            row.IsSelected = false;
-        RecountSelection();
+        {
+            row.LaunchStage = null;
+            row.LaunchError = null;
+            row.RequiresSignIn = false;
+        }
+    }
+
+    public void ClearPendingLaunchStages()
+    {
+        foreach (var row in _allRows.Values)
+        {
+            if (row.LaunchStage != LaunchStage.Failed)
+                row.LaunchStage = null;
+        }
     }
 
     [RelayCommand]
@@ -277,18 +300,20 @@ public partial class AccountListViewModel : ObservableObject
         RecountSelection();
         ungrouped.NotifyCountChanged();
         NotifyStateFlags();
-        RefreshRunningInstances();
         RebuildRows();
     }
 
     private void RebuildRows()
     {
+        bool headers = Groups.Any(g => g.HasGroup);
         var rows = new List<object>(_allRows.Count + Groups.Count);
         foreach (var group in Groups)
         {
-            if (group.HasGroup)
+            if (headers)
                 rows.Add(group);
-            if (group.IsExpanded)
+            foreach (var row in group.Accounts)
+                row.IsIndented = headers;
+            if (group.IsExpanded || !headers)
                 rows.AddRange(group.Accounts);
         }
         Rows.Reset(rows);
@@ -345,6 +370,8 @@ public partial class AccountListViewModel : ObservableObject
             existing.Username = account.Username;
             existing.DisplayName = account.DisplayName;
             _accounts.Upsert(existing);
+            if (_allRows.TryGetValue(existing.Id, out AccountRowViewModel? row) && row.RequiresSignIn)
+                SetLaunchStage(existing.Id, LaunchStage.Started);
             _shell.Notify(NotificationId.AccountUpdated, NotificationKind.Success, "Account updated", $"Updated account '{existing.DisplayLabel}'.");
         }
         else
@@ -486,7 +513,12 @@ public partial class AccountListViewModel : ObservableObject
     public void DropAccountOnGroup(AccountRowViewModel row, GroupViewModel targetVm)
     {
         AccountGroup? target = targetVm.Group;
-        if (target == null) return;
+        if (target == null)
+        {
+            if (row.IsGrouped)
+                MoveToGroup(row, null);
+            return;
+        }
 
         if (row.Account.BelongsTo(target.Id))
         {
@@ -571,14 +603,13 @@ public partial class AccountListViewModel : ObservableObject
         var dispatcher = System.Windows.Application.Current?.Dispatcher;
         if (dispatcher != null && !dispatcher.CheckAccess())
         {
-            dispatcher.Invoke(() => OnRunningChanged(accountId, isRunning));
+            dispatcher.BeginInvoke(() => OnRunningChanged(accountId, isRunning));
             return;
         }
 
         if (_allRows.TryGetValue(accountId, out AccountRowViewModel? row))
             row.IsRunning = isRunning;
 
-        RefreshRunningInstances();
         OnPropertyChanged(nameof(RunningCount));
         OnPropertyChanged(nameof(HasRunning));
     }

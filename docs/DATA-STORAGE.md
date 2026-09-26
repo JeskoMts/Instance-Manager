@@ -16,6 +16,8 @@ The data directory is `%APPDATA%\Instance Manager` (the roaming profile, `Enviro
 | `auto-reconnect.log` | A human-readable record of every Auto Reconnect attempt |
 | `binding-errors.log` | WPF data-binding warnings, written only in Debug builds |
 
+Avatar headshots are cached, non-roaming, at `%LOCALAPPDATA%\Instance Manager\avatars\<userId>.png` (a few KB each), so rows show them instantly at startup; a fresh copy is still downloaded every session and replaces the cached one when it changed. The folder is a disposable cache and can be deleted at any time.
+
 WebView2 runtime data is separate and non-roaming at `%LOCALAPPDATA%\Instance Manager\webview`. Login itself uses an InPrivate profile created per dialog and disposed on close, and session data is cleared on every close path.
 
 ### What the app reads outside its data directory
@@ -114,7 +116,7 @@ Each file is consistent on its own thanks to atomic writes, but there are no tra
 
 ## Personal data
 
-The personal data is the Roblox identity (`UserId`, `Username`, `DisplayName`), the free-text `Alias` and `Notes`, and above all the session cookie. The cookie exists only in DPAPI-encrypted form, bound to your Windows user (see [SECURITY.md](SECURITY.md)). The other identity fields sit in plaintext in `accounts.json`. Avatar images are loaded from Roblox on demand, decoded into a small in-memory bitmap, and not stored.
+The personal data is the Roblox identity (`UserId`, `Username`, `DisplayName`), the free-text `Alias` and `Notes`, and above all the session cookie. The cookie exists only in DPAPI-encrypted form, bound to your Windows user (see [SECURITY.md](SECURITY.md)). The other identity fields sit in plaintext in `accounts.json`. Avatar images are public Roblox headshots; they are decoded into a small in-memory bitmap and cached as PNG files in the non-roaming avatar cache described above.
 
 Nothing is sent to third parties. Outbound traffic goes only to the official Roblox endpoints (auth, users, thumbnails, client version). The full list is in [ARCHITECTURE.md](ARCHITECTURE.md).
 
@@ -123,6 +125,7 @@ Nothing is sent to third parties. Outbound traffic goes only to the official Rob
 Data stays until you remove it. There is no automatic expiry.
 
 - Removing an account deletes it from `accounts.json`, including its encrypted cookie. Groups, favorites, and themes are deleted the same way.
+- Cached avatar headshots stay in `%LOCALAPPDATA%\Instance Manager\avatars` after an account is removed; delete the folder to clear them.
 - WebView2 login state is off-the-record. Cookies and browsing data are cleared after success, Cancel, title-bar close, and failures. Legacy roaming WebView state from older releases is deleted best-effort at startup.
 - A full wipe deletes `%APPDATA%\Instance Manager` and `%LOCALAPPDATA%\Instance Manager`.
 

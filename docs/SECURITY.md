@@ -27,11 +27,13 @@ Cookies are encrypted with Windows DPAPI using `DataProtectionScope.CurrentUser`
 
 Plaintext byte buffers used during DPAPI operations are zeroed immediately after use. A plaintext managed string still exists briefly while a cookie is validated or exchanged for a one-time Roblox authentication ticket; .NET strings cannot be reliably wiped in place.
 
-User IDs, usernames, display names, aliases, notes, and organization metadata remain plaintext in `accounts.json`. Only the session cookie is encrypted.
+User IDs, usernames, display names, aliases, notes, and organization metadata remain plaintext in `accounts.json`. Only the session cookie is encrypted. Avatar headshots are public Roblox images and are cached unencrypted as `%LOCALAPPDATA%\Instance Manager\avatars\<userId>.png`; the file name is derived from the numeric user ID only, so it cannot point outside that folder.
 
 ## Network security
 
 The shared `HttpClient` has cookies and automatic redirects disabled. Roblox server links use HTTPS allowlists and manually validate every redirect. Authentication cookies are sent only to fixed Roblox authentication/user endpoints. The operating system performs TLS certificate validation; certificate pinning is deliberately not used because there is no maintained emergency pin-update channel.
+
+The only non-Roblox address in the app is the fixed `https://discord.gg/` community invite. It opens in the default browser only when the Discord button is clicked; the app itself sends no request there.
 
 Avatar and game-image URLs must be HTTPS on `rbxcdn.com` or its subdomains. Image bodies are streamed through a strict five-megabyte limit, including responses without `Content-Length` and decompressed responses.
 
@@ -55,6 +57,8 @@ Every `RobloxPlayerBeta.exe` is checked both during discovery and immediately be
 - Windows `WinVerifyTrust` accepts the embedded Authenticode signature.
 - The signer identity is Roblox Corporation.
 
+Hashing the ~140 MB client costs about half a second of CPU, so a successful check is not simply repeated. Instead, the verified file is kept open with writes denied (reads and deletion stay shared, so Roblox can still remove old versions). Its contents therefore cannot change after the check. Every later check still runs all path rules above and confirms, by volume serial and 128-bit file ID, that the path names that same pinned file; a replaced, renamed, or deleted file is verified from scratch. The pins are released when the app exits.
+
 `ProcessStartInfo.ArgumentList` is used rather than a shell command, so launch data is one process argument rather than command text.
 
 ## Logging
@@ -65,13 +69,13 @@ Cookies and authentication tickets are never logged. `auto-reconnect.log` contai
 
 Package versions are locked with `packages.lock.json`. NuGet audit warnings `NU1901` through `NU1904` are build errors. CI restores in locked mode, scans source and release archives for secret/key patterns and forbidden runtime data, reports direct and transitive vulnerable packages, builds Release, and runs the test suite with read-only repository permissions.
 
-As of June 24, 2026, the configured NuGet advisory sources report no known vulnerable direct or transitive packages.
+As of September 27, 2026, the configured NuGet advisory sources report no known vulnerable direct or transitive packages.
 
 ## Residual risks
 
 - Code already running as the same Windows user can use that user's DPAPI context. The app cannot create a trustworthy second security boundary without a separate credential or hardware-backed user-presence flow.
 - The one-time Roblox authentication ticket is briefly present in the Roblox process command line because the Roblox launch protocol requires it. It is short-lived and single-use.
-- Revalidating the executable immediately before `Process.Start` reduces but cannot mathematically eliminate a same-user time-of-check/time-of-use race.
+- Revalidating the executable immediately before `Process.Start` reduces but cannot mathematically eliminate a same-user time-of-check/time-of-use race. Pinning the verified file against writes rules out in-place modification; swapping the path to a different file between the final identity check and `Process.Start` remains theoretically possible.
 - A valid signed Roblox directory could theoretically contain vulnerable or maliciously replaced sidecar content. The executable signature is verified, but the app does not maintain a signed manifest for every Roblox installation file.
 - Plaintext identity and note fields remain visible to anyone who can read the Windows profile.
 

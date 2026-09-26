@@ -23,15 +23,27 @@ public sealed class XamlInteractionContractTests
     }
 
     [Fact]
-    public void MainWindow_ReleasesSharedSearchFocusWhenClickingOutside()
+    public void MainWindow_ReleasesAnyTextFieldFocusWhenClickingOutside()
     {
         string code = File.ReadAllText(FindWorkspaceFile("src", "InstanceManager", "MainWindow.xaml.cs"));
+        string mouseDown = Slice(code, "protected override void OnPreviewMouseDown", "base.OnPreviewMouseDown(e);");
+        string release = Slice(code, "private void ReleaseTextFocus()", "}");
 
-        Assert.Contains("protected override void OnPreviewMouseDown", code, StringComparison.Ordinal);
-        Assert.Contains("Keyboard.FocusedElement is TextBox focusedSearch", code, StringComparison.Ordinal);
-        Assert.Contains("TryFindResource(\"SearchTextBox\")", code, StringComparison.Ordinal);
-        Assert.Contains("!IsDescendantOrSelf(originalSource, focusedSearch)", code, StringComparison.Ordinal);
-        Assert.Contains("Keyboard.ClearFocus()", code, StringComparison.Ordinal);
+        Assert.Contains("Keyboard.FocusedElement is TextBoxBase editing", mouseDown, StringComparison.Ordinal);
+        Assert.Contains("!IsDescendantOrSelf(originalSource, editing)", mouseDown, StringComparison.Ordinal);
+        Assert.DoesNotContain("SearchTextBox", mouseDown, StringComparison.Ordinal);
+        Assert.Contains("FocusManager.SetFocusedElement(this, null)", release, StringComparison.Ordinal);
+        Assert.Contains("Keyboard.ClearFocus()", release, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void ModernSlider_FollowsPressAndHoldAnywhereOnTheTrack()
+    {
+        string controls = File.ReadAllText(FindWorkspaceFile("src", "InstanceManager", "Themes", "Controls.xaml"));
+        string slider = Slice(controls, "x:Key=\"ModernSlider\"", "<Setter Property=\"Template\">");
+
+        Assert.Contains("<Setter Property=\"behaviors:SliderPressDrag.Enabled\" Value=\"True\" />", slider, StringComparison.Ordinal);
+        Assert.DoesNotContain("IsMoveToPointEnabled", slider, StringComparison.Ordinal);
     }
 
     [Fact]
@@ -50,7 +62,7 @@ public sealed class XamlInteractionContractTests
     }
 
     [Fact]
-    public void TabIndicator_IsCenteredUnderTabLabels()
+    public void TabButton_ActiveStateIsAnAnimatedPillWithoutBorders()
     {
         XDocument document = XDocument.Load(FindWorkspaceFile("src", "InstanceManager", "Themes", "Controls.xaml"));
         XNamespace presentation = "http://schemas.microsoft.com/winfx/2006/xaml/presentation";
@@ -58,12 +70,12 @@ public sealed class XamlInteractionContractTests
 
         XElement tabStyle = Assert.Single(document.Descendants(presentation + "Style"),
             element => (string?)element.Attribute(xaml + "Key") == "TabButton");
-        XElement indicator = Assert.Single(tabStyle.Descendants(presentation + "Border"),
-            element => (string?)element.Attribute(xaml + "Name") == "Indicator");
+        XElement pill = Assert.Single(tabStyle.Descendants(presentation + "Border"),
+            element => (string?)element.Attribute(xaml + "Name") == "Pill");
 
-        Assert.Equal("56", (string?)indicator.Attribute("Width"));
-        Assert.Equal("Center", (string?)indicator.Attribute("HorizontalAlignment"));
-        Assert.Equal("24,0,0,0", (string?)indicator.Attribute("Margin"));
+        Assert.Equal("0", (string?)pill.Attribute("Opacity"));
+        Assert.Contains(tabStyle.Descendants(presentation + "DoubleAnimation"),
+            animation => (string?)animation.Attribute("Storyboard.TargetName") == "Pill");
     }
 
     [Fact]
@@ -146,59 +158,70 @@ public sealed class XamlInteractionContractTests
         string main = File.ReadAllText(FindWorkspaceFile("src", "InstanceManager", "MainWindow.xaml"));
         string addAccount = File.ReadAllText(FindWorkspaceFile("src", "InstanceManager", "Views", "AddAccountWindow.xaml"));
 
-        foreach (string styleName in new[] { "IconButton", "InlineMenuItem", "SegmentRadio" })
+        string ghost = Slice(controls, "x:Key=\"GhostButton\"", "</Style>");
+        Assert.Contains("BorderBrush=", ghost, StringComparison.Ordinal);
+        Assert.Contains("BorderThickness=", ghost, StringComparison.Ordinal);
+
+        foreach (string styleName in new[] { "IconButton", "TabButton" })
         {
             string style = Slice(controls, $"x:Key=\"{styleName}\"", "</Style>");
-            Assert.Contains("BorderBrush=", style, StringComparison.Ordinal);
-            Assert.Contains("BorderThickness=", style, StringComparison.Ordinal);
+            Assert.DoesNotContain("BorderThickness=", style, StringComparison.Ordinal);
         }
-
-        string tabButton = Slice(controls, "x:Key=\"TabButton\"", "</Style>");
-        Assert.DoesNotContain("BorderBrush=", tabButton, StringComparison.Ordinal);
-        Assert.DoesNotContain("BorderThickness=", tabButton, StringComparison.Ordinal);
 
         string captionButton = Slice(main, "x:Key=\"CaptionButton\"", "</Style>");
         Assert.DoesNotContain("BorderBrush=", captionButton, StringComparison.Ordinal);
         Assert.DoesNotContain("BorderThickness=", captionButton, StringComparison.Ordinal);
 
-        foreach (string styleName in new[] { "UndoButton" })
-        {
-            string style = Slice(main, $"x:Key=\"{styleName}\"", "</Style>");
-            Assert.Contains("BorderBrush=", style, StringComparison.Ordinal);
-            Assert.Contains("BorderThickness=", style, StringComparison.Ordinal);
-        }
+        string undo = Slice(main, "x:Key=\"UndoButton\"", "</Style>");
+        Assert.Contains("BorderBrush=", undo, StringComparison.Ordinal);
+        Assert.Contains("BorderThickness=", undo, StringComparison.Ordinal);
 
         Assert.Contains("Style=\"{StaticResource CaptionButton}\"", addAccount, StringComparison.Ordinal);
         Assert.DoesNotContain("BorderThickness=\"0\"", addAccount, StringComparison.Ordinal);
     }
 
     [Fact]
-    public void InlineActionMenus_CloseOnOutsideClick_AndKeepRenameDeleteUnseparated()
+    public void AccountRows_ShowOneActionPlusOverflowMenu_WithoutPerRowCombos()
     {
         string xaml = File.ReadAllText(FindWorkspaceFile("src", "InstanceManager", "MainWindow.xaml"));
         string code = File.ReadAllText(FindWorkspaceFile("src", "InstanceManager", "MainWindow.xaml.cs"));
+        string row = Slice(xaml, "<DataTemplate DataType=\"{x:Type vm:AccountRowViewModel}\">", "</DataTemplate>");
 
-        string groupMenu = Slice(xaml, "Command=\"{Binding RenameGroupCommand}\"", "Command=\"{Binding DeleteGroupCommand}\"");
-        Assert.DoesNotContain("Height=\"1\"", groupMenu, StringComparison.Ordinal);
+        Assert.DoesNotContain("<ComboBox", row, StringComparison.Ordinal);
+        Assert.DoesNotContain("InlineActionMenu", xaml, StringComparison.Ordinal);
+        Assert.Contains("Command=\"{Binding LaunchCommand}\"", row, StringComparison.Ordinal);
+        Assert.Contains("Command=\"{Binding StopCommand}\"", row, StringComparison.Ordinal);
+        Assert.Contains("Click=\"AccountMenu_Click\"", row, StringComparison.Ordinal);
+        Assert.Contains("MouseRightButtonUp=\"AccountRow_RightClick\"", row, StringComparison.Ordinal);
 
-        string accountRemoveLeadIn = Slice(xaml, "Command=\"{Binding RenameCommand}\"", "Command=\"{Binding RemoveCommand}\"");
-        Assert.DoesNotContain("Height=\"1\" Background=\"{DynamicResource Brush.Border}\"", accountRemoveLeadIn, StringComparison.Ordinal);
-
-        Assert.Contains("Tag=\"InlineActionMenu\"", xaml, StringComparison.Ordinal);
-        Assert.Contains("Tag=\"InlineMenuToggle\"", xaml, StringComparison.Ordinal);
-        Assert.Contains("CloseOpenMenu()", code, StringComparison.Ordinal);
-        Assert.Contains("IsInsideInlineActionMenu", code, StringComparison.Ordinal);
+        string menu = Slice(code, "private void OpenAccountMenu", "private void OpenGroupMenu");
+        Assert.Contains("\"Roblox version\"", menu, StringComparison.Ordinal);
+        Assert.Contains("\"Groups\"", menu, StringComparison.Ordinal);
+        Assert.Contains("row.RemoveCommand", menu, StringComparison.Ordinal);
     }
 
     [Fact]
-    public void LaunchDock_UsesSpacedModeSegmentsAndPlainLaunchSelectedText()
+    public void AccountRows_HaveNoLoadAnimation_SoScrollingStaysCheap()
+    {
+        string xaml = File.ReadAllText(FindWorkspaceFile("src", "InstanceManager", "MainWindow.xaml"));
+        string list = Slice(xaml, "x:Name=\"AccountsList\"", "</ListBox>");
+
+        Assert.DoesNotContain("RoutedEvent=\"Loaded\"", list, StringComparison.Ordinal);
+        Assert.Contains("VirtualizingPanel.VirtualizationMode=\"Recycling\"", list, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void LaunchBar_IsOneRowWithModeSwitchProgressAndCancel()
     {
         string xaml = File.ReadAllText(FindWorkspaceFile("src", "InstanceManager", "MainWindow.xaml"));
 
-        string jobSegment = Slice(xaml, "Content=\"Job ID (specific server)\"", "/>");
-        Assert.Contains("Margin=\"4,0,0,0\"", jobSegment, StringComparison.Ordinal);
-        Assert.Contains("<TextBlock Text=\"Launch selected\" VerticalAlignment=\"Center\" />", xaml, StringComparison.Ordinal);
-        Assert.DoesNotContain("<Run Text=\"Launch selected (\"", xaml, StringComparison.Ordinal);
+        Assert.Contains("Content=\"Game\"", xaml, StringComparison.Ordinal);
+        Assert.Contains("Content=\"Server\"", xaml, StringComparison.Ordinal);
+        Assert.Contains("{Binding AccountList.LaunchButtonText}", xaml, StringComparison.Ordinal);
+        Assert.Contains("{Binding LaunchProgress}", xaml, StringComparison.Ordinal);
+        Assert.Contains("Command=\"{Binding CancelLaunchCommand}\"", xaml, StringComparison.Ordinal);
+        Assert.DoesNotContain("StopInstanceComboBox", xaml, StringComparison.Ordinal);
+        Assert.DoesNotContain("Stop an instance", xaml, StringComparison.Ordinal);
     }
 
     [Fact]
@@ -233,8 +256,7 @@ public sealed class XamlInteractionContractTests
 
         Assert.Equal("Disabled", (string?)scroller.Attribute("HorizontalScrollBarVisibility"));
         Assert.Equal("Stretch", (string?)scroller.Attribute("HorizontalContentAlignment"));
-        Assert.Equal("16,12,16,16", (string?)content.Attribute("Margin"));
-        Assert.Null(content.Attribute("MaxWidth"));
+        Assert.Equal("760", (string?)content.Attribute("MaxWidth"));
         Assert.Equal(
             "{Binding ActualWidth, RelativeSource={RelativeSource AncestorType=ListBox}, Converter={StaticResource ThemeGridColumns}}",
             (string?)themeGrid.Attribute("Columns"));
@@ -291,11 +313,11 @@ public sealed class XamlInteractionContractTests
     }
 
     [Fact]
-    public void AccountSelectionActions_LiveInLaunchDockWithoutSelectionBar()
+    public void AccountSelection_HeaderOffersSelectAllClearAndLaunch()
     {
         string xaml = File.ReadAllText(FindWorkspaceFile("src", "InstanceManager", "MainWindow.xaml"));
 
-        Assert.DoesNotContain("AccountList.HasSelection", xaml, StringComparison.Ordinal);
+        Assert.Contains("AccountList.ToggleSelectAllCommand", xaml, StringComparison.Ordinal);
         Assert.Contains("AccountList.SelectAllVisibleCommand", xaml, StringComparison.Ordinal);
         Assert.Contains("AccountList.ClearSelectionCommand", xaml, StringComparison.Ordinal);
         Assert.Contains("LaunchSelectedCommand", xaml, StringComparison.Ordinal);

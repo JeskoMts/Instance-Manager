@@ -17,7 +17,7 @@ public sealed class RobloxGamesService : IRobloxGamesService
     private const int MaxImageBytes = 5 * 1024 * 1024;
     private const string GamesDetailsUrl = "https://games.roblox.com/v1/games?universeIds=";
     private const string ThumbnailsUrl =
-        "https://thumbnails.roblox.com/v1/games/multiget/thumbnails?countPerUniverse=1&size=768x432&format=Png&defaults=true&universeIds=";
+        "https://thumbnails.roblox.com/v1/games/multiget/thumbnails?countPerUniverse=1&size=480x270&format=Jpeg&defaults=true&universeIds=";
     private const string PlaceToUniverseUrl = "https://apis.roblox.com/universes/v1/places/{0}/universe";
 
     private const string ExploreSortsUrl = "https://apis.roblox.com/explore-api/v1/get-sorts?sessionId=";
@@ -50,10 +50,10 @@ public sealed class RobloxGamesService : IRobloxGamesService
     {
         try
         {
-            IReadOnlyList<long> live = await TryGetPopularUniverseIdsAsync(cancellationToken);
+            IReadOnlyList<long> live = await TryGetPopularUniverseIdsAsync(cancellationToken).ConfigureAwait(false);
             if (live.Count > 0)
             {
-                IReadOnlyList<GameInfo> games = await EnrichAsync(live, cancellationToken);
+                IReadOnlyList<GameInfo> games = await EnrichAsync(live, cancellationToken).ConfigureAwait(false);
                 if (games.Count > 0)
                     return games;
             }
@@ -64,8 +64,8 @@ public sealed class RobloxGamesService : IRobloxGamesService
 
         try
         {
-            IReadOnlyList<long> curated = await ResolvePlacesToUniversesAsync(CuratedPlaceIds, cancellationToken);
-            return await EnrichAsync(curated, cancellationToken);
+            IReadOnlyList<long> curated = await ResolvePlacesToUniversesAsync(CuratedPlaceIds, cancellationToken).ConfigureAwait(false);
+            return await EnrichAsync(curated, cancellationToken).ConfigureAwait(false);
         }
         catch (Exception ex) when (ex is HttpRequestException or TaskCanceledException or JsonException or NotSupportedException)
         {
@@ -80,16 +80,16 @@ public sealed class RobloxGamesService : IRobloxGamesService
 
         if (GameLinkParser.TryParsePlaceId(query, out long placeId))
         {
-            long? universeId = await ResolvePlaceToUniverseAsync(placeId, cancellationToken);
+            long? universeId = await ResolvePlaceToUniverseAsync(placeId, cancellationToken).ConfigureAwait(false);
             return universeId is long u
-                ? await EnrichAsync(new[] { u }, cancellationToken)
+                ? await EnrichAsync(new[] { u }, cancellationToken).ConfigureAwait(false)
                 : Array.Empty<GameInfo>();
         }
 
         try
         {
-            IReadOnlyList<long> ids = await TryGetSearchUniverseIdsAsync(query.Trim(), cancellationToken);
-            return ids.Count == 0 ? Array.Empty<GameInfo>() : await EnrichAsync(ids, cancellationToken);
+            IReadOnlyList<long> ids = await TryGetSearchUniverseIdsAsync(query.Trim(), cancellationToken).ConfigureAwait(false);
+            return ids.Count == 0 ? Array.Empty<GameInfo>() : await EnrichAsync(ids, cancellationToken).ConfigureAwait(false);
         }
         catch (Exception ex) when (ex is HttpRequestException or TaskCanceledException or JsonException or NotSupportedException)
         {
@@ -104,14 +104,14 @@ public sealed class RobloxGamesService : IRobloxGamesService
 
         try
         {
-            using HttpResponseMessage response = await _http.GetAsync(uri, cancellationToken);
+            using HttpResponseMessage response = await _http.GetAsync(uri, cancellationToken).ConfigureAwait(false);
             if (!response.IsSuccessStatusCode)
                 return null;
 
             byte[]? bytes = await BoundedHttpContentReader.ReadAsync(
                 response.Content,
                 MaxImageBytes,
-                cancellationToken);
+                cancellationToken).ConfigureAwait(false);
             return bytes is { Length: > 0 } ? bytes : null;
         }
         catch (Exception ex) when (ex is HttpRequestException or TaskCanceledException or IOException)
@@ -128,11 +128,11 @@ public sealed class RobloxGamesService : IRobloxGamesService
 
         string joined = string.Join(",", ids);
 
-        Dictionary<long, GameDetail> details = await LoadDetailsAsync(joined, cancellationToken);
+        Dictionary<long, GameDetail> details = await LoadDetailsAsync(joined, cancellationToken).ConfigureAwait(false);
         if (details.Count == 0)
             return Array.Empty<GameInfo>();
 
-        Dictionary<long, string> thumbnails = await LoadThumbnailUrlsAsync(joined, cancellationToken);
+        Dictionary<long, string> thumbnails = await LoadThumbnailUrlsAsync(joined, cancellationToken).ConfigureAwait(false);
 
         var result = new List<GameInfo>(ids.Length);
         foreach (long id in ids)
@@ -155,11 +155,11 @@ public sealed class RobloxGamesService : IRobloxGamesService
     private async Task<Dictionary<long, GameDetail>> LoadDetailsAsync(string joinedIds, CancellationToken cancellationToken)
     {
         var map = new Dictionary<long, GameDetail>();
-        using HttpResponseMessage response = await _http.GetAsync(GamesDetailsUrl + joinedIds, cancellationToken);
+        using HttpResponseMessage response = await _http.GetAsync(GamesDetailsUrl + joinedIds, cancellationToken).ConfigureAwait(false);
         if (!response.IsSuccessStatusCode)
             return map;
 
-        DetailsResponse? payload = await response.Content.ReadFromJsonAsync<DetailsResponse>(cancellationToken);
+        DetailsResponse? payload = await response.Content.ReadFromJsonAsync<DetailsResponse>(cancellationToken).ConfigureAwait(false);
         if (payload?.Data == null)
             return map;
 
@@ -176,11 +176,11 @@ public sealed class RobloxGamesService : IRobloxGamesService
         var map = new Dictionary<long, string>();
         try
         {
-            using HttpResponseMessage response = await _http.GetAsync(ThumbnailsUrl + joinedIds, cancellationToken);
+            using HttpResponseMessage response = await _http.GetAsync(ThumbnailsUrl + joinedIds, cancellationToken).ConfigureAwait(false);
             if (!response.IsSuccessStatusCode)
                 return map;
 
-            ThumbnailsResponse? payload = await response.Content.ReadFromJsonAsync<ThumbnailsResponse>(cancellationToken);
+            ThumbnailsResponse? payload = await response.Content.ReadFromJsonAsync<ThumbnailsResponse>(cancellationToken).ConfigureAwait(false);
             if (payload?.Data == null)
                 return map;
 
@@ -203,11 +203,11 @@ public sealed class RobloxGamesService : IRobloxGamesService
         try
         {
             string url = string.Format(CultureInfo.InvariantCulture, PlaceToUniverseUrl, placeId);
-            using HttpResponseMessage response = await _http.GetAsync(url, cancellationToken);
+            using HttpResponseMessage response = await _http.GetAsync(url, cancellationToken).ConfigureAwait(false);
             if (!response.IsSuccessStatusCode)
                 return null;
 
-            UniverseResponse? payload = await response.Content.ReadFromJsonAsync<UniverseResponse>(cancellationToken);
+            UniverseResponse? payload = await response.Content.ReadFromJsonAsync<UniverseResponse>(cancellationToken).ConfigureAwait(false);
             return payload?.UniverseId is long u && u > 0 ? u : null;
         }
         catch (Exception ex) when (ex is HttpRequestException or TaskCanceledException or JsonException or NotSupportedException)
@@ -218,17 +218,17 @@ public sealed class RobloxGamesService : IRobloxGamesService
 
     private async Task<IReadOnlyList<long>> ResolvePlacesToUniversesAsync(IReadOnlyList<long> placeIds, CancellationToken cancellationToken)
     {
-        long?[] resolved = await Task.WhenAll(placeIds.Select(p => ResolvePlaceToUniverseAsync(p, cancellationToken)));
+        long?[] resolved = await Task.WhenAll(placeIds.Select(p => ResolvePlaceToUniverseAsync(p, cancellationToken))).ConfigureAwait(false);
         return resolved.Where(u => u.HasValue).Select(u => u!.Value).ToList();
     }
 
     private async Task<IReadOnlyList<long>> TryGetPopularUniverseIdsAsync(CancellationToken cancellationToken)
     {
-        using HttpResponseMessage response = await _http.GetAsync(ExploreSortsUrl + Guid.NewGuid().ToString("N"), cancellationToken);
+        using HttpResponseMessage response = await _http.GetAsync(ExploreSortsUrl + Guid.NewGuid().ToString("N"), cancellationToken).ConfigureAwait(false);
         if (!response.IsSuccessStatusCode)
             return Array.Empty<long>();
 
-        ExploreSortsResponse? payload = await response.Content.ReadFromJsonAsync<ExploreSortsResponse>(cancellationToken);
+        ExploreSortsResponse? payload = await response.Content.ReadFromJsonAsync<ExploreSortsResponse>(cancellationToken).ConfigureAwait(false);
         if (payload?.Sorts == null)
             return Array.Empty<long>();
 
@@ -254,10 +254,10 @@ public sealed class RobloxGamesService : IRobloxGamesService
 
         try
         {
-            using HttpResponseMessage response = await _http.GetAsync(GamesListUrl + encoded, cancellationToken);
+            using HttpResponseMessage response = await _http.GetAsync(GamesListUrl + encoded, cancellationToken).ConfigureAwait(false);
             if (response.IsSuccessStatusCode)
             {
-                GamesListResponse? payload = await response.Content.ReadFromJsonAsync<GamesListResponse>(cancellationToken);
+                GamesListResponse? payload = await response.Content.ReadFromJsonAsync<GamesListResponse>(cancellationToken).ConfigureAwait(false);
                 List<long> ids = payload?.Games?
                     .Where(g => g.UniverseId > 0)
                     .Select(g => g.UniverseId)
@@ -273,11 +273,11 @@ public sealed class RobloxGamesService : IRobloxGamesService
         }
 
         using HttpResponseMessage omni = await _http.GetAsync(
-            OmniSearchUrl + encoded + "&sessionId=" + Guid.NewGuid().ToString("N"), cancellationToken);
+            OmniSearchUrl + encoded + "&sessionId=" + Guid.NewGuid().ToString("N"), cancellationToken).ConfigureAwait(false);
         if (!omni.IsSuccessStatusCode)
             return Array.Empty<long>();
 
-        OmniSearchResponse? omniPayload = await omni.Content.ReadFromJsonAsync<OmniSearchResponse>(cancellationToken);
+        OmniSearchResponse? omniPayload = await omni.Content.ReadFromJsonAsync<OmniSearchResponse>(cancellationToken).ConfigureAwait(false);
         if (omniPayload?.SearchResults == null)
             return Array.Empty<long>();
 

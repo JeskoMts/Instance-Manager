@@ -11,7 +11,7 @@ public sealed class RobloxExecutableValidatorTests
     public void TryValidate_AcceptsTrustedRobloxNamedFileInsideRoot()
     {
         using var fixture = new ExecutableFixture();
-        var validator = new RobloxExecutableValidator(_ => true);
+        using var validator = new RobloxExecutableValidator(_ => true);
 
         bool valid = validator.TryValidate(fixture.Root, fixture.PlayerPath, out string error);
 
@@ -24,7 +24,7 @@ public sealed class RobloxExecutableValidatorTests
         using var fixture = new ExecutableFixture();
         string outside = Path.Combine(fixture.Parent, "RobloxPlayerBeta.exe");
         File.WriteAllText(outside, "stub");
-        var validator = new RobloxExecutableValidator(_ => true);
+        using var validator = new RobloxExecutableValidator(_ => true);
 
         bool valid = validator.TryValidate(fixture.Root, outside, out _);
 
@@ -37,7 +37,7 @@ public sealed class RobloxExecutableValidatorTests
         using var fixture = new ExecutableFixture();
         string renamed = Path.Combine(Path.GetDirectoryName(fixture.PlayerPath)!, "RobloxPlayerLauncher.exe");
         File.WriteAllText(renamed, "stub");
-        var validator = new RobloxExecutableValidator(_ => true);
+        using var validator = new RobloxExecutableValidator(_ => true);
 
         bool valid = validator.TryValidate(fixture.Root, renamed, out _);
 
@@ -48,11 +48,30 @@ public sealed class RobloxExecutableValidatorTests
     public void TryValidate_RejectsFileWhoseAuthenticodeTrustFails()
     {
         using var fixture = new ExecutableFixture();
-        var validator = new RobloxExecutableValidator(_ => false);
+        using var validator = new RobloxExecutableValidator(_ => false);
 
         bool valid = validator.TryValidate(fixture.Root, fixture.PlayerPath, out _);
 
         Assert.False(valid);
+    }
+
+    [Fact]
+    public void TryValidate_HashesAnUnchangedClientOnce_ButRechecksAReplacedOne()
+    {
+        using var fixture = new ExecutableFixture();
+        int checks = 0;
+        using var validator = new RobloxExecutableValidator(_ => { checks++; return true; });
+
+        Assert.True(validator.TryValidate(fixture.Root, fixture.PlayerPath, out _));
+        Assert.True(validator.TryValidate(fixture.Root, fixture.PlayerPath, out _));
+        Assert.Equal(1, checks);
+
+        Assert.ThrowsAny<IOException>(() => File.WriteAllText(fixture.PlayerPath, "tampered"));
+        File.Delete(fixture.PlayerPath);
+        File.WriteAllText(fixture.PlayerPath, "replacement");
+
+        Assert.True(validator.TryValidate(fixture.Root, fixture.PlayerPath, out _));
+        Assert.Equal(2, checks);
     }
 
     private sealed class ExecutableFixture : IDisposable

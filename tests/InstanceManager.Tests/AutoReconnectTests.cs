@@ -84,6 +84,27 @@ public sealed class AutoReconnectTests
     }
 
     [Fact]
+    public void LogWatcher_ReadsOnlyLinesAppendedSinceTheLastPoll()
+    {
+        string tempDir = Path.Combine(Path.GetTempPath(), "instance-manager-tests", Guid.NewGuid().ToString("N"));
+        Directory.CreateDirectory(tempDir);
+        DateTime launchUtc = new(2026, 6, 23, 12, 0, 0, DateTimeKind.Utc);
+        string log = Path.Combine(tempDir, $"0.726.0.7261140_{Stamp(launchUtc)}_Player_T_last.log");
+        File.WriteAllText(log, "[FLog::Network] Replicator created\n");
+
+        var detected = new List<RobloxSessionSignal>();
+        using var watcher = new RobloxLogWatcher(tempDir, launchUtc);
+        watcher.Detected += detected.Add;
+
+        Poll(watcher);
+        File.AppendAllText(log, "noise\nDisconnect reason received: 267\n");
+        Poll(watcher);
+        Poll(watcher);
+
+        Assert.Equal(new[] { RobloxSessionSignal.InGame, RobloxSessionSignal.Kicked }, detected);
+    }
+
+    [Fact]
     public void TwoWatchers_BindDistinctLogs_WhenSecondLogIsCreatedLate()
     {
         string tempDir = Path.Combine(Path.GetTempPath(), "instance-manager-tests", Guid.NewGuid().ToString("N"));
@@ -710,6 +731,59 @@ public sealed class AutoReconnectTests
 
         Assert.False(back!.AutoReconnectEnabled);
     }
+
+    [Fact]
+    public async Task WaitForJoin_ResolvesOnceTheClientReportsInGame()
+    {
+        using var tracker = new InstanceTracker();
+        using AutoReconnectService service = CreateJoinService(tracker);
+        var account = new Account { UserId = 71, Username = "joiner" };
+        service.RegisterLaunch(account, ServerTarget.Public(1), JoinTestVersion(), Process.GetCurrentProcess());
+
+        Task<bool> wait = service.WaitForJoinAsync(account.Id, TimeSpan.FromSeconds(30));
+        Assert.False(wait.IsCompleted);
+
+        Signal(service, account.Id, RobloxSessionSignal.InGame);
+
+        Assert.True(await wait.WaitAsync(TimeSpan.FromSeconds(5)));
+    }
+
+    [Fact]
+    public async Task WaitForJoin_ResolvesFalse_OnErrorTimeoutOrUnknownAccount()
+    {
+        using var tracker = new InstanceTracker();
+        using AutoReconnectService service = CreateJoinService(tracker);
+        var account = new Account { UserId = 72, Username = "dropper" };
+        service.RegisterLaunch(account, ServerTarget.Public(1), JoinTestVersion(), Process.GetCurrentProcess());
+
+        Assert.False(await service.WaitForJoinAsync(account.Id, TimeSpan.FromMilliseconds(100)));
+        Assert.False(await service.WaitForJoinAsync(Guid.NewGuid(), TimeSpan.FromSeconds(30)));
+
+        Task<bool> wait = service.WaitForJoinAsync(account.Id, TimeSpan.FromSeconds(30));
+        Signal(service, account.Id, RobloxSessionSignal.Error);
+        Assert.False(await wait.WaitAsync(TimeSpan.FromSeconds(5)));
+    }
+
+    private static AutoReconnectService CreateJoinService(InstanceTracker tracker)
+    {
+        string tempDir = Path.Combine(Path.GetTempPath(), "instance-manager-tests", Guid.NewGuid().ToString("N"));
+        Directory.CreateDirectory(tempDir);
+        var settings = new FakeSettingsService();
+        settings.Settings.AutoReconnectMaster = false;
+        return new AutoReconnectService(
+            tracker,
+            settings,
+            new AutoReconnectLog(Path.Combine(tempDir, "auto-reconnect.log")),
+            launchUtc => new RobloxLogWatcher(tempDir, launchUtc));
+    }
+
+    private static RobloxVersion JoinTestVersion() => new()
+    {
+        FolderPath = AppContext.BaseDirectory,
+        VersionGuid = "version-test",
+        PlayerExePath = Environment.ProcessPath ?? "dotnet",
+        FileVersion = "test"
+    };
 
     private static void Signal(AutoReconnectService service, Guid accountId, RobloxSessionSignal signal)
     {

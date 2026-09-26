@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using System.Collections.ObjectModel;
 using System.Linq;
 using System.Threading.Tasks;
@@ -34,16 +35,24 @@ public partial class VersionBarViewModel : ObservableObject
         }
     }
 
-    public Task InitializeAsync()
-    {
-        RefreshVersions();
-        return Task.CompletedTask;
-    }
+    public Task InitializeAsync() => RefreshVersionsAsync();
+
+    public void RefreshVersions() => Apply(_versions.Enumerate(_settings.Settings.VersionsPathOverride));
 
     [RelayCommand]
-    public void RefreshVersions()
+    public async Task RefreshVersionsAsync()
     {
-        var found = _versions.Enumerate(_settings.Settings.VersionsPathOverride);
+        string? overridePath = _settings.Settings.VersionsPathOverride;
+        IReadOnlyList<RobloxVersion> found = await Task.Run(() => _versions.Enumerate(overridePath));
+        Apply(found);
+    }
+
+    private void Apply(IReadOnlyList<RobloxVersion> found)
+    {
+        if (found.Select(v => (v.VersionGuid, v.FileVersion))
+                 .SequenceEqual(Versions.Select(v => (v.VersionGuid, v.FileVersion))))
+            return;
+
         Versions.Clear();
         foreach (var v in found)
             Versions.Add(v);

@@ -152,6 +152,10 @@ public partial class LaunchPanelViewModel : ObservableObject
 
     public Task<ServerTargetResolution> ResolveTargetAsync(CancellationToken cancellationToken = default)
     {
+        string input = SelectedMode == JoinMode.PrivateByJobId ? JobIdInput : TargetInput;
+        if (string.IsNullOrWhiteSpace(input))
+            return Task.FromResult(ServerTargetResolution.Success(ServerTarget.Home()));
+
         if (SelectedMode == JoinMode.PrivateByJobId)
         {
             return _serverLinks != null

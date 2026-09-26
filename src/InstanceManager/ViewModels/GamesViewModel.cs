@@ -23,7 +23,7 @@ public partial class GamesViewModel : ObservableObject
         _shell = shell;
     }
 
-    public ObservableCollection<GameCardViewModel> Games { get; } = new();
+    public BulkObservableCollection<GameCardViewModel> Games { get; } = new();
 
     [ObservableProperty] private string searchText = string.Empty;
     [ObservableProperty] private bool isLoading;
@@ -80,7 +80,7 @@ public partial class GamesViewModel : ObservableObject
             IReadOnlyList<GameInfo> results = await _games.SearchAsync(query, token);
             if (token.IsCancellationRequested)
                 return;
-            Populate(results);
+            Populate(results, token);
         }
         finally
         {
@@ -97,7 +97,7 @@ public partial class GamesViewModel : ObservableObject
             IReadOnlyList<GameInfo> results = await _games.GetPopularAsync(token);
             if (token.IsCancellationRequested)
                 return;
-            Populate(results);
+            Populate(results, token);
         }
         finally
         {
@@ -106,20 +106,21 @@ public partial class GamesViewModel : ObservableObject
         }
     }
 
-    private void Populate(IReadOnlyList<GameInfo> infos)
+    private void Populate(IReadOnlyList<GameInfo> infos, CancellationToken token)
     {
-        Games.Clear();
         long? selectedPlaceId = CurrentTargetPlaceId();
+        var cards = new List<GameCardViewModel>(infos.Count);
 
         foreach (GameInfo info in infos)
         {
             var card = new GameCardViewModel(info, _games);
             if (selectedPlaceId == info.PlaceId)
                 card.IsSelected = true;
-            Games.Add(card);
-            _ = card.LoadThumbnailAsync();
+            cards.Add(card);
+            _ = card.LoadThumbnailAsync(token);
         }
 
+        Games.Reset(cards);
         IsEmpty = Games.Count == 0;
     }
 

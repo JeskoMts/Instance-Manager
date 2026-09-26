@@ -62,6 +62,25 @@ public class RobloxAuthServiceTests
     }
 
     [Fact]
+    public async Task GetAuthTicketAsync_FlagsARejectedLoginAsNeedingSignIn_ButNotARateLimit()
+    {
+        using var rejected = new HttpClient(new FakeHandler(_ => new HttpResponseMessage(HttpStatusCode.Unauthorized)));
+        var expired = await Assert.ThrowsAsync<RobloxAuthException>(
+            () => new RobloxAuthService(rejected).GetAuthTicketAsync("fakecookie"));
+        Assert.True(expired.RequiresSignIn);
+
+        using var limited = new HttpClient(new FakeHandler(_ =>
+        {
+            var resp = new HttpResponseMessage(HttpStatusCode.TooManyRequests);
+            resp.Headers.RetryAfter = new RetryConditionHeaderValue(TimeSpan.FromSeconds(1));
+            return resp;
+        }));
+        var throttled = await Assert.ThrowsAsync<RobloxAuthException>(
+            () => new RobloxAuthService(limited).GetAuthTicketAsync("fakecookie"));
+        Assert.False(throttled.RequiresSignIn);
+    }
+
+    [Fact]
     public async Task GetAuthTicketAsync_RejectsHeaderInjectionBeforeSendingRequest()
     {
         int calls = 0;

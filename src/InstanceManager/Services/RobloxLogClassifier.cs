@@ -1,4 +1,5 @@
 using System;
+using System.Buffers;
 
 namespace InstanceManager.Services;
 
@@ -100,25 +101,37 @@ public static class RobloxLogClassifier
         if (string.IsNullOrWhiteSpace(line))
             return null;
 
-        string text = line.ToLowerInvariant();
+        char[]? rented = null;
+        Span<char> buffer = line.Length <= 512
+            ? stackalloc char[line.Length]
+            : (rented = ArrayPool<char>.Shared.Rent(line.Length));
+        try
+        {
+            ReadOnlySpan<char> text = buffer[..line.AsSpan().ToLowerInvariant(buffer)];
 
-        if (ContainsAny(text, KickMarkers))
-            return RobloxSessionSignal.Kicked;
-        if (ContainsAny(text, ErrorMarkers))
-            return RobloxSessionSignal.Error;
-        if (ContainsAny(text, GracefulLeaveMarkers))
-            return RobloxSessionSignal.GracefulLeave;
-        if (ContainsAny(text, InGameMarkers))
-            return RobloxSessionSignal.InGame;
+            if (ContainsAny(text, KickMarkers))
+                return RobloxSessionSignal.Kicked;
+            if (ContainsAny(text, ErrorMarkers))
+                return RobloxSessionSignal.Error;
+            if (ContainsAny(text, GracefulLeaveMarkers))
+                return RobloxSessionSignal.GracefulLeave;
+            if (ContainsAny(text, InGameMarkers))
+                return RobloxSessionSignal.InGame;
 
-        return null;
+            return null;
+        }
+        finally
+        {
+            if (rented != null)
+                ArrayPool<char>.Shared.Return(rented);
+        }
     }
 
-    private static bool ContainsAny(string text, string[] markers)
+    private static bool ContainsAny(ReadOnlySpan<char> text, string[] markers)
     {
         foreach (string marker in markers)
         {
-            if (text.Contains(marker, StringComparison.Ordinal))
+            if (text.IndexOf(marker.AsSpan()) >= 0)
                 return true;
         }
         return false;

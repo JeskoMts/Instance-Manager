@@ -20,7 +20,7 @@ internal static class BoundedHttpContentReader
         if (content.Headers.ContentLength is long declaredLength && declaredLength > maxBytes)
             return null;
 
-        await using Stream source = await content.ReadAsStreamAsync(cancellationToken);
+        await using Stream source = await content.ReadAsStreamAsync(cancellationToken).ConfigureAwait(false);
         using var destination = new MemoryStream(
             content.Headers.ContentLength is long length
                 ? (int)Math.Min(length, maxBytes)
@@ -35,7 +35,7 @@ internal static class BoundedHttpContentReader
                 int remainingWithSentinel = maxBytes - total + 1;
                 int read = await source.ReadAsync(
                     buffer.AsMemory(0, Math.Min(buffer.Length, remainingWithSentinel)),
-                    cancellationToken);
+                    cancellationToken).ConfigureAwait(false);
                 if (read == 0)
                     return destination.ToArray();
 

@@ -12,5 +12,5 @@ public sealed class VersionChoiceViewModel
 
     public string? VersionGuid => Version?.VersionGuid;
 
-    public string Label => IsDefault ? "Default (global)" : Version!.DisplayLabel;
+    public string Label => IsDefault ? "Default version" : Version!.DisplayLabel;
 }

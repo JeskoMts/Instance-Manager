@@ -95,7 +95,7 @@ The services, with the detail that matters when reading or changing them:
 - [LogSessionRegistry](../src/InstanceManager/Services/LogSessionRegistry.cs) is the small shared set of claimed log paths that keeps watchers from colliding. One registry is shared by all watchers created from a single `AutoReconnectService`.
 - [RobloxLogClassifier](../src/InstanceManager/Services/RobloxLogClassifier.cs) turns a single log line into a signal (in-game, kicked, error, graceful leave) by matching known markers. Markers are case-insensitive and ordered so the most specific signal wins.
 - [LaunchService](../src/InstanceManager/Services/LaunchService.cs) orchestrates a launch run across many accounts and also provides the single-account relaunch primitive that Auto Reconnect calls back into.
-- [VersionService](../src/InstanceManager/Services/VersionService.cs) finds installed Roblox versions on local fixed drives and optionally asks Roblox for the latest version. [RobloxExecutableValidator](../src/InstanceManager/Services/RobloxExecutableValidator.cs) canonicalizes paths, rejects reparse/network escapes, and verifies Windows trust plus the Roblox signer during discovery and again immediately before launch.
+- [VersionService](../src/InstanceManager/Services/VersionService.cs) finds installed Roblox versions on local fixed drives and optionally asks Roblox for the latest version. [RobloxExecutableValidator](../src/InstanceManager/Services/RobloxExecutableValidator.cs) canonicalizes paths, rejects reparse/network escapes, and verifies Windows trust plus the Roblox signer during discovery and again immediately before launch. A verified client stays pinned against writes, so repeat checks confirm its file identity instead of re-hashing it (see [SECURITY.md](SECURITY.md#executable-launch-security)).
 - [RobloxAvatarService](../src/InstanceManager/Services/RobloxAvatarService.cs) loads avatar headshots from the thumbnail API and deduplicates concurrent requests for the same user.
 - [ServerLinkResolver](../src/InstanceManager/Services/ServerLinkResolver.cs) and [GameLinkParser](../src/InstanceManager/Services/GameLinkParser.cs) parse and validate user input: place ids, job ids, and server links.
 - [DpapiSecureStore](../src/InstanceManager/Services/DpapiSecureStore.cs) encrypts and decrypts the cookie with Windows DPAPI.
@@ -114,7 +114,7 @@ Launching is the central operation. Traced through `ShellViewModel.LaunchAsync` 
    - Build the `roblox-player:` URI with `RobloxLauncher.BuildLaunchUrl` (ticket, PlaceLauncher URL, browser tracker id, launch time).
    - Start `RobloxPlayerBeta.exe` and hand the process to `InstanceTracker.Track`.
    - Register the instance with `AutoReconnectService` so a later drop can reconnect it.
-   - Wait `LaunchDelayMs` before the next account.
+   - Wait until the client has a window (up to 30 s), then `LaunchDelayMs`, then until its log reports the game join (up to 20 s) before the next account. A client that exits before its window appears is retried once; accounts that are already running are skipped. Every start, including single launches and Auto Reconnect relaunches, goes through one launch slot, so two clients never start at the same moment.
 4. **Report the result.** A `LaunchSummary(Started, Failed)` flows back and becomes a toast and a status line.
 
 The key property is that one account's failure never ends the run. Errors are caught per account and counted, so an expired cookie in the middle of a group does not strand the accounts after it.

@@ -24,7 +24,8 @@ public static class ServiceCollectionExtensions
 
         services.AddSingleton<RobloxAuthService>();
         services.AddSingleton<IRobloxExecutableValidator, RobloxExecutableValidator>();
-        services.AddSingleton<IRobloxAvatarService, RobloxAvatarService>();
+        services.AddSingleton<IRobloxAvatarService>(sp =>
+            new RobloxAvatarService(sp.GetRequiredService<HttpClient>(), AppPaths.AvatarCacheDirectory));
         services.AddSingleton<IRobloxGamesService, RobloxGamesService>();
         services.AddSingleton<RobloxLauncher>();
         services.AddSingleton<VersionService>();

@@ -56,6 +56,16 @@ public class RobloxLauncherTests
     }
 
     [Fact]
+    public void BuildLaunchUrl_HomeTargetOpensTheAppWithoutAGame()
+    {
+        string launchUrl = RobloxLauncher.BuildLaunchUrl("TICKET123", ServerTarget.Home(), 555, 1_700_000_000_000);
+
+        Assert.StartsWith("roblox-player:1+launchmode:app+gameinfo:TICKET123+", launchUrl);
+        Assert.DoesNotContain("placelauncherurl", launchUrl);
+        Assert.Contains("+browsertrackerid:555", launchUrl);
+    }
+
+    [Fact]
     public void BuildLaunchUrl_RoundTripsPlaceLauncher()
     {
         var target = ServerTarget.ByJob(1, "ec1c8e3d-1c2b-4c3d-9e2a-1234567890ab");

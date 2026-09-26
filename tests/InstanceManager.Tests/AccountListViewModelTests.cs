@@ -157,6 +157,95 @@ public class AccountListViewModelTests
     }
 
 
+    [Fact]
+    public void SelectionHeader_TracksNonePartialAll_AndLabelsTheLaunchButton()
+    {
+        _accounts.Upsert(new Account { Id = Guid.NewGuid(), UserId = 1, Username = "a" });
+        _accounts.Upsert(new Account { Id = Guid.NewGuid(), UserId = 2, Username = "b" });
+        var vm = Create();
+        var rows = vm.Rows.OfType<AccountRowViewModel>().ToList();
+
+        Assert.False(vm.AllSelected);
+        Assert.Equal("Launch", vm.LaunchButtonText);
+
+        rows[0].IsSelected = true;
+        Assert.Null(vm.AllSelected);
+        Assert.Equal("Launch 1 account", vm.LaunchButtonText);
+
+        vm.ToggleSelectAllCommand.Execute(null);
+        Assert.True(vm.AllSelected);
+        Assert.Equal("Launch 2 accounts", vm.LaunchButtonText);
+
+        vm.ToggleSelectAllCommand.Execute(null);
+        Assert.False(vm.AllSelected);
+        Assert.Equal(0, vm.SelectedCount);
+    }
+
+    [Fact]
+    public void LaunchStages_ShowOnRows_AndCancellingKeepsOnlyFailures()
+    {
+        var failing = new Account { Id = Guid.NewGuid(), UserId = 1, Username = "failing" };
+        var pending = new Account { Id = Guid.NewGuid(), UserId = 2, Username = "pending" };
+        _accounts.Upsert(failing);
+        _accounts.Upsert(pending);
+        var vm = Create();
+        AccountRowViewModel failingRow = vm.Rows.OfType<AccountRowViewModel>().Single(r => r.Account.Id == failing.Id);
+        AccountRowViewModel pendingRow = vm.Rows.OfType<AccountRowViewModel>().Single(r => r.Account.Id == pending.Id);
+
+        vm.SetLaunchStage(failing.Id, LaunchStage.Failed, "Cookie expired");
+        vm.SetLaunchStage(pending.Id, LaunchStage.Joining);
+
+        Assert.Equal("Failed", failingRow.StatusText);
+        Assert.Equal("Cookie expired", failingRow.LaunchError);
+        Assert.True(pendingRow.IsLaunching);
+        Assert.Equal("Joining game…", pendingRow.StatusText);
+
+        vm.ClearPendingLaunchStages();
+
+        Assert.Equal(LaunchStage.Failed, failingRow.LaunchStage);
+        Assert.Null(pendingRow.LaunchStage);
+        Assert.False(pendingRow.HasStatus);
+
+        vm.SetLaunchStage(failing.Id, LaunchStage.Started);
+        Assert.Null(failingRow.LaunchStage);
+    }
+
+    [Fact]
+    public void ExpiredLogin_ShowsLoginExpired_UntilTheNextLaunchAttempt()
+    {
+        var account = new Account { Id = Guid.NewGuid(), UserId = 1, Username = "expired" };
+        _accounts.Upsert(account);
+        var vm = Create();
+        AccountRowViewModel row = vm.Rows.OfType<AccountRowViewModel>().Single();
+
+        vm.SetLaunchStage(account.Id, LaunchStage.Failed, "expired: login rejected", requiresSignIn: true);
+        Assert.True(row.RequiresSignIn);
+        Assert.Equal("Login expired", row.StatusText);
+
+        vm.SetLaunchStage(account.Id, LaunchStage.Queued);
+        Assert.False(row.RequiresSignIn);
+        Assert.Equal("Queued", row.StatusText);
+    }
+
+    [Fact]
+    public void WithGroups_UngroupedAccountsGetTheirOwnHeader_AndDroppingThereUngroups()
+    {
+        var group = _groups.Add("Farm", "#FF0000");
+        var grouped = new Account { Id = Guid.NewGuid(), UserId = 1, Username = "grouped" };
+        grouped.GroupIds.Add(group.Id);
+        _accounts.Upsert(grouped);
+        _accounts.Upsert(new Account { Id = Guid.NewGuid(), UserId = 2, Username = "loose" });
+        var vm = Create();
+
+        Assert.Equal(2, vm.Rows.OfType<GroupViewModel>().Count());
+        Assert.All(vm.Rows.OfType<AccountRowViewModel>(), row => Assert.True(row.IsIndented));
+
+        AccountRowViewModel groupedRow = vm.Rows.OfType<AccountRowViewModel>().Single(r => r.Account.Id == grouped.Id);
+        vm.DropAccountOnGroup(groupedRow, vm.Groups.Single(g => !g.HasGroup));
+
+        Assert.Empty(grouped.GroupIds);
+    }
+
     private sealed class FakeAccountRepository : IAccountRepository
     {
         private readonly List<Account> _items = new();

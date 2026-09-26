@@ -42,7 +42,7 @@ public sealed class RobloxAvatarServiceTests
         Assert.NotSame(first, second);
         Assert.Equal(4, requests.Count);
         Assert.Equal(
-            "https://thumbnails.roblox.com/v1/users/avatar-headshot?userIds=42&size=150x150&format=Png&isCircular=false",
+            "https://thumbnails.roblox.com/v1/users/avatar-headshot?userIds=42&size=75x75&format=Png&isCircular=false",
             requests[0].Uri.AbsoluteUri);
         Assert.All(requests, request => Assert.False(request.HasCookie));
     }

@@ -1,10 +1,8 @@
 using System;
 using System.Globalization;
-using System.IO;
 using System.Threading;
 using System.Threading.Tasks;
 using System.Windows.Media;
-using System.Windows.Media.Imaging;
 using CommunityToolkit.Mvvm.ComponentModel;
 using InstanceManager.Models;
 using InstanceManager.Services;
@@ -39,15 +37,7 @@ public partial class GameCardViewModel : ObservableObject
             if (bytes is not { Length: > 0 })
                 return;
 
-            using var stream = new MemoryStream(bytes, writable: false);
-            var image = new BitmapImage();
-            image.BeginInit();
-            image.CacheOption = BitmapCacheOption.OnLoad;
-            image.DecodePixelWidth = 360;
-            image.StreamSource = stream;
-            image.EndInit();
-            image.Freeze();
-            Thumbnail = image;
+            Thumbnail = await Task.Run(() => AccountRowViewModel.DecodeFrozen(bytes, 360), cancellationToken);
         }
         catch
         {

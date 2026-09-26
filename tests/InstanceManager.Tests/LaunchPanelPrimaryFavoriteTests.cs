@@ -246,6 +246,25 @@ public sealed class LaunchPanelPrimaryFavoriteTests
         Assert.Equal(77, result.Target!.PlaceId);
     }
 
+    [Theory]
+    [InlineData(JoinMode.PublicByLink)]
+    [InlineData(JoinMode.PrivateByJobId)]
+    public async Task ResolveTargetAsync_EmptyInputOpensRobloxHome_ButInvalidInputStillFails(JoinMode mode)
+    {
+        var vm = Create(new FakeFavoriteRepository(), new FakeSettingsService(),
+            new FakeServerLinkResolver { Result = ServerTargetResolution.Failure("bad link") });
+        vm.SelectedMode = mode;
+        vm.TargetInput = "  ";
+        vm.JobIdInput = string.Empty;
+
+        ServerTargetResolution home = await vm.ResolveTargetAsync();
+        Assert.Equal(JoinMode.Home, home.Target?.Mode);
+
+        vm.TargetInput = "not a game";
+        vm.JobIdInput = "not a server";
+        Assert.False((await vm.ResolveTargetAsync()).IsSuccess);
+    }
+
     private static LaunchPanelViewModel Create(
         FakeFavoriteRepository favorites,
         FakeSettingsService settings,

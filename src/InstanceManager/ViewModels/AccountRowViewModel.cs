@@ -50,78 +50,88 @@ public partial class AccountRowViewModel : ObservableObject
     private bool isSelected;
 
     [ObservableProperty]
+    private bool isIndented;
+
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(StatusText), nameof(HasStatus))]
     private bool isRunning;
 
     [ObservableProperty]
-    private ImageSource? avatarImage;
+    [NotifyPropertyChangedFor(nameof(StatusText), nameof(HasStatus), nameof(IsLaunching))]
+    private LaunchStage? launchStage;
 
     [ObservableProperty]
-    private bool isMenuOpen;
+    private string? launchError;
 
-    public ObservableCollection<GroupMembershipViewModel> GroupMemberships { get; } = new();
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(StatusText))]
+    private bool requiresSignIn;
 
-    public bool HasGroups => _parent.GroupModels.Count > 0;
-
-    partial void OnIsMenuOpenChanged(bool value)
-    {
-        if (value)
-        {
-            RebuildMemberships();
-            _parent.NotifyMenuOpened(this);
-        }
-        else
-        {
-            _parent.NotifyMenuClosed(this);
-        }
-    }
-
-    public void CloseMenu() => IsMenuOpen = false;
-    public void ToggleMenu() => IsMenuOpen = !IsMenuOpen;
-
-    private void RebuildMemberships()
-    {
-        GroupMemberships.Clear();
-        foreach (AccountGroup g in _parent.GroupModels)
-            GroupMemberships.Add(new GroupMembershipViewModel(g, this, _parent));
-        OnPropertyChanged(nameof(HasGroups));
-    }
+    [ObservableProperty]
+    private ImageSource? avatarImage;
 
     [RelayCommand]
     private void ClearGroups() => _parent.ClearGroups(this);
 
     partial void OnIsSelectedChanged(bool value) => _parent.RecountSelection();
 
-    partial void OnIsRunningChanged(bool value) => OnPropertyChanged(nameof(StatusText));
-
     public void RefreshGroupState() => OnPropertyChanged(nameof(IsGrouped));
 
-    public string StatusText => IsRunning ? "Running" : "Idle";
+    public bool IsLaunching => LaunchStage is Services.LaunchStage.Starting or Services.LaunchStage.WaitingForWindow or Services.LaunchStage.Joining;
+
+    public bool HasStatus => LaunchStage != null || IsRunning;
+
+    public string StatusText => LaunchStage switch
+    {
+        Services.LaunchStage.Queued => "Queued",
+        Services.LaunchStage.Starting => "Starting…",
+        Services.LaunchStage.WaitingForWindow => "Opening Roblox…",
+        Services.LaunchStage.Joining => "Joining game…",
+        Services.LaunchStage.Failed => RequiresSignIn ? "Login expired" : "Failed",
+        _ => IsRunning ? "Running" : "Idle"
+    };
 
     public async Task LoadAvatarAsync()
     {
         if (_avatars is null)
             return;
 
+        byte[]? cached = null;
         try
         {
-            byte[]? bytes = await _avatars.GetAvatarAsync(UserId);
-            if (bytes is not { Length: > 0 })
-                return;
-
-            using var stream = new MemoryStream(bytes, writable: false);
-            var image = new BitmapImage();
-            image.BeginInit();
-            image.CacheOption = BitmapCacheOption.OnLoad;
-            image.DecodePixelWidth = 72;
-            image.StreamSource = stream;
-            image.EndInit();
-            image.Freeze();
-            AvatarImage = image;
+            cached = await _avatars.GetCachedAvatarAsync(UserId);
+            if (cached is { Length: > 0 })
+                AvatarImage = await Task.Run(() => DecodeFrozen(cached, 72));
         }
         catch
         {
-            AvatarImage = null;
+            cached = null;
         }
+
+        try
+        {
+            byte[]? bytes = await _avatars.GetAvatarAsync(UserId);
+            if (bytes is not { Length: > 0 } || (cached != null && bytes.AsSpan().SequenceEqual(cached)))
+                return;
+
+            AvatarImage = await Task.Run(() => DecodeFrozen(bytes, 72));
+        }
+        catch
+        {
+        }
+    }
+
+    internal static BitmapImage DecodeFrozen(byte[] bytes, int decodePixelWidth)
+    {
+        using var stream = new MemoryStream(bytes, writable: false);
+        var image = new BitmapImage();
+        image.BeginInit();
+        image.CacheOption = BitmapCacheOption.OnLoad;
+        image.DecodePixelWidth = decodePixelWidth;
+        image.StreamSource = stream;
+        image.EndInit();
+        image.Freeze();
+        return image;
     }
 
     public ObservableCollection<VersionChoiceViewModel> VersionChoices => _parent.VersionChoices;
@@ -151,13 +161,18 @@ public partial class AccountRowViewModel : ObservableObject
             Account.PreferredVersionGuid = value?.VersionGuid;
             _parent.SaveAccountVersion(Account);
             OnPropertyChanged();
+            OnPropertyChanged(nameof(PinnedVersionLabel));
         }
     }
+
+    public string? PinnedVersionLabel =>
+        SelectedVersionChoice is { IsDefault: false } choice ? choice.Label : null;
 
     public void RefreshVersionChoice()
     {
         OnPropertyChanged(nameof(VersionChoices));
         OnPropertyChanged(nameof(SelectedVersionChoice));
+        OnPropertyChanged(nameof(PinnedVersionLabel));
     }
 
     [RelayCommand]

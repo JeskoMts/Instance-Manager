@@ -32,7 +32,7 @@ You can paste either path straight into the File Explorer address bar.
 **The app does not start and Windows offers to download .NET.**
 A published build needs the .NET 8 Desktop Runtime, x64. If it is missing, Windows shows a dialog with a download link the first time you run the exe. Install the Desktop Runtime (not the ASP.NET or the plain console runtime), then start the app again. If you are running from source instead, you need the .NET 8 SDK and you start it with `dotnet run --project src/InstanceManager/InstanceManager.csproj`.
 
-**The app starts but the version bar is empty and launches fail with no usable version.**
+**Settings → Roblox version shows no version and launches fail with no usable version.**
 Instance Manager only launches officially signed Roblox clients. It looks for `RobloxPlayerBeta.exe` under `%LOCALAPPDATA%\Roblox\Versions` by default, and it verifies the Authenticode signature and that the signer is Roblox Corporation. If Roblox is not installed, or it sits somewhere else, the bar comes up empty. Install or run Roblox once so a client exists, or point the app at the right folder with the versions override in Settings (see [Roblox versions](#roblox-versions) for the rules on what that folder may be).
 
 **The window opens off-screen or at an odd size.**
@@ -62,7 +62,7 @@ That is expected. The login window is a full Edge WebView2 browser, and its host
 ## Launching accounts
 
 **An account fails the moment you launch it.**
-The usual cause is an expired session cookie. Roblox invalidates cookies over time, after a password change, or when you sign out of that account somewhere else. Remove the account and add it again to capture a fresh cookie. A single failed account never stops the rest of the run: if you launch a group of ten and one cookie is dead, the other nine still start, and the status line reports how many started and how many failed.
+The usual cause is an expired session cookie. Roblox invalidates cookies over time, after a password change, or when you sign out of that account somewhere else. The row then shows **Login expired**; click **Add again** next to it and sign in to that account to capture a fresh cookie. The account keeps its alias, groups, and notes. A single failed account never stops the rest of the run: if you launch a group of ten and one cookie is dead, the other nine still start, and the status line reports how many started and how many failed.
 
 **Accounts worked on the old PC but every one fails on the new PC.**
 Cookies are encrypted with Windows DPAPI, scoped to your Windows user on that one machine. Copying `accounts.json` to a different PC, or to a different Windows user on the same PC, leaves the encrypted cookies unreadable, so each affected account fails at launch. There is no way around this by design; it is what keeps a copied file from being usable elsewhere. Add the accounts again on the new machine. Everything except the cookie (usernames, aliases, notes, groups) does carry over in the file, so only the sign-in has to be redone.
@@ -71,10 +71,10 @@ Cookies are encrypted with Windows DPAPI, scoped to your Windows user on that on
 The public-game box accepts plain digits, a `games/<id>` style link, and a `?placeId=<id>` style link, and it confirms the place id is real before launching. If it bounces your input, it is usually a shortened or redirected link from somewhere other than Roblox, or a typo in the id. Open the game on the Roblox site and copy the link straight from the address bar, or read the number out of the URL and paste just that.
 
 **A private server or job id is rejected.**
-Switch the box to Job ID mode first. It takes either a full private-server link or a raw job id (a GUID). Server links are validated hard on purpose: only HTTPS, only Roblox domains, and at most five redirects, each one re-checked. A link that points off Roblox, uses plain HTTP, or comes from a third-party URL shortener is refused. Use the full `https://www.roblox.com/...` private-server link, or paste the job id GUID on its own.
+Switch the launch bar to Server first. It takes either a full private-server link or a raw job id (a GUID). Server links are validated hard on purpose: only HTTPS, only Roblox domains, and at most five redirects, each one re-checked. A link that points off Roblox, uses plain HTTP, or comes from a third-party URL shortener is refused. Use the full `https://www.roblox.com/...` private-server link, or paste the job id GUID on its own.
 
 **Nothing launches at all and every account is counted as failed.**
-If the whole run fails rather than one account, the problem is shared, not per-account. Check, in order: that a valid Roblox version is selected in the version bar (see [Roblox versions](#roblox-versions)), that you actually have internet (the launch fetches a fresh auth ticket from Roblox per account), and that Roblox is not down. The status line and a toast summarize the result; for a per-account reason, the failures are the same expired-cookie and missing-version cases listed above.
+If the whole run fails rather than one account, the problem is shared, not per-account. Check, in order: that a valid Roblox version is selected under Settings → Roblox version (see [Roblox versions](#roblox-versions)), that you actually have internet (the launch fetches a fresh auth ticket from Roblox per account), and that Roblox is not down. The status line and a toast summarize the result; for a per-account reason, the failures are the same expired-cookie and missing-version cases listed above.
 
 ## Multi-instance
 
@@ -95,7 +95,7 @@ Launch two accounts. If both windows stay open, the grip is held. If the second 
 ## Roblox versions
 
 **A pinned version is "not found" after a Roblox update.**
-If you pinned a specific client to an account and Roblox has since updated, that exact version folder may no longer exist on disk, because Roblox removes old versions when it patches. Clear the preferred version on the account row so it follows the global selection again, or pick the current version in the version bar. The same applies to the global selection if it points at a version that was cleaned up.
+If you pinned a specific client to an account and Roblox has since updated, that exact version folder may no longer exist on disk, because Roblox removes old versions when it patches. Set the account back to Default version in its ⋯ menu → Roblox version so it follows the default again, or pick the current version under Settings → Roblox version. The same applies to the global selection if it points at a version that was cleaned up.
 
 **A custom versions folder is refused.**
 The override in Settings is deliberately strict, because the app is about to run executables out of that folder. A folder is rejected unless it is a fully qualified directory on a local fixed drive. These are all turned away before the app even looks inside:
@@ -127,7 +127,7 @@ Auto Reconnect has a few intentional limits. Walk this list:
 If the log shows no line at all for the drop, the event was not recognized as a drop. That points at the log-reading side rather than the settings, covered next.
 
 **Several accounts dropped close together and only some came back.**
-Each instance is bound to its own Roblox log file so a kick on one account reconnects only that account. Binding takes a moment because a fresh client can take a few seconds to create its log, and two clients started in the same instant briefly compete for the same files. The launch delay is what gives each client room to create its own log first. The default of 1500 ms is comfortable; if you have lowered it close to zero and see uneven reconnects, raise it back to around 1500 ms in Settings. Launching a large group with a tiny delay is the one situation where this still shows up.
+Each instance is bound to its own Roblox log file so a kick on one account reconnects only that account. Binding takes a moment because a fresh client can take a few seconds to create its log, and two clients started in the same instant briefly compete for the same files. Batch launches now wait for each client to open and join before starting the next, which gives every client room to create its own log first. If you still see uneven reconnects, raise the pause between launches in Settings to around 1500 ms or more.
 
 **An instance keeps reconnecting in a loop.**
 That means the drop keeps happening: a game that kicks you on join, a private server that is full or closed, or a place that crashes the client immediately. Auto Reconnect will retry up to the limit and then give up with a `GIVEUP` line, so the loop is bounded. If you do not want it retrying a known-bad target, stop the instance (a manual stop is never reconnected) or lower the retry limit while you sort out the target.
@@ -141,7 +141,7 @@ The feature reads the Roblox client logs in `%LOCALAPPDATA%\Roblox\logs`. If tha
 Imported theme codes are validated before they are applied, so a code that was truncated when it was copied, came from a newer or incompatible build, or was edited by hand is rejected rather than applied half-broken. Ask for the full code again and paste it in one piece. Very large clipboard contents are also refused on purpose, so make sure you are pasting an actual theme code and not a wall of unrelated text.
 
 **A theme looks wrong or unreadable.**
-A custom theme is fifteen colors and nothing stops a combination that is hard to read. Switch back to a built-in theme on the Themes tab (the change is live, no restart), then edit your custom one from there.
+A custom theme is fifteen colors and nothing stops a combination that is hard to read. Switch back to a built-in theme under Settings → Appearance (the change is live, no restart), then edit your custom one from there.
 
 ## Data, settings, and a clean reset
 

@@ -11,6 +11,7 @@ using System.Windows.Media.Animation;
 using System.Windows.Media.Imaging;
 using System.Windows.Threading;
 using InstanceManager.Behaviors;
+using InstanceManager.Controls;
 using InstanceManager.Models;
 using InstanceManager.ViewModels;
 
@@ -18,8 +19,7 @@ namespace InstanceManager;
 
 public partial class MainWindow : Window
 {
-    private static readonly string GlyphMaximize = ((char)0xE922).ToString();
-    private static readonly string GlyphRestore = ((char)0xE923).ToString();
+    private const string DiscordInviteUrl = "https://discord.gg/8XyKcZdSGe";
 
     private Point _dragStartPoint;
     private Point _grabOffset;
@@ -38,22 +38,11 @@ public partial class MainWindow : Window
         DataContext = viewModel;
         StateChanged += (_, _) =>
         {
-            UpdateMaxGlyph();
+            UpdateMaxIcon();
             if (WindowState == WindowState.Minimized)
                 TrimWorkingSet();
         };
 
-        viewModel.PropertyChanged += (s, e) =>
-        {
-            if (e.PropertyName == nameof(ShellViewModel.SelectedSection)
-                && viewModel.SelectedSection == AppSection.Accounts)
-            {
-                Dispatcher.BeginInvoke(System.Windows.Threading.DispatcherPriority.Input, new Action(() =>
-                {
-                    SearchBox.Focus();
-                }));
-            }
-        };
     }
 
     private ShellViewModel? Vm => DataContext as ShellViewModel;
@@ -62,9 +51,47 @@ public partial class MainWindow : Window
     protected override void OnPreviewKeyDown(KeyEventArgs e)
     {
         base.OnPreviewKeyDown(e);
-        if (e.Key == Key.Escape && Vm is { SelectedSection: AppSection.Settings } vm)
+        if (Vm is not { } vm || e.Handled)
+            return;
+
+        bool ctrl = Keyboard.Modifiers == ModifierKeys.Control;
+        bool typing = Keyboard.FocusedElement is TextBoxBase;
+
+        if (ctrl && e.Key is Key.D1 or Key.D2 or Key.D3)
         {
-            vm.SelectedSection = AppSection.Accounts;
+            vm.SelectedSection = e.Key == Key.D1 ? AppSection.Accounts : e.Key == Key.D2 ? AppSection.Games : AppSection.Settings;
+            e.Handled = true;
+        }
+        else if (ctrl && e.Key == Key.F)
+        {
+            if (vm.SelectedSection == AppSection.Settings)
+                vm.SelectedSection = AppSection.Accounts;
+            TextBox target = vm.SelectedSection == AppSection.Games ? GamesSearchBox : SearchBox;
+            Dispatcher.BeginInvoke(DispatcherPriority.Input, new Action(() => { target.Focus(); target.SelectAll(); }));
+            e.Handled = true;
+        }
+        else if (ctrl && e.Key == Key.A && !typing && vm.SelectedSection == AppSection.Accounts)
+        {
+            vm.AccountList.SelectAllVisibleCommand.Execute(null);
+            e.Handled = true;
+        }
+        else if (ctrl && e.Key == Key.Enter && vm.SelectedSection == AppSection.Accounts && vm.AccountList.HasSelection)
+        {
+            vm.LaunchSelectedCommand.Execute(null);
+            e.Handled = true;
+        }
+        else if (e.Key == Key.Escape && !FavoritesCombo.IsDropDownOpen)
+        {
+            if (Keyboard.FocusedElement is TextBox { Text.Length: > 0 } box && ReferenceEquals(box.Style, TryFindResource("SearchTextBox")))
+                box.Clear();
+            else if (typing)
+                ReleaseTextFocus();
+            else if (vm.SelectedSection == AppSection.Settings)
+                vm.SelectedSection = AppSection.Accounts;
+            else if (vm.SelectedSection == AppSection.Accounts && vm.AccountList.HasSelection)
+                vm.AccountList.ClearSelectionCommand.Execute(null);
+            else
+                return;
             e.Handled = true;
         }
     }
@@ -73,15 +100,11 @@ public partial class MainWindow : Window
     {
         DependencyObject? originalSource = e.OriginalSource as DependencyObject;
 
-        if (Keyboard.FocusedElement is TextBox focusedSearch
-            && ReferenceEquals(focusedSearch.Style, TryFindResource("SearchTextBox"))
-            && !IsDescendantOrSelf(originalSource, focusedSearch))
+        if (Keyboard.FocusedElement is TextBoxBase editing
+            && !IsDescendantOrSelf(originalSource, editing))
         {
-            Keyboard.ClearFocus();
+            ReleaseTextFocus();
         }
-
-        if (Vm is { } vm && !IsInsideInlineActionMenu(originalSource))
-            vm.AccountList.CloseOpenMenu();
 
         Point posInFavorites = e.GetPosition(FavoritesCombo);
         bool pressOnFavoritesHeader =
@@ -105,6 +128,12 @@ public partial class MainWindow : Window
     }
 
 
+    private void ReleaseTextFocus()
+    {
+        FocusManager.SetFocusedElement(this, null);
+        Keyboard.ClearFocus();
+    }
+
     [DllImport("kernel32.dll")]
     [DefaultDllImportSearchPaths(DllImportSearchPath.System32)]
     private static extern bool SetProcessWorkingSetSize(IntPtr process, IntPtr minimumWorkingSetSize, IntPtr maximumWorkingSetSize);
@@ -127,6 +156,17 @@ public partial class MainWindow : Window
 
     private void CloseButton_Click(object sender, RoutedEventArgs e) => Close();
 
+    private void DiscordButton_Click(object sender, RoutedEventArgs e)
+    {
+        try
+        {
+            Process.Start(new ProcessStartInfo { FileName = DiscordInviteUrl, UseShellExecute = true });
+        }
+        catch
+        {
+        }
+    }
+
     private void NotificationScrim_Click(object sender, MouseButtonEventArgs e)
     {
         if (Vm is { } vm)
@@ -134,8 +174,8 @@ public partial class MainWindow : Window
         e.Handled = true;
     }
 
-    private void UpdateMaxGlyph() =>
-        MaxButton.Content = WindowState == WindowState.Maximized ? GlyphRestore : GlyphMaximize;
+    private void UpdateMaxIcon() =>
+        MaxIcon.Kind = WindowState == WindowState.Maximized ? IconKind.Restore : IconKind.Maximize;
 
 
     private bool _suppressRowClick;
@@ -150,23 +190,150 @@ public partial class MainWindow : Window
         if (IsInteractiveOriginalSource(e.OriginalSource as DependencyObject))
             return;
         if (sender is FrameworkElement { DataContext: AccountRowViewModel row })
-            row.ToggleMenu();
+            row.IsSelected = !row.IsSelected;
+    }
+
+    private void AccountRow_RightClick(object sender, MouseButtonEventArgs e)
+    {
+        if (sender is FrameworkElement { DataContext: AccountRowViewModel row } anchor)
+        {
+            OpenAccountMenu(anchor, row, PlacementMode.MousePoint);
+            e.Handled = true;
+        }
     }
 
     private void AccountMenu_Click(object sender, RoutedEventArgs e)
     {
-        if (sender is FrameworkElement { DataContext: AccountRowViewModel row })
-            row.ToggleMenu();
+        if (sender is FrameworkElement { DataContext: AccountRowViewModel row } anchor)
+            OpenAccountMenu(anchor, row, PlacementMode.Bottom);
         e.Handled = true;
     }
 
     private void GroupMenu_Click(object sender, RoutedEventArgs e)
     {
-        if (sender is FrameworkElement { DataContext: GroupViewModel g })
-            g.ToggleMenu();
+        if (sender is FrameworkElement { DataContext: GroupViewModel group } anchor)
+            OpenGroupMenu(anchor, group, PlacementMode.Bottom);
         e.Handled = true;
     }
 
+    private void GroupHeader_RightClick(object sender, MouseButtonEventArgs e)
+    {
+        if (sender is FrameworkElement { DataContext: GroupViewModel { HasGroup: true } group } anchor)
+        {
+            OpenGroupMenu(anchor, group, PlacementMode.MousePoint);
+            e.Handled = true;
+        }
+    }
+
+    private void GroupHeader_Click(object sender, MouseButtonEventArgs e)
+    {
+        if (IsInteractiveOriginalSource(e.OriginalSource as DependencyObject))
+            return;
+        if (sender is FrameworkElement { DataContext: GroupViewModel group })
+            group.IsExpanded = !group.IsExpanded;
+    }
+
+    private void OpenAccountMenu(FrameworkElement anchor, AccountRowViewModel row, PlacementMode placement)
+    {
+        if (Vm is not { } vm)
+            return;
+
+        ContextMenu menu = NewMenu(anchor, placement);
+        MenuItem primary = row.IsRunning
+            ? MenuEntry("Stop", IconKind.Stop, row.StopCommand, danger: true)
+            : MenuEntry("Launch", IconKind.Play, row.LaunchCommand);
+        primary.IsEnabled = row.IsRunning || !vm.IsBusy;
+        menu.Items.Add(primary);
+        menu.Items.Add(MenuEntry("Rename…", IconKind.Pencil, row.RenameCommand));
+        menu.Items.Add(new Separator());
+
+        MenuItem versions = MenuEntry("Roblox version", IconKind.Layers);
+        foreach (VersionChoiceViewModel choice in row.VersionChoices)
+        {
+            var item = new MenuItem
+            {
+                Header = choice.Label,
+                IsCheckable = true,
+                IsChecked = ReferenceEquals(choice, row.SelectedVersionChoice)
+            };
+            item.Click += (_, _) => row.SelectedVersionChoice = choice;
+            versions.Items.Add(item);
+        }
+        menu.Items.Add(versions);
+
+        if (vm.AccountList.GroupModels.Count > 0)
+        {
+            MenuItem groups = MenuEntry("Groups", IconKind.Folder);
+            foreach (AccountGroup group in vm.AccountList.GroupModels)
+            {
+                var header = new StackPanel { Orientation = Orientation.Horizontal };
+                header.Children.Add(new System.Windows.Shapes.Ellipse
+                {
+                    Width = 8,
+                    Height = 8,
+                    Margin = new Thickness(0, 0, 8, 0),
+                    VerticalAlignment = VerticalAlignment.Center,
+                    Fill = GroupBrush(group.ColorHex)
+                });
+                header.Children.Add(new TextBlock { Text = group.Name, VerticalAlignment = VerticalAlignment.Center });
+                var item = new MenuItem { Header = header, IsCheckable = true, IsChecked = row.Account.BelongsTo(group.Id) };
+                item.Click += (_, _) => vm.AccountList.ToggleGroupMembership(row, group);
+                groups.Items.Add(item);
+            }
+            if (row.IsGrouped)
+            {
+                groups.Items.Add(new Separator());
+                groups.Items.Add(MenuEntry("Remove from all groups", IconKind.FolderMinus, row.ClearGroupsCommand));
+            }
+            menu.Items.Add(groups);
+        }
+
+        menu.Items.Add(new Separator());
+        menu.Items.Add(MenuEntry("Remove account", IconKind.Trash, row.RemoveCommand, danger: true));
+        menu.IsOpen = true;
+    }
+
+    private void OpenGroupMenu(FrameworkElement anchor, GroupViewModel group, PlacementMode placement)
+    {
+        ContextMenu menu = NewMenu(anchor, placement);
+        menu.Style = (Style)FindResource("GroupActionMenu");
+        menu.DataContext = group;
+        MenuItem launch = MenuEntry("Launch group", IconKind.Play, group.LaunchGroupCommand);
+        launch.IsEnabled = Vm is not { IsBusy: true };
+        menu.Items.Add(launch);
+        menu.Items.Add(MenuEntry("Edit group…", IconKind.Pencil, group.RenameGroupCommand));
+        menu.Items.Add(MenuEntry("Delete group", IconKind.Trash, group.DeleteGroupCommand, danger: true));
+        menu.IsOpen = true;
+    }
+
+    private static ContextMenu NewMenu(FrameworkElement anchor, PlacementMode placement)
+    {
+        var menu = new ContextMenu { PlacementTarget = anchor, Placement = placement };
+        if (placement == PlacementMode.Bottom)
+        {
+            menu.Opened += (_, _) => menu.HorizontalOffset = anchor.ActualWidth - menu.ActualWidth;
+        }
+        return menu;
+    }
+
+    private MenuItem MenuEntry(string header, IconKind icon, ICommand? command = null, bool danger = false)
+    {
+        var item = new MenuItem
+        {
+            Header = header,
+            Command = command,
+            Icon = new Icon { Kind = icon, Size = 15 }
+        };
+        if (danger)
+            item.Foreground = (Brush)FindResource("Brush.Danger");
+        return item;
+    }
+
+    private static Brush GroupBrush(string hex)
+    {
+        try { return (Brush)new BrushConverter().ConvertFromString(hex)!; }
+        catch (FormatException) { return Brushes.Gray; }
+    }
 
     private void AccountRow_PreviewMouseLeftButtonDown(object sender, MouseButtonEventArgs e)
     {
@@ -236,14 +403,21 @@ public partial class MainWindow : Window
         e.Handled = true;
     }
 
-    private static Image CreateDragGhost(FrameworkElement source)
+    internal static Image CreateDragGhost(FrameworkElement source)
     {
         DpiScale dpi = VisualTreeHelper.GetDpi(source);
         var bitmap = new RenderTargetBitmap(
             Math.Max(1, (int)Math.Ceiling(source.ActualWidth * dpi.DpiScaleX)),
             Math.Max(1, (int)Math.Ceiling(source.ActualHeight * dpi.DpiScaleY)),
             dpi.PixelsPerInchX, dpi.PixelsPerInchY, PixelFormats.Pbgra32);
-        bitmap.Render(source);
+
+        var bounds = new Rect(0, 0, source.ActualWidth, source.ActualHeight);
+        var snapshot = new DrawingVisual();
+        using (DrawingContext dc = snapshot.RenderOpen())
+        {
+            dc.DrawRectangle(new VisualBrush(source), null, bounds);
+        }
+        bitmap.Render(snapshot);
         bitmap.Freeze();
         return new Image
         {
@@ -323,7 +497,7 @@ public partial class MainWindow : Window
     private void SetRowDropIndicator(Border? border, bool on)
     {
         if (border == null) return;
-        border.BorderBrush = (Brush)FindResource(on ? "Brush.Accent" : "Brush.Border");
+        border.BorderBrush = on ? (Brush)FindResource("Brush.Accent") : Brushes.Transparent;
     }
 
     private void AnimateItemMove(ItemsControl list, object item)
@@ -349,7 +523,7 @@ public partial class MainWindow : Window
     private static bool TryGetDropTarget(object sender, DragEventArgs e, out (AccountRowViewModel Row, GroupViewModel Group) target)
     {
         target = default;
-        if (sender is not FrameworkElement { DataContext: GroupViewModel group } || !group.HasGroup)
+        if (sender is not FrameworkElement { DataContext: GroupViewModel group })
             return false;
         if (e.Data.GetData(typeof(AccountRowViewModel)) is not AccountRowViewModel row)
             return false;
@@ -360,7 +534,7 @@ public partial class MainWindow : Window
     private void SetHeaderHighlight(Border? border, bool on)
     {
         if (border == null) return;
-        border.BorderBrush = (Brush)FindResource(on ? "Brush.Accent" : "Brush.Border");
+        border.BorderBrush = on ? (Brush)FindResource("Brush.Accent") : Brushes.Transparent;
     }
 
     private Point _themeDragStart;
@@ -586,23 +760,6 @@ public partial class MainWindow : Window
         return false;
     }
 
-    private static bool IsInsideInlineActionMenu(DependencyObject? source)
-    {
-        DependencyObject? node = source;
-        while (node != null)
-        {
-            if (node is FrameworkElement { Tag: "InlineActionMenu" or "InlineMenuToggle" })
-                return true;
-
-            node = node is Visual or System.Windows.Media.Media3D.Visual3D
-                ? VisualTreeHelper.GetParent(node)
-                : LogicalTreeHelper.GetParent(node);
-        }
-
-        return false;
-    }
-
-
     private void FavoriteRow_PreviewMouseLeftButtonDown(object sender, MouseButtonEventArgs e)
     {
         if (IsInteractiveOriginalSource(e.OriginalSource as DependencyObject))
@@ -724,7 +881,7 @@ public partial class MainWindow : Window
     private void SetFavoriteRowDropIndicator(Border? border, bool on)
     {
         if (border == null) return;
-        border.BorderBrush = (Brush)FindResource(on ? "Brush.Accent" : "Brush.Border");
+        border.BorderBrush = on ? (Brush)FindResource("Brush.Accent") : Brushes.Transparent;
     }
 
     private void FavoriteRowButton_Click(object sender, RoutedEventArgs e) => e.Handled = true;
@@ -742,24 +899,5 @@ public partial class MainWindow : Window
                 Keyboard.Focus(search);
             }
         }));
-    }
-
-    private void ToastLife_Loaded(object sender, RoutedEventArgs e)
-    {
-        if (sender is not Border { RenderTransform: ScaleTransform scale } life)
-            return;
-
-        int ms = (life.DataContext as ToastViewModel)?.LifetimeMs ?? 0;
-        if (ms <= 0)
-            return;
-
-        scale.BeginAnimation(ScaleTransform.ScaleXProperty,
-            new DoubleAnimation(1, 0, TimeSpan.FromMilliseconds(ms)) { FillBehavior = FillBehavior.HoldEnd });
-    }
-
-    private void ToastContent_SizeChanged(object sender, SizeChangedEventArgs e)
-    {
-        if (sender is FrameworkElement host)
-            host.Clip = new RectangleGeometry(new Rect(e.NewSize), 15, 15);
     }
 }

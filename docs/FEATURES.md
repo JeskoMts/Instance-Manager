@@ -2,26 +2,26 @@
 
 This is the full tour of what Instance Manager can do, organized by area. Each section says what the feature is, how it behaves, and how to use it. For the short version, see the Features table in the [README](../README.md). For the design behind these features, see [ARCHITECTURE.md](ARCHITECTURE.md).
 
-The app is organized into four tabs: Accounts, Games, Settings, and Themes. Most day-to-day work happens on the Accounts tab.
+The app is organized into three tabs in the title bar: Accounts, Games, and Settings (themes live under Settings → Appearance). Most day-to-day work happens on the Accounts tab.
 
 ## Accounts
 
 The Accounts tab is the home base. It holds every Roblox account you have added, grouped and searchable, with a running indicator on each one.
 
-**What an account stores.** Each account keeps its Roblox identity (user id, username, display name), an optional alias and free-text notes, the encrypted session cookie, and a little launch metadata (sort order, a browser tracker id, and an optional preferred Roblox version). The avatar headshot is loaded from Roblox on demand and shown on the row.
+**What an account stores.** Each account keeps its Roblox identity (user id, username, display name), an optional alias and free-text notes, the encrypted session cookie, and a little launch metadata (sort order, a browser tracker id, and an optional preferred Roblox version). The avatar headshot is shown on the row. It is cached locally, so it appears immediately at startup, and refreshed from Roblox in the background.
 
 **Adding an account.** Click Add Account. A window opens with the real Roblox login page inside an embedded browser. Sign in there exactly as you normally would. When the sign-in succeeds, the app reads the `.ROBLOSECURITY` cookie, checks it against Roblox to confirm the identity, stores the account in encrypted form, and clears the login browser session. The app never sees your username or password.
 
-**Re-adding an account.** If you add an account that already exists (matched by Roblox user id), the app updates the existing entry with the fresh cookie and current username and display name instead of creating a duplicate. This is the normal way to refresh an account whose cookie has expired.
+**Re-adding an account.** If you add an account that already exists (matched by Roblox user id), the app updates the existing entry with the fresh cookie and current username and display name instead of creating a duplicate. This is the normal way to refresh an account whose cookie has expired. When a launch fails because Roblox no longer accepts the saved login, the row says **Login expired** (hover it for the explanation) and shows an **Add again** button that opens the sign-in window directly; signing in to the same account clears the mark.
 
 **Renaming.** Renaming sets an alias, which is what the row shows. It does not change the real Roblox username. Use it to label alts in a way that makes sense to you.
 
 **Removing.** Removing an account deletes it and its encrypted cookie from disk. The action shows an Undo on its notification, so an accidental removal is one click away from being restored.
 
 **How to use it.**
-- Add: Accounts tab, Add Account, sign in.
-- Rename: open a row's menu, choose rename, type an alias.
-- Remove: open a row's menu, choose remove. Click Undo on the toast if it was a mistake.
+- Add: Accounts tab, Add account, sign in.
+- Rename: open a row's ⋯ menu (or right-click the row), choose Rename, type an alias.
+- Remove: open a row's ⋯ menu, choose Remove account. Click Undo on the toast if it was a mistake.
 
 ## Groups
 
@@ -36,10 +36,11 @@ Groups keep related accounts together. They are colored, can be collapsed, and c
 **Launching a group.** You can launch a whole group at once. An empty group reports that there is nothing to launch rather than doing nothing silently.
 
 **How to use it.**
-- Create: Create Group, pick a name and color.
-- Add members: drag an account row onto a group header, or use the group's membership editor.
-- Launch: use the group header's launch action.
-- Collapse: click the group header's expander.
+- Create: New group, pick a name and color.
+- Add members: drag an account row onto a group header, or tick groups in the account's ⋯ menu → Groups.
+- Leave all groups: drag the account onto the Ungrouped header, or ⋯ menu → Groups → Remove from all groups.
+- Launch: use the group header's Launch group action.
+- Collapse: click the group header.
 
 ## Favorites
 
@@ -56,30 +57,33 @@ Favorites are saved games you launch often, so you do not have to paste a link e
 **Resume on startup.** The favorite you had selected when you closed the app is reselected and reapplied on the next start, so your launch target opens just as you left it.
 
 **How to use it.**
-- Save: enter a valid game target, then use the save/favorite action and give it a name.
-- Apply: pick it from the favorites dropdown.
+- Save: enter a valid game target, then click the star inside the launch box and give it a name.
+- Apply: pick it from Favorites in the launch bar.
 - Pin: toggle its primary star.
 - Search: type in the favorites search box to filter the list.
 
 ## Launch targets
 
-A target is where the selected accounts will go. There are two kinds.
+A target is where the selected accounts will go. There are two kinds, and both are optional.
 
 **Public game.** Enter a Roblox game link or a place id. The app accepts plain digits, `games/<id>` style links, and `?placeId=<id>` style links, and validates that it is a real place id before launching.
 
-**Private server.** Switch to Job ID mode and paste a full private-server link or a raw job id (a GUID). Server links are resolved and checked first: only HTTPS and only Roblox domains are accepted, redirects are followed at most five times, and each hop is rechecked, so a link that bounces off Roblox is rejected.
+**No target: Roblox home.** Leave the field empty and launch. Each account opens signed in on the Roblox home screen instead of joining a game. Anything you do type must still be a valid link or id, so a typo never silently sends you to the home screen.
+
+**Private server.** Switch the launch bar to Server and paste a full private-server link or a raw job id (a GUID). Server links are resolved and checked first: only HTTPS and only Roblox domains are accepted, redirects are followed at most five times, and each hop is rechecked, so a link that bounces off Roblox is rejected.
 
 The last target you typed, the last join mode, and the last job id are all remembered between sessions.
 
 **How to use it.**
-- Public: type a link or id in the launch box and launch.
-- Private: switch to Job ID mode, paste the server link or job id, and launch.
+- Public: keep the launch bar on Game, type a link or id, and launch.
+- Private: switch to Server, paste the server link or job id, and launch.
+- Home screen: leave the field empty and launch.
 
 ## Games tab
 
 The Games tab shows a grid of popular Roblox games so you can pick a target without hunting for a link.
 
-**Picking a game.** Clicking a game turns it into your current launch target as a public launch, exactly as if you had applied a favorite. If you have turned on "switch to Accounts after selecting a game" in Settings, the app also jumps to the Accounts tab so you can launch right away. The grid is warmed in the background at startup, so opening the tab is instant.
+**Picking a game.** Clicking a game turns it into your current launch target as a public launch, exactly as if you had applied a favorite. If you have turned on "switch to Accounts after selecting a game" in Settings, the app also jumps to the Accounts tab so you can launch right away. The grid loads in the background right after the app starts, so it is already there when you open the tab. Thumbnails are small JPEGs, which keeps this light. The current launch target is marked with a check.
 
 **How to use it.**
 - Open the Games tab and click a game.
@@ -91,26 +95,30 @@ This is the headline capability: running several Roblox clients at once, each si
 
 **How parallel instances are possible.** Roblox normally allows one client per machine, enforced with two named singleton objects. Instance Manager holds both of them open while it runs, each on its own background thread, so additional launches no longer replace the first client. The feature is best-effort: if something else already owns one of those names, the app launches anyway, just without the parallel behavior until the name is free.
 
-**Spacing launches out.** Launches happen one after another with a delay you set (the launch delay, from 0 to 60000 ms in 500 ms steps). This keeps the machine and the Roblox servers from being hit by a burst of simultaneous starts.
+**One at a time, for real.** Accounts start strictly one after another. After starting a client the app waits until its window is open (up to 30 s) and then until its log shows it joined the game (up to 20 s; skipped for the home screen, which joins nothing), and only then starts the next account. The pause from Settings (0 to 30000 ms in 500 ms steps) is added on top. Single launches and Auto Reconnect go through the same queue, so a reconnect never collides with a running batch.
+
+**Safe to repeat.** Accounts that are already running are skipped instead of being closed and restarted. A client that closes while it is still starting is retried once with a fresh ticket.
+
+**Progress and cancel.** Each row shows what is happening (Queued, Starting, Opening Roblox, Joining game, Login expired with an Add again button, Failed with the reason on hover), and the launch bar shows overall progress. Cancel stops the batch after the account that is starting right now.
 
 **Failure isolation.** If one account fails to launch (for example an expired cookie), it is counted as a failure and the run continues with the rest. One bad account never strands the others.
 
 **How to use it.**
-- Select the accounts you want, or launch a whole group.
-- Click Launch. Watch the status line for progress and a summary at the end.
-- Adjust the launch delay on the Settings tab.
+- Select the accounts you want (click rows or Ctrl+A), or launch a whole group from its header.
+- Click Launch (or Ctrl+Enter). Watch the rows and the launch bar, and read the summary at the end.
+- Raise the pause on the Settings tab if some instances still fail to join.
 
 ## Running instances and stopping
 
 Every instance the app starts is tracked, so you always know what is live.
 
-**Indicators.** Running accounts are marked on the list, and the app shows a running count.
+**Indicators.** Running accounts get a green dot and a Running label, and the list header shows how many are running.
 
 **Stopping.** You can stop a single account's instance from its row, or stop all running instances at once (with a confirmation). Stopping an instance yourself pauses Auto Reconnect for it, so a deliberate stop never bounces back.
 
 **How to use it.**
-- Stop one: use the stop action on a running row.
-- Stop all: use Stop All and confirm.
+- Stop one: a running row's play button turns into a red stop button.
+- Stop all: use Stop all in the list header and confirm.
 
 ## Auto Reconnect
 
@@ -142,20 +150,20 @@ Auto Reconnect watches your running instances and brings them back when they dro
 
 The app works with one or more installed Roblox clients.
 
-**Global selection.** A version bar lets you pick which installed client to use for launches. The app can also check Roblox online for the latest version.
+**Default version.** Settings → Roblox version picks which installed client launches use. Detection runs in the background, and the refresh button re-detects after a Roblox update.
 
 **Per-account version.** An account can pin a preferred version. When it launches, that version is used if it is installed; otherwise the launch falls back to the global selection.
 
 **Custom path.** If your Roblox versions live somewhere other than the default `%LOCALAPPDATA%\Roblox\Versions`, set a versions path override in Settings.
 
 **How to use it.**
-- Pick the global version in the version bar.
-- Set a per-account version from the version selector on its row.
+- Pick the default version under Settings → Roblox version.
+- Pin a per-account version from the account's ⋯ menu → Roblox version. Pinned accounts show the version as a small tag.
 - Change the versions folder in Settings if needed.
 
 ## Themes
 
-The Themes tab controls the look of the app.
+Settings → Appearance controls the look of the app.
 
 **Built-in and custom.** Several built-in color schemes ship with the app. A theme editor lets you build your own. A "more themes" toggle keeps the picker compact until you want to see everything.
 
@@ -164,7 +172,7 @@ The Themes tab controls the look of the app.
 **Live application.** Switching a theme repaints the app immediately, with no restart.
 
 **How to use it.**
-- Switch: open the Themes tab and pick a theme.
+- Switch: open Settings → Appearance and click a theme.
 - Edit or create: use the theme editor.
 - Share: export a theme to a code, or paste a code to import one.
 
@@ -197,11 +205,16 @@ Working with a long list is meant to be fast.
 
 **Search.** The account list filters as you type, matching on both the display label and the underlying username. Favorites have their own search box.
 
-**Bulk selection.** You can select all visible accounts or clear the selection in one action, then launch the selected set.
+**Selection.** Clicking a row selects it. The checkbox in the list header selects or clears everything visible, and the header shows how many are selected.
+
+**Keyboard shortcuts.**
+- Ctrl+1 / Ctrl+2 / Ctrl+3: Accounts, Games, Settings.
+- Ctrl+F: search. Esc clears the search, then the selection.
+- Ctrl+A: select all visible accounts. Ctrl+Enter: launch the selection.
 
 **How to use it.**
 - Type in the search box to filter, and clear it to see everything again.
-- Use Select All and Clear to manage the selection, then Launch.
+- Click rows or use the header checkbox to select, then Launch.
 
 ## Persistence and resume
 
