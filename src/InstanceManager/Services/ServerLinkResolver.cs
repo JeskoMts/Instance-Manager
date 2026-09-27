@@ -126,7 +126,7 @@ public sealed class ServerLinkResolver : IServerLinkResolver
                string.Equals(host, "ro.blox.com", StringComparison.OrdinalIgnoreCase);
     }
 
-    private static bool IsRedirect(HttpStatusCode statusCode) =>
+    internal static bool IsRedirect(HttpStatusCode statusCode) =>
         statusCode is HttpStatusCode.Moved or HttpStatusCode.Redirect or HttpStatusCode.RedirectMethod or
             HttpStatusCode.TemporaryRedirect or HttpStatusCode.PermanentRedirect;
 

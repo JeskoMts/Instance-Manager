@@ -19,7 +19,7 @@
             <TextBlock Text="Name" FontSize="11" Foreground="{DynamicResource Brush.TextSecondary}" Margin="18,0,18,4" />
             <TextBox x:Name="NameBox" Style="{StaticResource ModernTextBox}" Margin="18,0,18,10" KeyDown="Box_KeyDown" />
 
-            <TextBlock Text="Game link or PlaceId" FontSize="11" Foreground="{DynamicResource Brush.TextSecondary}" Margin="18,0,18,4" />
+            <TextBlock Text="Game link or Place ID" FontSize="11" Foreground="{DynamicResource Brush.TextSecondary}" Margin="18,0,18,4" />
             <TextBox x:Name="TargetBox" Style="{StaticResource ModernTextBox}" Margin="18,0,18,10" KeyDown="Box_KeyDown" />
 
             <TextBlock Text="Job ID (optional)" FontSize="11" Foreground="{DynamicResource Brush.TextSecondary}" Margin="18,0,18,4" />

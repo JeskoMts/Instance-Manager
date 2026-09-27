@@ -32,5 +32,6 @@ public enum NotificationId
     ThemeDeleted,
     ThemeExported,
     ThemeImported,
-    ThemeImportFailed
+    ThemeImportFailed,
+    AppUpdated
 }

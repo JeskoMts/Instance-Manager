@@ -142,7 +142,7 @@ public partial class ThemeViewModel : ObservableObject
         }
 
         _shell.Notify(NotificationId.ThemeExported, NotificationKind.Success, "Theme code copied",
-            $"Copied '{theme.Name}' — paste it to share.");
+            $"Copied the code for '{theme.Name}'. Paste it anywhere to share the theme.");
     }
 
     [RelayCommand]

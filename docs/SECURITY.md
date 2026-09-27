@@ -1,84 +1,94 @@
 # Security
 
-Instance Manager is a local, single-user Windows desktop app. It has no server, no account system of its own, no telemetry, and no inbound listener. Its most valuable asset is the Roblox `.ROBLOSECURITY` session cookie: possession of that cookie can give control of the corresponding Roblox account.
-
-The detailed June 24, 2026 audit, including CVSS 3.1 vectors and remediation evidence, is in [SECURITY-AUDIT-2026-06-24.md](SECURITY-AUDIT-2026-06-24.md).
+Instance Manager is a local, single-user Windows app. It has no server, no account system of its own, no telemetry and nothing listening for incoming connections. The most valuable thing it holds is the Roblox `.ROBLOSECURITY` session cookie of each account, because whoever has that cookie can act as that account.
 
 ## Trust model
 
-- **Trusted:** the current Windows user, the installed application files, Windows cryptographic and trust services, and official Roblox HTTPS endpoints.
-- **Untrusted and validated:** typed or pasted links, theme codes, persisted JSON, remote URLs and response bodies, custom Roblox-version paths, and executable files.
-- **Partially defensible:** another process running as the same Windows user. The app minimizes reusable secrets and refuses untrusted executables, but Windows DPAPI intentionally allows code running as that user to decrypt that user's data.
-- **Out of scope:** administrator, kernel, or fully compromised Windows-session attackers.
+- Trusted: the current Windows user, the installed app files, Windows' crypto and code-signing services, Roblox's HTTPS endpoints, and the GitHub releases of `JeskoMts/Instance-Manager`.
+- Untrusted and validated: pasted links, theme codes, JSON files on disk, remote URLs and responses, custom Roblox folders, executables and update packages.
+- Only partly defensible: other programs running as the same Windows user. The app keeps few reusable secrets and refuses untrusted executables, but DPAPI by design lets any code running as that user decrypt that user's data.
+- Out of scope: attackers with administrator or kernel access, or full control of the Windows session.
 
-The app runs as the current user with `asInvoker` and never requests administrator rights.
+The app runs as the current user (`asInvoker`) and never asks for administrator rights.
 
-## Login and session-cookie handling
+## Login and the session cookie
 
-Account login uses the real Roblox login page in WebView2. Each login dialog builds its own WebView2 environment with an InPrivate/off-the-record profile and disposes it on close, so no shared or static login browser state outlives the dialog. Top-level navigation is limited to HTTPS on `roblox.com` and its subdomains; popups, downloads, external URI schemes, DevTools, browser accelerator keys, autofill, password saving, host objects, and web messages are disabled.
+Login uses the real Roblox page in WebView2. Each login dialog creates its own WebView2 environment with an InPrivate profile and disposes it when the dialog closes, so no login state outlives the dialog. Top-level navigation is limited to HTTPS on `roblox.com` and its subdomains. Pop-ups, downloads, external URI schemes, DevTools, browser shortcuts, autofill, password saving, host objects and web messages are all turned off.
 
-Successful capture, Cancel, title-bar close, and error cleanup all delete cookies and profile browsing data before disposal. WebView2 runtime data lives under `%LOCALAPPDATA%\Instance Manager\webview`, not roaming `%APPDATA%`. Old `%APPDATA%\Instance Manager\webview` state from earlier releases is removed best-effort at startup.
+Whether the login succeeds, is cancelled, the window is closed or an error occurs, cookies and browsing data are deleted before the browser is disposed. The WebView2 runtime folder is `%LOCALAPPDATA%\Instance Manager\webview`, outside the roaming profile; an older roaming copy from earlier releases is deleted at startup.
 
-The app reads the `.ROBLOSECURITY` cookie only after Roblox login, validates it against `users/authenticated`, encrypts it immediately, and clears the browser session. Cookie values are length- and control-character checked before being added to an HTTP header.
+The app reads the `.ROBLOSECURITY` cookie only after the Roblox login, confirms it with `users.roblox.com/v1/users/authenticated`, encrypts it right away and clears the browser session. Cookie values are checked for length and control characters before they go into an HTTP header.
 
-## Secret storage
+## How secrets are stored
 
-Cookies are encrypted with Windows DPAPI using `DataProtectionScope.CurrentUser`. A copied `accounts.json` cannot normally be decrypted under another Windows user or on another machine. The fixed entropy string separates this app's DPAPI blobs; it is not treated as a password.
+Cookies are encrypted with Windows DPAPI (`DataProtectionScope.CurrentUser`), so a copied `accounts.json` normally can't be decrypted under another Windows user or on another PC. A fixed entropy string keeps this app's DPAPI data separate from other apps; it isn't treated as a password.
 
-Plaintext byte buffers used during DPAPI operations are zeroed immediately after use. A plaintext managed string still exists briefly while a cookie is validated or exchanged for a one-time Roblox authentication ticket; .NET strings cannot be reliably wiped in place.
+Byte buffers holding plaintext during DPAPI calls are zeroed right after use. While a cookie is checked or traded for a launch ticket, it briefly exists as a .NET string, which can't be wiped reliably.
 
-User IDs, usernames, display names, aliases, notes, and organization metadata remain plaintext in `accounts.json`. Only the session cookie is encrypted. Avatar headshots are public Roblox images and are cached unencrypted as `%LOCALAPPDATA%\Instance Manager\avatars\<userId>.png`; the file name is derived from the numeric user ID only, so it cannot point outside that folder.
+User IDs, usernames, display names, nicknames, notes and group data stay in plain text in `accounts.json`; only the cookie is encrypted. Avatar headshots are public Roblox images and are cached unencrypted as `%LOCALAPPDATA%\Instance Manager\avatars\<userId>.png`. The file name comes from the numeric user ID only, so it can't point outside that folder.
 
-## Network security
+## Network
 
-The shared `HttpClient` has cookies and automatic redirects disabled. Roblox server links use HTTPS allowlists and manually validate every redirect. Authentication cookies are sent only to fixed Roblox authentication/user endpoints. The operating system performs TLS certificate validation; certificate pinning is deliberately not used because there is no maintained emergency pin-update channel.
+The shared `HttpClient` has cookies and automatic redirects turned off. Server links are checked against an HTTPS allowlist and every redirect is validated by hand. The cookie is only ever sent to fixed Roblox login and user endpoints. Windows validates TLS certificates. The app doesn't pin certificates, because there would be no way to ship an emergency pin update.
 
-The only non-Roblox address in the app is the fixed `https://discord.gg/` community invite. It opens in the default browser only when the Discord button is clicked; the app itself sends no request there.
+Avatar and game images must come over HTTPS from `rbxcdn.com` or its subdomains, and image downloads are cut off at five megabytes, including compressed responses and responses without a `Content-Length`.
 
-Avatar and game-image URLs must be HTTPS on `rbxcdn.com` or its subdomains. Image bodies are streamed through a strict five-megabyte limit, including responses without `Content-Length` and decompressed responses.
+The Discord invite behind the Discord button is the only address outside Roblox and GitHub. It opens in your browser when you click the button; the app itself never contacts Discord.
 
-## Input and resource limits
+## Updates
 
-- Roblox server links are capped in length, require valid percent-encoding, remain on Roblox HTTPS origins, and follow at most five redirects.
+On every start of a Release build the app asks `api.github.com` for the latest release of `JeskoMts/Instance-Manager`. The request carries only a user agent with the app version. If the release is newer than the running build, the update goes through these checks:
+
+- The asset must be named `InstanceManager-<tag>.zip`, and its download URL must start with `https://github.com/JeskoMts/Instance-Manager/releases/download/`.
+- Redirects are followed by hand, at most five, HTTPS only, and only to `github.com`, `objects.githubusercontent.com` and `release-assets.githubusercontent.com`.
+- The download is capped at 64 MB, and its SHA-256 must match the `sha256:` digest GitHub reports for the asset. Without a digest there is no update.
+- The zip may only contain plain file names (no folders, no `..`, no alternate data streams, no invalid characters, no duplicates), must include `InstanceManager.exe` and `InstanceManager.dll`, and its unpacked size is capped.
+- Files are swapped by renaming, and a failed swap restores every file already replaced.
+
+The digest proves the file is the one attached to the release; it doesn't prove who attached it. Release builds aren't code-signed, so the update is exactly as trustworthy as the GitHub account and repository that publish it. Whoever controls those can ship code that runs as your Windows user on the next start. This is the same trust you place in the repository when you download a release by hand.
+
+## Input limits
+
+- Server links have a length cap, must be correctly percent-encoded, must stay on Roblox HTTPS addresses and may redirect at most five times.
 - Place IDs must be positive integers and Job IDs must be GUIDs.
-- Theme imports are size-checked at the native clipboard handle before WPF materializes text. Encoded and decoded payloads, JSON depth, theme names, fields, and every color value are then validated.
-- Persisted JSON files larger than four megabytes are rejected before deserialization.
-- Auto Reconnect log fields are flattened to one line, control characters are removed, messages are capped, and the log rotates at one megabyte.
+- Theme imports are size-checked on the raw clipboard data before WPF turns it into text. The encoded and decoded payload, JSON depth, theme name, fields and every color are validated after that.
+- JSON files over four megabytes are rejected before parsing.
+- Auto Reconnect log fields are put on one line, stripped of control characters and length-capped, and the log rotates at one megabyte.
 
-## Executable launch security
+## Launching Roblox
 
-Custom Roblox-version roots are allowed only as fully qualified directories on a local fixed drive. UNC, network, relative, device, removable, and mapped-network roots are rejected before filesystem enumeration, preventing implicit SMB authentication.
+A custom Roblox folder must be a full path on a fixed local drive. UNC paths, network drives, relative paths, device paths and removable drives are rejected before the app looks inside, so it never triggers a Windows login to a remote share.
 
-Every `RobloxPlayerBeta.exe` is checked both during discovery and immediately before launch:
+Every `RobloxPlayerBeta.exe` is checked when it is found and again right before launch:
 
-- Canonical path remains below the configured root.
-- Filename is exactly `RobloxPlayerBeta.exe`.
-- File and directory path do not use reparse points.
-- Windows `WinVerifyTrust` accepts the embedded Authenticode signature.
-- The signer identity is Roblox Corporation.
+- Its real path is inside the configured folder.
+- The file name is exactly `RobloxPlayerBeta.exe`.
+- Neither the file nor its folder is a symbolic link or junction.
+- Windows `WinVerifyTrust` accepts its Authenticode signature, and the signer is Roblox Corporation.
 
-Hashing the ~140 MB client costs about half a second of CPU, so a successful check is not simply repeated. Instead, the verified file is kept open with writes denied (reads and deletion stay shared, so Roblox can still remove old versions). Its contents therefore cannot change after the check. Every later check still runs all path rules above and confirms, by volume serial and 128-bit file ID, that the path names that same pinned file; a replaced, renamed, or deleted file is verified from scratch. The pins are released when the app exits.
+Hashing the roughly 140 MB client costs about half a second of CPU, so the signature isn't re-checked every time. After a successful check the app keeps the file open with writes denied until it exits; reads and deletion stay allowed so Roblox can still remove old versions. Later checks run all path rules again and confirm, by volume serial number and 128-bit file ID, that the path still points to that same pinned file. A replaced, renamed or deleted file is checked from scratch.
 
-`ProcessStartInfo.ArgumentList` is used rather than a shell command, so launch data is one process argument rather than command text.
+Roblox is started with `ProcessStartInfo.ArgumentList`, not through a shell, so the launch URI is passed as a single argument and never interpreted as a command.
 
 ## Logging
 
-Cookies and authentication tickets are never logged. `auto-reconnect.log` contains account labels, user IDs, retry state, and place/job IDs. Untrusted text is sanitized to prevent forged log lines. Debug-only WPF binding logs contain no intentional secret fields.
+Cookies and launch tickets are never logged. `auto-reconnect.log` contains account names, user IDs, retry counts and Place and Job IDs, with untrusted text cleaned so it can't forge log lines. The Debug-only binding log contains no secrets on purpose.
 
 ## Dependencies and CI
 
-Package versions are locked with `packages.lock.json`. NuGet audit warnings `NU1901` through `NU1904` are build errors. CI restores in locked mode, scans source and release archives for secret/key patterns and forbidden runtime data, reports direct and transitive vulnerable packages, builds Release, and runs the test suite with read-only repository permissions.
+Package versions are locked in `packages.lock.json`, and NuGet audit warnings `NU1901` to `NU1904` fail the build. CI restores in locked mode, scans the source and release archives for keys, secrets and runtime data, lists vulnerable direct and transitive packages, builds Release and runs the tests with read-only repository permissions.
 
-As of September 27, 2026, the configured NuGet advisory sources report no known vulnerable direct or transitive packages.
+On September 27, 2026, NuGet reported no known vulnerable direct or transitive packages for either project.
 
-## Residual risks
+## Known limits
 
-- Code already running as the same Windows user can use that user's DPAPI context. The app cannot create a trustworthy second security boundary without a separate credential or hardware-backed user-presence flow.
-- The one-time Roblox authentication ticket is briefly present in the Roblox process command line because the Roblox launch protocol requires it. It is short-lived and single-use.
-- Revalidating the executable immediately before `Process.Start` reduces but cannot mathematically eliminate a same-user time-of-check/time-of-use race. Pinning the verified file against writes rules out in-place modification; swapping the path to a different file between the final identity check and `Process.Start` remains theoretically possible.
-- A valid signed Roblox directory could theoretically contain vulnerable or maliciously replaced sidecar content. The executable signature is verified, but the app does not maintain a signed manifest for every Roblox installation file.
-- Plaintext identity and note fields remain visible to anyone who can read the Windows profile.
+- Code already running as your Windows user can use your DPAPI keys. The app can't add a second boundary without a separate password or hardware-backed confirmation.
+- The one-time Roblox launch ticket is briefly visible in the Roblox process command line, because the Roblox launch protocol requires it there. It expires quickly and works only once.
+- Checking the executable right before `Process.Start` narrows but can't fully close a same-user race. Pinning rules out changing the file in place; swapping the path to another file between the last identity check and `Process.Start` remains possible in theory.
+- The Roblox executable's signature is verified, but the other files in a Roblox version folder aren't.
+- Automatic updates depend on the GitHub account behind the repository, as described under [Updates](#updates).
+- Plain-text account fields in `accounts.json` are readable by anyone with access to your Windows profile.
 
 ## Reporting a vulnerability
 
-Follow the repository-level [security policy](../SECURITY.md). Do not place Roblox cookies, authentication tickets, personal data, or working exploit details in a public issue.
+Report security problems privately to the maintainer through the [Instance Manager Discord](https://discord.gg/8XyKcZdSGe) instead of opening a public issue. Never post Roblox cookies, launch tickets, personal data or a working exploit in public.

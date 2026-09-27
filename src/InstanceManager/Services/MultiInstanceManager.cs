@@ -197,7 +197,7 @@ public sealed class MultiInstanceManager : IDisposable
                 catch (WaitHandleCannotBeOpenedException ex)
                 {
                     throw new InvalidOperationException(
-                        $"Cannot enable Roblox multi-instance: '{_name}' is occupied by a named object that is not a mutex. Close older InstanceManager or Roblox helper processes and try again.",
+                        $"Cannot enable Roblox multi-instance: '{_name}' is occupied by a named object that is not a mutex. Close older Instance Manager or Roblox helper processes and try again.",
                         ex);
                 }
                 catch (Exception ex)

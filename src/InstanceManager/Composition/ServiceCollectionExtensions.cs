@@ -35,6 +35,7 @@ public static class ServiceCollectionExtensions
         services.AddSingleton<AutoReconnectService>();
         services.AddSingleton<LaunchService>();
         services.AddSingleton<IServerLinkResolver, ServerLinkResolver>();
+        services.AddSingleton<UpdateService>();
 
         services.AddSingleton<IDialogService, WpfDialogService>();
         services.AddSingleton<ShellViewModel>();

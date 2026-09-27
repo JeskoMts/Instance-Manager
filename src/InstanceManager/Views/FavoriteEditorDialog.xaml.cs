@@ -46,7 +46,7 @@ public partial class FavoriteEditorDialog : Window
 
         if (!GameLinkParser.TryParsePlaceId(TargetBox.Text, out long placeId))
         {
-            ShowError("Enter a valid game link or PlaceId.");
+            ShowError("Enter a valid game link or Place ID.");
             return;
         }
 

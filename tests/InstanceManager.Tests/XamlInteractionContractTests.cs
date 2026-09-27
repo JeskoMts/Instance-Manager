@@ -92,11 +92,11 @@ public sealed class XamlInteractionContractTests
             xaml,
             StringComparison.Ordinal);
         Assert.Contains(
-            "Master switch. When on, all notifications appear only in the bell tray. When off, the individual choices below still apply.",
+            "When on, notifications go straight to the bell and never pop up. When off, the choices below decide.",
             xaml,
             StringComparison.Ordinal);
         Assert.Contains(
-            "Master switch. When on, all confirmations are skipped. When off, the individual choices below still apply.",
+            "When on, the app never asks before removing, deleting or stopping something. When off, the choices below decide.",
             xaml,
             StringComparison.Ordinal);
     }

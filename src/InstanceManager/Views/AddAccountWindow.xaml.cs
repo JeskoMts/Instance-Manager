@@ -125,7 +125,7 @@ public partial class AddAccountWindow : Window
             core.LaunchingExternalUriScheme += WebView_LaunchingExternalUriScheme;
             core.Navigate(LoginUrl);
             _ready = true;
-            SetStatus("Sign in to Roblox below…");
+            SetStatus("Waiting for you to sign in…");
         }
         catch (Exception ex)
         {
@@ -172,15 +172,15 @@ public partial class AddAccountWindow : Window
 
             if (roblox is null || string.IsNullOrWhiteSpace(roblox.Value))
             {
-                if (manual) SetStatus("Not signed in yet — please sign in to Roblox first.");
+                if (manual) SetStatus("You're not signed in yet. Sign in to Roblox above first.");
                 return;
             }
 
-            SetStatus("Validating account…");
+            SetStatus("Checking the account with Roblox…");
             RobloxUserInfo? info = await _auth.GetUserInfoAsync(roblox.Value);
             if (info is null)
             {
-                if (manual) SetStatus("Sign-in not complete — please finish signing in.");
+                if (manual) SetStatus("Sign-in isn't finished yet. Complete it above, then try again.");
                 return;
             }
 
@@ -198,7 +198,7 @@ public partial class AddAccountWindow : Window
         }
         catch (Exception ex)
         {
-            SetStatus("Error: " + ex.Message);
+            SetStatus("Something went wrong: " + ex.Message);
         }
         finally
         {
@@ -240,11 +240,11 @@ public partial class AddAccountWindow : Window
     {
         bool runtimeMissing = ex is WebView2RuntimeNotFoundException;
         ErrorText.Text = runtimeMissing
-            ? "The Microsoft Edge WebView2 runtime is required for sign-in, but it isn't installed."
-            : "WebView2 could not be initialized:\n" + ex.Message;
+            ? "Signing in needs the Microsoft Edge WebView2 Runtime, and it isn't installed on this PC."
+            : "The sign-in browser (WebView2) couldn't start:\n" + ex.Message;
         DownloadRuntimeButton.Visibility = runtimeMissing ? Visibility.Visible : Visibility.Collapsed;
         ErrorPanel.Visibility = Visibility.Visible;
-        SetStatus("Failed to initialize.");
+        SetStatus("The sign-in window couldn't start.");
     }
 
     private void DownloadRuntime_Click(object sender, RoutedEventArgs e)

@@ -53,7 +53,7 @@ public sealed class RobloxExecutableValidator : IRobloxExecutableValidator, IDis
                 string.Equals(relative, "..", StringComparison.Ordinal) ||
                 relative.StartsWith($"..{Path.DirectorySeparatorChar}", StringComparison.Ordinal))
             {
-                error = "The Roblox executable escapes the configured versions directory.";
+                error = "RobloxPlayerBeta.exe is outside the Roblox versions folder.";
                 return false;
             }
 
@@ -67,7 +67,7 @@ public sealed class RobloxExecutableValidator : IRobloxExecutableValidator, IDis
             if ((fileAttributes & (FileAttributes.Directory | FileAttributes.ReparsePoint)) != 0 ||
                 ContainsReparsePoint(root, Path.GetDirectoryName(candidate)!))
             {
-                error = "Reparse-point Roblox executable paths are not allowed.";
+                error = "RobloxPlayerBeta.exe is behind a symbolic link or junction, which isn't allowed.";
                 return false;
             }
 
@@ -78,7 +78,7 @@ public sealed class RobloxExecutableValidator : IRobloxExecutableValidator, IDis
             if (!_isTrustedRobloxBinary(candidate))
             {
                 pin?.Dispose();
-                error = "RobloxPlayerBeta.exe does not have a valid Roblox Authenticode signature.";
+                error = "RobloxPlayerBeta.exe isn't signed by Roblox.";
                 return false;
             }
 

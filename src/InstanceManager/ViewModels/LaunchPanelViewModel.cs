@@ -160,11 +160,11 @@ public partial class LaunchPanelViewModel : ObservableObject
         {
             return _serverLinks != null
                 ? _serverLinks.ResolveAsync(JobIdInput, cancellationToken)
-                : Task.FromResult(ServerTargetResolution.Failure("Server-link resolution is unavailable."));
+                : Task.FromResult(ServerTargetResolution.Failure("Server links can't be checked right now."));
         }
 
         if (!GameLinkParser.TryParsePlaceId(TargetInput, out long placeId))
-            return Task.FromResult(ServerTargetResolution.Failure("Enter a valid Game ID or Roblox game link."));
+            return Task.FromResult(ServerTargetResolution.Failure("Enter a valid game link or Place ID."));
 
         return Task.FromResult(ServerTargetResolution.Success(ServerTarget.Public(placeId)));
     }
@@ -176,7 +176,7 @@ public partial class LaunchPanelViewModel : ObservableObject
 
         if (!GameLinkParser.TryParsePlaceId(TargetInput, out long placeId))
         {
-            error = "Enter a valid game link or PlaceId.";
+            error = "Enter a valid game link or Place ID.";
             return false;
         }
 
@@ -229,11 +229,11 @@ public partial class LaunchPanelViewModel : ObservableObject
     {
         if (!GameLinkParser.TryParsePlaceId(TargetInput, out long placeId))
         {
-            _shell.Notify(NotificationId.FavoriteNotSaved, NotificationKind.Error, "Favorite not saved", "Enter a valid Game ID first.");
+            _shell.Notify(NotificationId.FavoriteNotSaved, NotificationKind.Error, "Favorite not saved", "Enter a valid game link or Place ID first.");
             return;
         }
 
-        string? name = _dialogs.Prompt("Save favorite – name", $"Game {placeId}");
+        string? name = _dialogs.Prompt("Name this favorite", $"Game {placeId}");
         if (string.IsNullOrWhiteSpace(name)) return;
 
         var favorite = new FavoriteGame { Name = name.Trim(), PlaceId = placeId, SortOrder = NextSortOrder() };

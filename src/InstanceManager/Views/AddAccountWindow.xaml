@@ -52,7 +52,7 @@
             </Grid.RowDefinitions>
 
             <Grid Grid.Row="0" Background="{DynamicResource Brush.Window}">
-                <TextBlock Text="Roblox login — add account" VerticalAlignment="Center"
+                <TextBlock Text="Add a Roblox account" VerticalAlignment="Center"
                            Margin="14,0,0,0" FontWeight="SemiBold" />
                 <Button Style="{StaticResource CaptionButton}" Click="Cancel_Click"
                         HorizontalAlignment="Right" VerticalAlignment="Center" Margin="0,0,4,0">
@@ -62,7 +62,7 @@
 
             <Border Grid.Row="1" Background="{DynamicResource Brush.Surface}" Padding="14,8" Margin="0">
                 <TextBlock TextWrapping="Wrap" Foreground="{DynamicResource Brush.TextSecondary}" FontSize="12"
-                           Text="Sign in to Roblox normally below. Instance Manager then captures the login automatically (stored locally and DPAPI-encrypted) — no passwords are saved." />
+                           Text="Sign in to Roblox below like you normally would. Instance Manager picks up the login by itself and stores it encrypted on this PC. Your password is never saved." />
             </Border>
 
             <Grid Grid.Row="2">
@@ -72,7 +72,7 @@
                         <TextBlock x:Name="ErrorText" TextWrapping="Wrap" TextAlignment="Center"
                                    Foreground="{DynamicResource Brush.TextSecondary}" />
                         <Button x:Name="DownloadRuntimeButton" Style="{StaticResource GhostButton}" Margin="0,12,0,0"
-                                HorizontalAlignment="Center" Content="Download WebView2 runtime"
+                                HorizontalAlignment="Center" Content="Download WebView2 Runtime"
                                 Click="DownloadRuntime_Click" Visibility="Collapsed" />
                     </StackPanel>
                 </Border>

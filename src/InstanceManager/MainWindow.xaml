@@ -630,7 +630,7 @@
                                             <Border x:Name="VersionChip" Grid.Column="4" Margin="0,0,10,0" Padding="7,2" CornerRadius="6"
                                                     VerticalAlignment="Center" MaxWidth="140"
                                                     BorderBrush="{DynamicResource Brush.Border}" BorderThickness="1"
-                                                    ToolTip="This account uses its own Roblox version">
+                                                    ToolTip="This account is pinned to its own Roblox version">
                                                 <TextBlock Text="{Binding PinnedVersionLabel}" FontSize="11" TextTrimming="CharacterEllipsis"
                                                            Foreground="{DynamicResource Brush.TextMuted}" />
                                             </Border>
@@ -650,7 +650,7 @@
 
                                             <Button Grid.Column="6" Style="{StaticResource IconButton}" Width="32" Height="32"
                                                     Padding="0" Margin="2,0,0,0" VerticalAlignment="Center"
-                                                    ToolTip="Rename, version, groups, remove" Click="AccountMenu_Click">
+                                                    ToolTip="More: rename, Roblox version, groups, remove" Click="AccountMenu_Click">
                                                 <ui:Icon Kind="More" />
                                             </Button>
                                         </Grid>
@@ -760,10 +760,10 @@
                                     BorderBrush="{DynamicResource Brush.Border}" BorderThickness="1">
                                 <StackPanel Orientation="Horizontal">
                                     <RadioButton Style="{StaticResource SegmentRadio}" GroupName="mode" Content="Game"
-                                                 ToolTip="Join any public server of a game — paste a game link or Place ID"
+                                                 ToolTip="Join any public server of a game. Paste a game link or Place ID."
                                                  IsChecked="{Binding LaunchPanel.SelectedMode, Converter={StaticResource EnumBool}, ConverterParameter=PublicByLink}" />
                                     <RadioButton Style="{StaticResource SegmentRadio}" GroupName="mode" Content="Server"
-                                                 ToolTip="Join one exact server — paste a server link, private server link or Job ID link"
+                                                 ToolTip="Join one specific server. Paste a server link, private server link or Job ID link."
                                                  IsChecked="{Binding LaunchPanel.SelectedMode, Converter={StaticResource EnumBool}, ConverterParameter=PrivateByJobId}" />
                                 </StackPanel>
                             </Border>
@@ -1104,7 +1104,7 @@
                                     <TextBlock Style="{StaticResource SettingValue}" Text="{Binding Value, ElementName=DelaySlider, Converter={StaticResource MsToSec}}" />
                                 </Grid>
                                 <TextBlock Style="{StaticResource SettingHint}"
-                                           Text="Accounts start one at a time. Each waits until the previous one has opened and joined its game (up to 20 s), plus this extra pause. Raise it if instances still fail to join." />
+                                           Text="Accounts start one after another. Each one waits until the previous client has opened and joined its game, then waits this long on top. Raise it if some accounts don't make it into the game." />
                                 <Slider x:Name="DelaySlider" Style="{StaticResource ModernSlider}" Margin="0,10,0,0" Minimum="0" Maximum="30000"
                                         SmallChange="500" LargeChange="500" TickFrequency="500" IsSnapToTickEnabled="True"
                                         Value="{Binding Settings.LaunchDelayMs, Delay=150}" />
@@ -1114,7 +1114,7 @@
                                 <Grid>
                                     <StackPanel Margin="0,0,56,0">
                                         <TextBlock Style="{StaticResource SettingTitle}" Text="Multi-instance" />
-                                        <TextBlock Style="{StaticResource SettingHint}" Text="Run several Roblox clients at the same time." />
+                                        <TextBlock Style="{StaticResource SettingHint}" Text="Lets several Roblox clients run at the same time, one per account." />
                                     </StackPanel>
                                     <CheckBox Style="{StaticResource ToggleSwitch}" HorizontalAlignment="Right"
                                               IsChecked="{Binding Settings.MultiInstanceEnabled}" />
@@ -1125,7 +1125,7 @@
                                 <Grid>
                                     <StackPanel Margin="0,0,56,0">
                                         <TextBlock Style="{StaticResource SettingTitle}" Text="Switch to Accounts after picking a game" />
-                                        <TextBlock Style="{StaticResource SettingHint}" Text="When off, the game becomes your launch target and you stay on the Games tab." />
+                                        <TextBlock Style="{StaticResource SettingHint}" Text="When off, picking a game only sets it as your launch target and you stay on the Games tab." />
                                     </StackPanel>
                                     <CheckBox Style="{StaticResource ToggleSwitch}" HorizontalAlignment="Right"
                                               IsChecked="{Binding Settings.SwitchToAccountsOnGameSelect}" />
@@ -1144,7 +1144,7 @@
                                     </Grid.ColumnDefinitions>
                                     <StackPanel Margin="0,0,16,0" VerticalAlignment="Center">
                                         <TextBlock Style="{StaticResource SettingTitle}" Text="Default version" />
-                                        <TextBlock Style="{StaticResource SettingHint}" Text="Used by every account unless you pin one from its ⋯ menu." />
+                                        <TextBlock Style="{StaticResource SettingHint}" Text="Every account uses this version unless you pin a different one in its ⋯ menu." />
                                     </StackPanel>
                                     <ComboBox Grid.Column="1" Style="{StaticResource ModernComboBox}" Width="200" VerticalAlignment="Center"
                                               ItemsSource="{Binding VersionBar.Versions}" SelectedItem="{Binding VersionBar.SelectedVersion}">
@@ -1157,7 +1157,7 @@
                                     <Button Grid.Column="2" Style="{StaticResource IconButton}" Margin="4,0,0,0" Width="34" Height="34" Padding="0"
                                             VerticalAlignment="Center"
                                             Command="{Binding VersionBar.RefreshVersionsCommand}"
-                                            ToolTip="Detect installed versions again (after Roblox updates)">
+                                            ToolTip="Look for installed versions again, for example after Roblox updated">
                                         <ui:Icon Kind="Refresh" Size="15" />
                                     </Button>
                                 </Grid>
@@ -1165,7 +1165,7 @@
                                 <Border Style="{StaticResource Divider}" />
 
                                 <TextBlock Style="{StaticResource SettingTitle}" Text="Custom versions folder" />
-                                <TextBlock Style="{StaticResource SettingHint}" Text="Leave empty to use the standard Roblox folder. Only local fixed drives are allowed." Margin="0,3,0,10" />
+                                <TextBlock Style="{StaticResource SettingHint}" Text="Leave empty to use the normal Roblox folder. Network and removable drives aren't allowed." Margin="0,3,0,10" />
                                 <Grid>
                                     <Grid.ColumnDefinitions>
                                         <ColumnDefinition Width="*" />
@@ -1187,7 +1187,7 @@
                                 <Grid>
                                     <StackPanel Margin="0,0,56,0">
                                         <TextBlock Style="{StaticResource SettingTitle}" Text="Auto Reconnect" />
-                                        <TextBlock Style="{StaticResource SettingHint}" Text="Bring an instance back when it drops out of its game. Stopping an instance yourself never reconnects it." />
+                                        <TextBlock Style="{StaticResource SettingHint}" Text="Rejoins an account when it drops out of its game. Instances you stop yourself stay closed." />
                                     </StackPanel>
                                     <CheckBox Style="{StaticResource ToggleSwitch}" HorizontalAlignment="Right"
                                               IsChecked="{Binding Settings.AutoReconnectMaster}" />
@@ -1207,14 +1207,14 @@
 
                                     <Grid Style="{StaticResource SubToggleRow}">
                                         <TextBlock Text="Reconnect after Kick/Error" VerticalAlignment="Center"
-                                                   ToolTip="Covers kicks, removals, moderation messages, Roblox error 267, plus lost connections, offline/shutdown servers, and being sent back to the Roblox menu."
+                                                   ToolTip="Kicks, removals, moderation messages, error 267, lost connections, servers that shut down or go offline, and being sent back to the Roblox menu."
                                                    Foreground="{DynamicResource Brush.TextSecondary}" />
                                         <CheckBox Style="{StaticResource ToggleSwitch}" HorizontalAlignment="Right"
                                                   IsChecked="{Binding Settings.AutoReconnectOnKickError}" />
                                     </Grid>
                                     <Grid>
                                         <TextBlock Text="Reconnect after Instance Crash" VerticalAlignment="Center"
-                                                   ToolTip="Covers the Roblox client process dying while in-game without leaving cleanly."
+                                                   ToolTip="The Roblox client closes unexpectedly while you're in a game."
                                                    Foreground="{DynamicResource Brush.TextSecondary}" />
                                         <CheckBox Style="{StaticResource ToggleSwitch}" HorizontalAlignment="Right"
                                                   IsChecked="{Binding Settings.AutoReconnectOnCrash}" />
@@ -1226,7 +1226,7 @@
                                         <TextBlock Style="{StaticResource SettingTitle}" Text="Retry limit" VerticalAlignment="Center" />
                                         <TextBlock Style="{StaticResource SettingValue}" Text="{Binding Value, ElementName=RetrySlider, Converter={StaticResource AttemptsLabel}}" />
                                     </Grid>
-                                    <TextBlock Style="{StaticResource SettingHint}" Text="How often one instance may reconnect before giving up. The last step is Unlimited." />
+                                    <TextBlock Style="{StaticResource SettingHint}" Text="How many times one instance may reconnect before Auto Reconnect gives up. Slide all the way right for no limit." />
                                     <Slider x:Name="RetrySlider" Style="{StaticResource ModernSlider}" Margin="0,10,0,0"
                                             Minimum="1" Maximum="31" SmallChange="1" LargeChange="1" TickFrequency="1"
                                             IsSnapToTickEnabled="True"
@@ -1239,7 +1239,7 @@
                         <Border Style="{StaticResource Card}">
                             <StackPanel>
                                 <TextBlock Style="{StaticResource SettingTitle}" Text="Theme" />
-                                <TextBlock Style="{StaticResource SettingHint}" Text="Click to apply, drag to reorder. Custom themes can be edited and shared." Margin="0,3,0,12" />
+                                <TextBlock Style="{StaticResource SettingHint}" Text="Click a theme to use it, or drag it to change the order. Custom themes can be edited and shared as a code." Margin="0,3,0,12" />
                                 <ListBox x:Name="ThemesList" ItemsSource="{Binding Theme.Themes}"
                                          SelectedItem="{Binding Theme.SelectedTheme, Mode=TwoWay}"
                                          ItemContainerStyle="{StaticResource ThemeCardItem}"
@@ -1275,11 +1275,11 @@
                                             Command="{Binding Theme.DeleteThemeCommand}" CommandParameter="{Binding Theme.SelectedTheme}"
                                             IsEnabled="{Binding Theme.IsCustomSelected}" />
                                     <Button Style="{StaticResource IconButton}" Content="Export" Margin="0,0,2,0" Padding="10,0" Height="34"
-                                            ToolTip="Copy the selected theme as a shareable code (custom themes only)"
+                                            ToolTip="Copy the selected custom theme as a code you can share"
                                             Command="{Binding Theme.ExportThemeCommand}" CommandParameter="{Binding Theme.SelectedTheme}"
                                             IsEnabled="{Binding Theme.IsCustomSelected}" />
                                     <Button Style="{StaticResource IconButton}" Content="Import" Padding="10,0" Height="34"
-                                            ToolTip="Create a theme from a code on the clipboard"
+                                            ToolTip="Add a theme from a code on your clipboard"
                                             Command="{Binding Theme.ImportThemeCommand}" />
                                 </WrapPanel>
                             </StackPanel>
@@ -1301,7 +1301,7 @@
                                 <Grid>
                                     <StackPanel Margin="0,0,56,0">
                                         <TextBlock Style="{StaticResource SettingTitle}" Text="Mute notifications" />
-                                        <TextBlock Style="{StaticResource SettingHint}" Text="Master switch. When on, all notifications appear only in the bell tray. When off, the individual choices below still apply." />
+                                        <TextBlock Style="{StaticResource SettingHint}" Text="When on, notifications go straight to the bell and never pop up. When off, the choices below decide." />
                                     </StackPanel>
                                     <CheckBox Style="{StaticResource ToggleSwitch}" HorizontalAlignment="Right"
                                               IsChecked="{Binding Settings.NotifyMuteMaster}" />
@@ -1317,7 +1317,7 @@
                                                 <TextBlock Text="{Binding Label}" VerticalAlignment="Center"
                                                            Foreground="{DynamicResource Brush.TextSecondary}" />
                                                 <CheckBox Style="{StaticResource ToggleSwitch}" HorizontalAlignment="Right"
-                                                          IsChecked="{Binding IsMuted}" ToolTip="On = muted" />
+                                                          IsChecked="{Binding IsMuted}" ToolTip="On means muted" />
                                             </Grid>
                                         </DataTemplate>
                                     </ItemsControl.ItemTemplate>
@@ -1331,7 +1331,7 @@
                                 <Grid>
                                     <StackPanel Margin="0,0,56,0">
                                         <TextBlock Style="{StaticResource SettingTitle}" Text="Skip confirmations" />
-                                        <TextBlock Style="{StaticResource SettingHint}" Text="Master switch. When on, all confirmations are skipped. When off, the individual choices below still apply." />
+                                        <TextBlock Style="{StaticResource SettingHint}" Text="When on, the app never asks before removing, deleting or stopping something. When off, the choices below decide." />
                                     </StackPanel>
                                     <CheckBox Style="{StaticResource ToggleSwitch}" HorizontalAlignment="Right"
                                               IsChecked="{Binding Settings.ConfirmBypassMaster}" />
@@ -1385,7 +1385,7 @@
                                 <StackPanel Margin="0,0,16,0">
                                     <TextBlock Style="{StaticResource SettingTitle}" Text="Stored only on this PC" />
                                     <TextBlock Style="{StaticResource SettingHint}"
-                                               Text="Cookies are encrypted with Windows DPAPI. Instance Manager only talks to official Roblox endpoints: no telemetry, no third-party servers." />
+                                               Text="Your login cookies are encrypted with Windows DPAPI and never leave this PC. The app only connects to Roblox, and to GitHub to check for updates. No telemetry." />
                                     <TextBlock Text="{Binding Settings.DataFolder}" FontSize="11" TextWrapping="Wrap" Margin="0,8,0,0"
                                                Foreground="{DynamicResource Brush.TextMuted}" />
                                 </StackPanel>

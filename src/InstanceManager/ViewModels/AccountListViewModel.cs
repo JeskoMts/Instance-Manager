@@ -393,7 +393,7 @@ public partial class AccountListViewModel : ObservableObject
         _accounts.Remove(account);
         _allRows.Remove(account.Id);
         RebuildGroups();
-        _shell.Notify(NotificationId.AccountRemoved, NotificationKind.Success, "Account removed", "The account was removed from InstanceManager.", () =>
+        _shell.Notify(NotificationId.AccountRemoved, NotificationKind.Success, "Account removed", $"Removed '{account.DisplayLabel}'.", () =>
         {
             _accounts.Upsert(account);
             RebuildGroups();
@@ -402,7 +402,7 @@ public partial class AccountListViewModel : ObservableObject
 
     public void RenameAccount(AccountRowViewModel row)
     {
-        string? alias = _dialogs.Prompt("Rename account (alias)", row.Account.Alias ?? row.DisplayLabel);
+        string? alias = _dialogs.Prompt("Rename account", row.Account.Alias ?? row.DisplayLabel);
         if (alias == null) return;
 
         string oldLabel = row.DisplayLabel;
@@ -427,8 +427,8 @@ public partial class AccountListViewModel : ObservableObject
         row.RefreshGroupState();
         RebuildGroups();
         _shell.Notify(NotificationId.AccountGroupsUpdated, NotificationKind.Success,
-            "Account groups updated", $"Moved '{row.DisplayLabel}' to {(group?.Name ?? "No group")}.");
-        _shell.SetStatus($"'{row.DisplayLabel}' → {(group?.Name ?? "No group")}");
+            "Account groups updated", $"Moved '{row.DisplayLabel}' to {(group?.Name ?? "Ungrouped")}.");
+        _shell.SetStatus($"'{row.DisplayLabel}' → {(group?.Name ?? "Ungrouped")}");
     }
 
 
@@ -582,7 +582,7 @@ public partial class AccountListViewModel : ObservableObject
             _accounts.UpsertMany(changed);
         _groups.Remove(group);
         RebuildGroups();
-        _shell.Notify(NotificationId.GroupDeleted, NotificationKind.Success, "Group deleted", "The group was deleted; its accounts were kept.", () =>
+        _shell.Notify(NotificationId.GroupDeleted, NotificationKind.Success, "Group deleted", $"Deleted '{group.Name}'. Its accounts are now ungrouped.", () =>
         {
             _groups.Add(group);
             var restoreChanged = new List<Account>();

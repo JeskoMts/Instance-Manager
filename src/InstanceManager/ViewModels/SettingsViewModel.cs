@@ -77,7 +77,7 @@ public partial class SettingsViewModel : ObservableObject
         MultiInstanceEnabled ? "Multi-instance active" : "Multi-instance off";
 
     public string AppVersion =>
-        Assembly.GetExecutingAssembly().GetName().Version?.ToString(3) ?? "1.1.0";
+        Assembly.GetExecutingAssembly().GetName().Version?.ToString(3) ?? "1.1.1";
 
     public string DataFolder => AppPaths.DataDirectory;
 
@@ -256,7 +256,8 @@ public partial class SettingsViewModel : ObservableObject
             (NotificationId.ThemeDeleted, "Theme deleted"),
             (NotificationId.ThemeExported, "Theme exported"),
             (NotificationId.ThemeImported, "Theme imported"),
-            (NotificationId.ThemeImportFailed, "Theme import failed")
+            (NotificationId.ThemeImportFailed, "Theme import failed"),
+            (NotificationId.AppUpdated, "App updates")
         };
 
         foreach ((NotificationId id, string label) in rows)

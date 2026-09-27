@@ -1,17 +1,15 @@
 # Architecture
 
-Instance Manager is a single desktop application. It is built on .NET 8 and WPF, runs x64 only, and follows a fairly traditional MVVM layout. There is no server, no database, and no background Windows service. All state lives in the running process and in a handful of JSON files under `%APPDATA%\Instance Manager`. The only things it talks to are the official Roblox HTTPS endpoints and the Roblox client it launches on your machine.
+Instance Manager is a single WPF desktop app on .NET 8, built for x64 only, with a conventional MVVM layout. There is no server, database or Windows service. State lives in the running process and in a few JSON files under `%APPDATA%\Instance Manager`. The app talks to Roblox's HTTPS APIs, to GitHub for updates, and to the Roblox clients it starts on the same PC.
 
-This document explains how the pieces fit together, what happens during the two operations that matter most (launching and reconnecting), and why certain decisions were made.
+This document describes how the parts fit together and walks through the three operations that matter most: launching, reconnecting and updating.
 
 ## Design goals
 
-A few goals shaped most of the structure:
-
-- **Local and private.** No accounts of its own, no telemetry, no cloud. The user's machine is the whole world.
-- **Hard to crash.** A locked file, an expired cookie, or an occupied Roblox singleton should degrade gracefully, not take the app down.
-- **Testable without a UI.** The interesting logic lives in services and view models that can be exercised directly in unit tests. The test suite never opens a window.
-- **One user, one dataset.** Because there is exactly one user, almost everything is a process-wide singleton and keeps its working copy in memory.
+- Local and private. No accounts of its own, no telemetry, no cloud.
+- Hard to crash. A locked file, an expired cookie or a Roblox singleton held by someone else should degrade one feature, not take the app down.
+- Testable without a UI. The logic sits in services and view models that unit tests call directly. The test suite never opens a window.
+- One user, one dataset. Almost everything is a process-wide singleton that keeps its working copy in memory.
 
 ## Runtime shape
 
@@ -34,19 +32,19 @@ A few goals shaped most of the structure:
                     |  RobloxLauncher     |   |  FavoriteRepository   |
                     |  MultiInstanceMgr   |   |  ThemeRepository      |
                     |  InstanceTracker    |   |  SettingsService      |
-                    |  AutoReconnectService  |   +-----------+-----------+
+                    |  AutoReconnectSvc   |   +-----------+-----------+
                     |  RobloxLogWatcher   |               |
                     |  VersionService     |        +------v-------+
                     |  RobloxAvatarSvc    |        | JsonFileStore|
                     |  ServerLinkResolver |        |  (atomic)    |
                     |  DpapiSecureStore   |        +------+-------+
                     |  ThemeService       |               |
-                    +------+--------------+        +------v----------------+
-                           |                       | %APPDATA%\Instance    |
-                    +------v---------------+        | Manager\*.json,       |
-                    | Roblox HTTPS APIs    |        | webview\, *.log       |
-                    | auth, users,         |        +-----------------------+
-                    | thumbnails, versions |
+                    |  UpdateService      |        +------v----------------+
+                    +------+--------------+        | %APPDATA%\Instance    |
+                           |                       | Manager\*.json, *.log |
+                    +------v---------------+       +-----------------------+
+                    | Roblox HTTPS APIs    |
+                    | GitHub releases API  |
                     +------+---------------+
                            |
                     +------v---------------+
@@ -56,153 +54,151 @@ A few goals shaped most of the structure:
 
 ## Layers
 
-The code is organized into clear layers, top to bottom.
+Views are XAML with little code-behind. `MainWindow` holds the drag-and-drop logic for account lists and themes, and the dialogs (login, confirmations, editors) live under `Views/`. Views bind to view models and don't know about services or file paths.
 
-**Views.** XAML plus minimal code-behind. `MainWindow` carries the drag-and-drop logic for lists and themes. The dialogs (login, confirmations, editors) live under `Views/`. Views bind to view models and know nothing about services or file paths.
+The view models use CommunityToolkit.Mvvm. `ShellViewModel` owns the others (`AccountListViewModel`, `LaunchPanelViewModel`, `VersionBarViewModel`, `SettingsViewModel`, `ThemeViewModel`, `NotificationCenterViewModel`), runs launches through `LaunchAsync`, and implements `IShellCoordinator` so child view models can post status lines and notifications. View models depend only on repository and service interfaces.
 
-**ViewModels.** The MVVM layer, built on CommunityToolkit.Mvvm. `ShellViewModel` is the coordinator. It owns the sub view models (`AccountListViewModel`, `LaunchPanelViewModel`, `VersionBarViewModel`, `SettingsViewModel`, `ThemeViewModel`, `NotificationCenterViewModel`), exposes `LaunchAsync`, and implements `IShellCoordinator` for status and notification messages. View models depend only on repository and service interfaces.
+Services hold the domain logic and all I/O: login, launching, multi-instance, Auto Reconnect, version discovery, avatars, link validation, encryption, themes and updates.
 
-**Services.** Domain logic and I/O. This is where the real work happens: authentication, launching, multi-instance, auto-reconnect, version discovery, avatar loading, link validation, encryption, and theming.
+Storage is four repositories plus a settings service. Each persists one JSON file through `JsonFileStore` and keeps its list in memory as the source of truth at runtime.
 
-**Storage.** Four repositories and one settings service, each persisting one JSON file through `JsonFileStore`. The repositories keep their list in memory and are the source of truth at runtime.
-
-**Models.** Plain data classes with almost no behavior. The exceptions are `Account.NormalizeGroupMemberships` (a small migration) and `AppSettings.Normalize` (value clamping and migration).
+Models are plain data classes. The only behavior in them is `Account.NormalizeGroupMemberships` and `AppSettings.Normalize`, both small migrations.
 
 ## Composition and lifecycle
 
-Wiring lives in [ServiceCollectionExtensions](../src/InstanceManager/Composition/ServiceCollectionExtensions.cs). Every service and repository is registered as a singleton, along with one shared `HttpClient`.
+[ServiceCollectionExtensions](../src/InstanceManager/Composition/ServiceCollectionExtensions.cs) registers every service and repository as a singleton, together with one shared `HttpClient`.
 
-On startup ([App.OnStartup](../src/InstanceManager/App.xaml.cs)):
+[App.OnStartup](../src/InstanceManager/App.xaml.cs) then:
 
-1. Build the `ServiceProvider`.
-2. Apply the saved theme before any window exists, so there is no flash of the default palette.
-3. Best-effort enable multi-instance from the saved setting.
-4. Resolve `ShellViewModel` and `MainWindow`, wire `MainWindow.Loaded` to `ShellViewModel.InitializeAsync`, and show the window.
-5. In Debug builds only, route WPF data-binding warnings to `binding-errors.log`.
+1. Builds the `ServiceProvider`.
+2. Applies the saved theme before any window exists, so the default palette never flashes.
+3. Takes the Roblox singletons if multi-instance is enabled, best effort.
+4. Resolves `ShellViewModel` and `MainWindow`, hooks `MainWindow.Loaded` to `ShellViewModel.InitializeAsync` and shows the window.
+5. Deletes leftovers of the previous update and, in Release builds, starts the update check in the background.
 
-On exit ([App.OnExit](../src/InstanceManager/App.xaml.cs)) the provider is disposed. That single dispose releases the mutex grip and tears down tracked processes, since the relevant services implement `IDisposable`.
+In Debug builds WPF binding warnings go to `binding-errors.log`.
 
-## Component catalog
+[App.OnExit](../src/InstanceManager/App.xaml.cs) disposes the provider, which releases the singletons and tears down tracked processes. If an update is waiting, it is installed at this point, and if the update asked for a restart, the new executable is started last.
 
-The services, with the detail that matters when reading or changing them:
+## Services
 
-- [RobloxAuthService](../src/InstanceManager/Services/RobloxAuthService.cs) exchanges a `.ROBLOSECURITY` cookie for a short-lived authentication ticket and reads the authenticated user's info. It performs the CSRF handshake (a 403 with an `x-csrf-token` header, retried with that token) and backs off on HTTP 429 using the `Retry-After` header, clamped between 1 and 30 seconds, up to five attempts total.
-- [RobloxLauncher](../src/InstanceManager/Services/RobloxLauncher.cs) builds the `PlaceLauncher` URL and the `roblox-player:` launch URI, then starts `RobloxPlayerBeta.exe` with that URI as its only argument. All URL assembly is static and side-effect free, which makes it easy to unit test.
-- [MultiInstanceManager](../src/InstanceManager/Services/MultiInstanceManager.cs) holds the two Roblox singleton mutexes open. Covered in detail below.
-- [InstanceTracker](../src/InstanceManager/Services/InstanceTracker.cs) maps each account to its running process, raises a `RunningChanged` event on start and exit, and can stop one instance or all of them. It hooks `Process.Exited` so an instance that dies on its own is noticed.
-- [AutoReconnectService](../src/InstanceManager/Services/AutoReconnectService.cs) is the brain of Auto Reconnect. It listens to `InstanceTracker` for process exits and to a `RobloxLogWatcher` per instance for in-game state changes, decides whether a drop should reconnect, and delegates the actual relaunch back to `LaunchService`.
-- [RobloxLogWatcher](../src/InstanceManager/Services/RobloxLogWatcher.cs) tails one Roblox client log on a timer and reports meaningful lines. It binds to exactly one log file and uses a shared registry so two watchers never follow the same file.
-- [LogSessionRegistry](../src/InstanceManager/Services/LogSessionRegistry.cs) is the small shared set of claimed log paths that keeps watchers from colliding. One registry is shared by all watchers created from a single `AutoReconnectService`.
-- [RobloxLogClassifier](../src/InstanceManager/Services/RobloxLogClassifier.cs) turns a single log line into a signal (in-game, kicked, error, graceful leave) by matching known markers. Markers are case-insensitive and ordered so the most specific signal wins.
-- [LaunchService](../src/InstanceManager/Services/LaunchService.cs) orchestrates a launch run across many accounts and also provides the single-account relaunch primitive that Auto Reconnect calls back into.
-- [VersionService](../src/InstanceManager/Services/VersionService.cs) finds installed Roblox versions on local fixed drives and optionally asks Roblox for the latest version. [RobloxExecutableValidator](../src/InstanceManager/Services/RobloxExecutableValidator.cs) canonicalizes paths, rejects reparse/network escapes, and verifies Windows trust plus the Roblox signer during discovery and again immediately before launch. A verified client stays pinned against writes, so repeat checks confirm its file identity instead of re-hashing it (see [SECURITY.md](SECURITY.md#executable-launch-security)).
-- [RobloxAvatarService](../src/InstanceManager/Services/RobloxAvatarService.cs) loads avatar headshots from the thumbnail API and deduplicates concurrent requests for the same user.
-- [ServerLinkResolver](../src/InstanceManager/Services/ServerLinkResolver.cs) and [GameLinkParser](../src/InstanceManager/Services/GameLinkParser.cs) parse and validate user input: place ids, job ids, and server links.
-- [DpapiSecureStore](../src/InstanceManager/Services/DpapiSecureStore.cs) encrypts and decrypts the cookie with Windows DPAPI.
-- [ThemeService](../src/InstanceManager/Services/ThemeService.cs) and [ThemeCodec](../src/InstanceManager/Services/ThemeCodec.cs) apply palettes to the live application resources and encode or decode a theme as a shareable text code.
+- [RobloxAuthService](../src/InstanceManager/Services/RobloxAuthService.cs) trades a `.ROBLOSECURITY` cookie for a one-time authentication ticket and reads the signed-in user. It handles the CSRF handshake (a 403 carrying an `x-csrf-token` header, retried with that token) and backs off on HTTP 429 using `Retry-After`, clamped to 1 to 30 seconds, for up to five attempts.
+- [RobloxLauncher](../src/InstanceManager/Services/RobloxLauncher.cs) builds the `PlaceLauncher` URL and the `roblox-player:` URI and starts `RobloxPlayerBeta.exe` with that URI as its only argument. URL building is static and side-effect free, which keeps it easy to test.
+- [MultiInstanceManager](../src/InstanceManager/Services/MultiInstanceManager.cs) holds the Roblox singleton objects. See below.
+- [InstanceTracker](../src/InstanceManager/Services/InstanceTracker.cs) maps each account to its Roblox process, raises `RunningChanged` on start and exit, and stops one instance or all of them. It listens to `Process.Exited` so it notices clients that close on their own.
+- [AutoReconnectService](../src/InstanceManager/Services/AutoReconnectService.cs) decides whether a dropped instance should come back. It listens to `InstanceTracker` for exits and to one `RobloxLogWatcher` per instance for in-game events, and hands the relaunch back to `LaunchService`.
+- [RobloxLogWatcher](../src/InstanceManager/Services/RobloxLogWatcher.cs) tails one Roblox client log and reports the lines that matter. [LogSessionRegistry](../src/InstanceManager/Services/LogSessionRegistry.cs) makes sure no two watchers follow the same file.
+- [RobloxLogClassifier](../src/InstanceManager/Services/RobloxLogClassifier.cs) turns a log line into a signal (joined, kicked, error, left) by matching known markers. Matching ignores case, and the most specific marker wins.
+- [LaunchService](../src/InstanceManager/Services/LaunchService.cs) runs a launch across many accounts and provides the single-account relaunch that Auto Reconnect uses.
+- [VersionService](../src/InstanceManager/Services/VersionService.cs) finds installed Roblox versions. [RobloxExecutableValidator](../src/InstanceManager/Services/RobloxExecutableValidator.cs) checks every `RobloxPlayerBeta.exe` during discovery and again right before launch (see [SECURITY.md](SECURITY.md#launching-roblox)).
+- [RobloxAvatarService](../src/InstanceManager/Services/RobloxAvatarService.cs) loads avatar headshots, caches them on disk and merges concurrent requests for the same user.
+- [ServerLinkResolver](../src/InstanceManager/Services/ServerLinkResolver.cs) and [GameLinkParser](../src/InstanceManager/Services/GameLinkParser.cs) validate what users type: Place IDs, Job IDs and server links.
+- [DpapiSecureStore](../src/InstanceManager/Services/DpapiSecureStore.cs) encrypts and decrypts cookies with Windows DPAPI.
+- [ThemeService](../src/InstanceManager/Services/ThemeService.cs) and [ThemeCodec](../src/InstanceManager/Services/ThemeCodec.cs) apply palettes to the running app and turn a theme into a shareable code and back.
+- [UpdateService](../src/InstanceManager/Services/UpdateService.cs) checks GitHub for a newer release, downloads and verifies it, and swaps the app's files. See below.
 
-## A launch, end to end
+## A launch, step by step
 
-Launching is the central operation. Traced through `ShellViewModel.LaunchAsync` into `LaunchService.LaunchAsync`:
+`ShellViewModel.LaunchAsync` hands off to `LaunchService.LaunchAsync`:
 
-1. **Resolve the target.** The launch panel produces a [ServerTarget](../src/InstanceManager/Models/ServerTarget.cs): either `PublicByLink` (place id only) or `PrivateByJobId` (place id plus job id). A typed server link is validated by `ServerLinkResolver` first, which only accepts HTTPS and only Roblox domains, follows at most five redirects, and re-checks each hop against the allowlist.
-2. **Enable multi-instance, best-effort.** `LaunchService` calls `MultiInstanceManager.TryApply`. If the grip cannot be taken, it reports that through the progress callback and launches anyway.
-3. **Per account, in order:**
-   - Resolve the version: the account's preferred version if set, otherwise the global selection. A missing or invalid version counts the account as a failure and the run moves on.
-   - Decrypt the cookie with `DpapiSecureStore.TryUnprotect`. A decryption failure (for example, the file came from a different Windows user) is a per-account failure, not a fatal error.
-   - Fetch a fresh authentication ticket with `RobloxAuthService.GetAuthTicketAsync`, including the CSRF handshake and rate-limit backoff.
-   - Build the `roblox-player:` URI with `RobloxLauncher.BuildLaunchUrl` (ticket, PlaceLauncher URL, browser tracker id, launch time).
-   - Start `RobloxPlayerBeta.exe` and hand the process to `InstanceTracker.Track`.
-   - Register the instance with `AutoReconnectService` so a later drop can reconnect it.
-   - Wait until the client has a window (up to 30 s), then `LaunchDelayMs`, then until its log reports the game join (up to 20 s) before the next account. A client that exits before its window appears is retried once; accounts that are already running are skipped. Every start, including single launches and Auto Reconnect relaunches, goes through one launch slot, so two clients never start at the same moment.
-4. **Report the result.** A `LaunchSummary(Started, Failed)` flows back and becomes a toast and a status line.
+1. The launch panel turns the input into a [ServerTarget](../src/InstanceManager/Models/ServerTarget.cs): a public game (Place ID), a specific server (Place ID and Job ID) or the Roblox home screen when the field is empty. `ServerLinkResolver` checks server links first.
+2. `MultiInstanceManager.TryApply` makes sure the singletons are held. If that fails, the user is told and the launch continues anyway.
+3. Then, for each account in order:
+   - Pick the Roblox version: the account's pinned version if it is installed, otherwise the global one.
+   - Decrypt the cookie with `DpapiSecureStore.TryUnprotect`. A cookie from another Windows user fails here and counts as one failed account.
+   - Get a fresh authentication ticket from `RobloxAuthService`.
+   - Build the `roblox-player:` URI and start `RobloxPlayerBeta.exe`, then hand the process to `InstanceTracker` and register it with `AutoReconnectService`.
+   - Wait until the client has a window (up to 30 s), then the configured pause, then until its log reports the game join (up to 20 s). A client that exits before its window appears is retried once, and accounts that are already running are skipped.
+4. A `LaunchSummary` with started, failed and skipped counts becomes a notification.
 
-The key property is that one account's failure never ends the run. Errors are caught per account and counted, so an expired cookie in the middle of a group does not strand the accounts after it.
+Every start goes through one launch slot, including single launches and Auto Reconnect relaunches, so two clients never start at the same moment. Errors are caught per account and counted, so an expired cookie in the middle of a group doesn't stop the accounts after it.
 
-## Auto Reconnect, end to end
+## Auto Reconnect, step by step
 
-Auto Reconnect sits on top of the launch primitive and adds a feedback loop. For each launched instance, `AutoReconnectService` keeps a small session with the account, target, version, current process, attempt count, and a flag for whether it ever reached in-game.
+For each launched instance, `AutoReconnectService` keeps a small session: the account, target, version, current process, attempt count and whether it ever reached a game.
 
-The signals come from two places:
+Signals arrive from the instance's Roblox log, through its `RobloxLogWatcher`, and from the process exit, through `InstanceTracker.RunningChanged`. The service sorts a drop into one of three triggers:
 
-- **The Roblox log,** through a `RobloxLogWatcher` per instance. The watcher tails the client log file and the classifier reports when the instance joined a game, got kicked or removed (error 267 and moderation messages), hit a disconnect or generic error, or left back to the menu.
-- **The process,** through `InstanceTracker.RunningChanged`. When the process exits, the service decides what the exit meant.
+- Kick, for a kick or removal (error 267, moderation messages).
+- Error, for a disconnect, a server shutdown, a generic error dialog or a return to the menu.
+- Crash, when the process died in a game without a clean leave in the log.
 
-The decision logic resolves a drop into one of three triggers:
+A drop reconnects only if its trigger is enabled. `AutoReconnectOnKickError` covers Kick and Error together and `AutoReconnectOnCrash` covers Crash, both under `AutoReconnectMaster`. A manual stop sets a flag that blocks any reconnect for that instance. When a reconnect is due, the service closes the stuck client if it is still open, waits briefly and calls `LaunchService.LaunchOneAsync` for the same account. Attempts per run are capped by `AutoReconnectMaxAttempts`, and each step is written to `auto-reconnect.log`.
 
-- **Error** for a disconnect, server shutdown, generic error dialog, or menu return.
-- **Kick** for a kick or removal (error 267).
-- **Crash** when the process died while in-game with no clean leave recorded.
+### Why each instance needs its own log
 
-A drop only reconnects when its trigger is enabled in settings. The settings gate has one switch for Error and Kick together (`AutoReconnectOnKickError`) and one for Crash (`AutoReconnectOnCrash`), both behind the `AutoReconnectMaster` switch. A manual stop sets a flag that suppresses any reconnect for that instance. When a reconnect is warranted, the service closes the stuck client if needed, waits briefly, and calls back into `LaunchService.LaunchOneAsync` to start the same account again. Attempts are capped per run by `AutoReconnectMaxAttempts`, and every step is recorded in `auto-reconnect.log`.
+Roblox writes one log file per client into `%LOCALAPPDATA%\Roblox\logs`, and the file name doesn't contain the process ID. The watcher therefore picks the log whose timestamp is closest to its own launch time.
 
-### Why each instance needs its own log file
+That alone breaks when several clients start close together, because a client can take a few seconds to create its log. In that gap, a newer watcher would find only the older client's log and follow it too, so a kick on one account restarted the wrong account or none at all.
 
-Roblox writes one log file per client run into `%LOCALAPPDATA%\Roblox\logs`, and the file name does not contain the process id, so there is no direct way to map a process to its log. The watcher picks the log whose timestamp is nearest to its own launch time.
+`LogSessionRegistry` fixes this. Each watcher claims its file in a shared registry and skips files another watcher already owns. A watcher that finds only claimed logs retries on its next poll and binds to its own log once it exists. The claim is released when the watcher is disposed, which happens on every reconnect before the new watcher starts, so the reconnected client can claim its fresh log.
 
-With several instances launched close together, that pick alone is not enough. A Roblox client can take a few seconds to create its log file. During that gap, a younger instance's watcher would find only the older instance's log and bind to it, so two watchers would tail the same file. The result was that a kick on one account would either reconnect the wrong account or, when the affected account's log was the one nobody was watching, reconnect nobody at all. Running two accounts and seeing only "both errored" cases work was the visible symptom.
+## Multi-instance
 
-The fix is `LogSessionRegistry`. Each watcher claims its log file in a shared registry and skips any file another watcher already owns. A younger watcher that finds only a claimed log waits and retries on its next poll, then binds to its own log once it appears. The claim is released when the watcher is disposed, which is exactly what happens on a reconnect before the new watcher attaches, so a reconnected instance can reclaim its fresh log.
+A Windows mutex belongs to the thread that acquired it. To hold one for the app's whole lifetime, `MultiInstanceManager` gives each named object its own background thread (a `MutexSlot`). The thread opens or creates the mutex, acquires it, reports that it is ready and then waits on a stop event. When the app exits or the user turns the feature off, the stop event fires, each slot releases its mutex and its thread ends.
 
-## Multi-instance in detail
+If the name exists but belongs to an object that isn't a mutex, opening it throws a specific error and the feature reports as unavailable. An `AbandonedMutexException` counts as a successful acquisition, because an abandoned mutex is free. `TryApply` wraps all of this so startup, the settings switch and a launch can ask for multi-instance without handling failures; `Apply` and `EnsureHeld` still throw for callers that want the details.
 
-A Windows mutex belongs to the thread that owns it. To hold a mutex for the lifetime of the app, `MultiInstanceManager` gives each mutex its own dedicated background thread (a `MutexSlot`). The thread opens or creates the named mutex, takes it, signals that it is ready, and then parks until a stop event is set. When the app shuts down or the user turns the feature off, the stop event is set, every slot releases its mutex and joins, and the hold session is torn down.
+## Updates
 
-The design handles the awkward cases explicitly:
+`UpdateService` runs once per start, in Release builds only.
 
-- If the named object exists but is not a mutex (something else grabbed the name), opening it throws a specific error and the feature reports as unavailable rather than crashing.
-- If the previous owner abandoned the mutex (a `AbandonedMutexException`), that is treated as a successful acquisition, since an abandoned mutex is free.
-- `TryApply` wraps the whole thing so the startup path, the settings toggle, and a launch can ask for multi-instance without having to handle failure. Callers that do want the detail can use `Apply` or `EnsureHeld`, which still throw.
+1. `CleanupPreviousUpdate` deletes `*.im-old` files and the `.im-update` folder left in the app folder by the previous update.
+2. `DownloadAsync` asks `api.github.com` for the latest release of `JeskoMts/Instance-Manager`. The tag (for example `1.1.1`) is parsed as a version, and nothing happens unless it is newer than the running build. Drafts and pre-releases never show up in this endpoint.
+3. It looks for the asset named `InstanceManager-<tag>.zip`. The download URL must start with `https://github.com/JeskoMts/Instance-Manager/releases/download/`, and the asset must have a `sha256:` digest in the API response.
+4. The zip is downloaded with redirects followed by hand: at most five, HTTPS only, and only to `github.com`, `objects.githubusercontent.com` or `release-assets.githubusercontent.com`. The download is capped at 64 MB, and its SHA-256 must match the digest.
+5. The zip is unpacked into `.im-update` inside the app folder. Every entry must be a plain file name with no folders, no invalid characters and no duplicates, the package must contain `InstanceManager.exe` and `InstanceManager.dll`, and the unpacked size is capped.
+6. `Apply` renames each existing file to `<name>.im-old` and moves the new file into its place. Windows allows renaming a running executable and loaded DLLs, so this works while the app runs. If any step fails, every file already swapped is put back.
 
-## External integrations
+`App` decides when to call `Apply`. If no launch is running, no Roblox instance is tracked and no dialog is open, it applies the update right away, shuts down and starts the new `InstanceManager.exe` with `--updated`, which shows a notification with the new version. Otherwise it waits and applies the update in `OnExit`, so the old process never loads a file from the new version.
 
-Every network call goes through one shared `HttpClient` configured in composition: cookies off, automatic redirects off, decompression on, a 20 second timeout, and the user agent `Roblox/WinInet`. Turning redirects off is deliberate so that server-link resolution controls and checks each hop itself.
+## External services
+
+All network calls go through one shared `HttpClient`: cookies off, automatic redirects off, decompression on, a 20-second timeout and the user agent `Roblox/WinInet`. Redirects are off so that server-link resolution and the update download can check every hop themselves. Requests to GitHub replace the user agent with `InstanceManager/<version>`.
 
 | Endpoint | Purpose |
 |---|---|
-| `auth.roblox.com/v1/authentication-ticket/` | Trade the cookie for a one-time auth ticket (POST, CSRF) |
-| `users.roblox.com/v1/users/authenticated` | Confirm an account's identity when adding it |
-| `thumbnails.roblox.com/v1/users/avatar-headshot` | Avatar headshot image |
-| `clientsettingscdn.roblox.com/v2/client-version/WindowsPlayer` | Latest client version |
-| `assetgame.roblox.com/game/PlaceLauncher.ashx` | Part of the launch URI, embedded rather than fetched directly |
+| `auth.roblox.com/v1/authentication-ticket/` | Trade the cookie for a one-time launch ticket (POST, CSRF) |
+| `users.roblox.com/v1/users/authenticated` | Confirm an account's identity when it is added |
+| `thumbnails.roblox.com/v1/users/avatar-headshot` | Avatar headshots |
+| `games.roblox.com`, `apis.roblox.com`, `thumbnails.roblox.com/v1/games/...` | Game list, search and thumbnails for the Games tab |
+| `www.roblox.com` | Login page in the WebView2 window, server link resolution |
+| `assetgame.roblox.com/game/PlaceLauncher.ashx` | Embedded in the launch URI, not fetched by the app |
+| `api.github.com/repos/JeskoMts/Instance-Manager/releases/latest` | Update check |
+| `github.com/.../releases/download/...` and its CDN redirect | Update download |
 
-In addition the app starts `RobloxPlayerBeta.exe` locally and hosts a WebView2 browser for the login, which loads `https://www.roblox.com/login`. The login dialog creates its own WebView2 environment with an InPrivate profile and tears it down on close, so the WebView2 host processes (which dominate the app's footprint while sign-in is open) are released once the dialog goes away rather than lingering for the whole session.
+The login dialog creates its own WebView2 environment with an InPrivate profile and disposes it on close. The WebView2 processes use most of the app's memory while the dialog is open and are released as soon as it closes.
 
-## Threading and concurrency
+## Threads
 
-The app is more concurrent than a small UI tool might suggest, so the boundaries are worth naming:
+- The UI thread runs all view model updates and WPF binding.
+- Each held singleton has its own background thread, parked on a stop event.
+- Each `RobloxLogWatcher` runs a one-second timer; the classifier and the callback run on that timer thread.
+- `Process.Exited` fires on a thread-pool thread.
+- `SettingsService` saves on a debounced thread-pool timer.
 
-- **UI thread.** All view-model updates and WPF binding happen here.
-- **Mutex owner threads.** One background thread per held mutex, parked on a stop event.
-- **Log watcher timers.** Each `RobloxLogWatcher` runs a one-second timer. The classifier and the detection callback run on that timer thread.
-- **Process exit callbacks.** `Process.Exited` fires on a thread-pool thread.
-- **Settings save timer.** `SettingsService` saves on a debounced timer, also on a thread-pool thread.
+Shared state is locked at the edges. `AutoReconnectService` keeps its sessions behind one lock and relaunches outside it, `LogSessionRegistry` locks its set of claimed paths, and `InstanceTracker` uses a concurrent dictionary. File and process work happens outside locks, and only bookkeeping is locked.
 
-Shared state is guarded by locks at the edges. `AutoReconnectService` keeps its sessions behind a single lock and does the actual relaunch outside the lock. `LogSessionRegistry` guards its claimed-paths set. `InstanceTracker` uses a concurrent dictionary. The general rule is that I/O and process work happen outside locks, and only the small bookkeeping is locked.
+## Error handling
 
-## Error handling philosophy
+Recoverable errors are handled by the layer that owns them rather than crashing the app:
 
-The app leans toward swallowing recoverable errors at the layer that owns them, rather than letting them bubble up into a crash:
+- Persistence swallows `IOException`, `JsonException` and `UnauthorizedAccessException`, because saves can run on a timer thread where an unhandled exception would end the process.
+- Launch failures are caught per account and counted.
+- Multi-instance failures turn into a no-op through `TryApply`.
+- Log watching retries a locked or missing log on the next tick.
+- The update check swallows every failure. No network, a GitHub rate limit or a bad package just means no update this time.
 
-- **Persistence** swallows `IOException`, `JsonException`, and `UnauthorizedAccessException`. This matters because saves can run on a thread-pool timer thread, where an unhandled exception would end the process.
-- **Per-account launch failures** are caught and counted so the rest of a run continues.
-- **Multi-instance** failures are turned into a best-effort no-op through `TryApply`.
-- **Log watching and auto-reconnect logging** are best-effort. A locked or missing log file is retried on the next tick and never throws into the app.
+Silent failures still leave a trace somewhere: a failed launch becomes a notification, a failed reconnect goes to `auto-reconnect.log`, and binding warnings go to a log file in Debug builds.
 
-The trade-off is that some failures are silent by design. Where that is true, the failure is still observable somewhere: a per-account error becomes a toast, a failed reconnect is written to `auto-reconnect.log`, and binding warnings go to a log file in Debug builds.
+## Tests
 
-## Testing strategy
+The xUnit suite runs without a UI and reaches internal types through `InternalsVisibleTo`. Services that do I/O take their dependencies through constructors, so tests pass in fakes such as a stub `HttpMessageHandler`, a temporary folder or a fake settings service. `AutoReconnectService` takes a watcher factory so tests can point watchers at a temporary folder. `UpdateService` takes the app folder and current version, so the full update path, including redirects, digest checks and rollback, runs against a temporary folder. A few tests read the XAML directly to check that labels and bindings stay in place.
 
-The test suite is xUnit and runs without a UI. It covers the service logic directly because the main project exposes its internals to the test assembly through `InternalsVisibleTo`. A few patterns recur:
+## Where to extend
 
-- Services that do I/O take their dependencies through constructors, so tests can inject fakes (a fake settings service, a temp directory, a current process standing in for a Roblox client).
-- `AutoReconnectService` takes a watcher factory, so tests can point watchers at a temp directory and drive signals directly.
-- Some contracts are asserted against the XAML text itself (for example, that the settings page shows the merged Auto Reconnect toggle), which keeps the UI labels and bindings honest without a UI test harness.
-
-## Extension points
-
-- **Other persistence backends.** The repositories sit behind interfaces (`IAccountRepository` and friends). An alternative store would replace `JsonFileStore` and be registered in composition.
-- **Other join modes.** `JoinMode`, `ServerTarget`, and the switch in `RobloxLauncher.BuildPlaceLauncherUrl` are the only places that produce launch URLs.
-- **Other dialogs.** UI prompts go through `IDialogService`, so they are swappable and testable against the interface.
-- **Other auto-reconnect signals.** New drop or join markers are added in `RobloxLogClassifier`. New trigger policy is added in `AppSettings.IsAutoReconnectEnabledFor` and the settings UI.
-- **Themes.** Built-in palettes come from `BuiltInThemes` in code, user themes from `themes.json`, and sharing runs through `ThemeCodec`.
+- Persistence: the repositories sit behind interfaces (`IAccountRepository` and the others). Another store would replace `JsonFileStore` and be registered in composition.
+- Join modes: `JoinMode`, `ServerTarget` and the switch in `RobloxLauncher.BuildPlaceLauncherUrl` are the only places that produce launch URLs.
+- Dialogs: all prompts go through `IDialogService`.
+- Auto Reconnect signals: new markers go into `RobloxLogClassifier`, new trigger rules into `AppSettings.IsAutoReconnectEnabledFor` and the settings page.
+- Themes: built-in palettes are defined in `BuiltInThemes`, user themes are stored in `themes.json`, and sharing runs through `ThemeCodec`.

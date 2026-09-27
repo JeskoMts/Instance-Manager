@@ -127,7 +127,7 @@ public partial class ShellViewModel : ObservableObject, IShellCoordinator
                 await VersionBar.RefreshVersionsAsync();
             if (VersionBar.Versions.Count == 0)
             {
-                Notify(NotificationId.RobloxNotFound, NotificationKind.Error, "Roblox not found", "No installed Roblox version was found.");
+                Notify(NotificationId.RobloxNotFound, NotificationKind.Error, "Roblox not found", "No installed Roblox client was found. Install Roblox, or set its folder under Settings → Roblox version.");
                 return;
             }
 
