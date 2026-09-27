@@ -143,25 +143,14 @@ public sealed class AutoReconnectService : IDisposable
                     break;
                 case RobloxSessionSignal.GracefulLeave:
                     session.Joined.TrySetResult(false);
-                    if (session.InGame && !session.ActionTaken)
-                    {
-                        session.ActionTaken = true;
-                        session.PendingTrigger = AutoReconnectTrigger.Error;
-                        if (_settings.Settings.IsAutoReconnectEnabledFor(AutoReconnectTrigger.Error))
-                        {
-                            killStuckClient = true;
-                            processToKill = session.Process;
-                            runIdToHandle = session.RunId;
-                        }
-                    }
-                    else
-                    {
+                    if (!session.ActionTaken)
                         session.GracefulLeave = true;
-                    }
                     break;
                 case RobloxSessionSignal.Kicked:
                 case RobloxSessionSignal.Error:
                     session.Joined.TrySetResult(false);
+                    if (signal == RobloxSessionSignal.Error && session.GracefulLeave)
+                        return;
                     if (session.ActionTaken)
                     {
                         if (signal == RobloxSessionSignal.Kicked)

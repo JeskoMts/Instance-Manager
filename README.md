@@ -19,11 +19,13 @@ The app runs entirely on your PC. It has no account system of its own, no server
 
 ## Download
 
-1. Download `InstanceManager-<version>.zip` from the [latest release](https://github.com/JeskoMts/Instance-Manager/releases/latest).
-2. Unzip it into its own folder, for example `Documents\Instance Manager`.
-3. Run `InstanceManager.exe`.
+1. Download `Instance.Manager.<version>.zip` from the [latest release](https://github.com/JeskoMts/Instance-Manager/releases/latest).
+2. Unzip it. Inside is a single file, `Instance Manager.exe`.
+3. Put it wherever you like, for example on the desktop or in `Documents`, and run it.
 
-Give the app a folder of its own that your Windows user can write to. The updater replaces the files in that folder, so it can't work from a read-only location such as `C:\Program Files`.
+The app is that one file. Your accounts and settings live in `%APPDATA%\Instance Manager`, not next to the exe, so you can move or rename it at any time. Keep it somewhere your Windows user can write to, because the updater replaces the file in place; a read-only location such as `C:\Program Files` won't work.
+
+The release also has `InstanceManager-<version>.zip`. That package is only there so copies of version 1.1.1 can update themselves; you don't need to download it.
 
 ## Requirements
 
@@ -44,7 +46,7 @@ The app runs as your normal Windows user and never asks for administrator rights
 
 ## Updates
 
-Every time the app starts, it asks GitHub for the latest release. If there is a newer version, the app downloads it, checks its SHA-256 checksum against the one GitHub publishes, swaps the files and restarts. This usually takes a second or two and happens before you've done anything. If you are already launching accounts or have Roblox instances running, the update waits and installs when you close the app.
+Every time the app starts, it asks GitHub for the latest release. If there is a newer version, the app downloads it, checks its SHA-256 checksum against the one GitHub publishes, replaces its own exe and restarts. This usually takes a second or two and happens before you've done anything. If you are already launching accounts or have Roblox instances running, the update waits and installs when you close the app.
 
 ## Running several clients at once
 
@@ -54,9 +56,9 @@ If another program already holds one of those names, usually a Roblox client tha
 
 ## Auto Reconnect
 
-Auto Reconnect watches each Roblox window the app started. When an account is kicked, loses its connection, lands back on the Roblox menu or the client crashes, the app starts that account again into the same game with the same Roblox version. It reads the Roblox log of each client to tell what happened, so a kick on one account never restarts the others.
+Auto Reconnect watches each Roblox window the app started. When an account is kicked, loses its connection or the client crashes, the app starts that account again into the same game with the same Roblox version. It reads the Roblox log of each client to tell what happened, so a kick on one account never restarts the others. Leaving a game yourself never counts as a drop: Roblox goes back to its home screen and the app leaves that window alone.
 
-It is on by default and gives up after 3 attempts per account; you can change the limit or turn it off in Settings. An instance you stop yourself is never restarted. Every attempt is written to `auto-reconnect.log` in `%APPDATA%\Instance Manager`.
+It is off by default. Turn it on in Settings, where you can also change the limit of 3 attempts per account. An instance you stop yourself is never restarted. Every attempt is written to `auto-reconnect.log` in `%APPDATA%\Instance Manager`.
 
 ## Building from source
 
@@ -66,13 +68,15 @@ dotnet build InstanceManager.sln --configuration Release
 dotnet run --project src/InstanceManager/InstanceManager.csproj
 ```
 
-The release folder is built with:
+A release is built with:
 
-```bash
-dotnet publish src/InstanceManager/InstanceManager.csproj -c Release -r win-x64 --self-contained false -o publish
+```powershell
+./scripts/build-release.ps1
 ```
 
-The updater only runs in Release builds, so running a Debug build from source never replaces your build output.
+The script publishes the app as one framework-dependent file for win-x64 and writes three zips to `release-assets/`: `Instance.Manager.<version>.zip` with `Instance Manager.exe`, the update package `InstanceManager-<version>.zip` that version 1.1.1 needs, and `InstanceManager-Source-Code-<version>.zip`. Attach all three to the GitHub release and use the plain version as the tag (for example `1.1.2`); the updater looks for these exact names.
+
+The updater only runs in the published single-file app, so running a build from source never replaces your build output.
 
 ## Tests
 
@@ -95,8 +99,10 @@ src/InstanceManager/
   ViewModels/           MVVM layer, coordinated by ShellViewModel
   Views/                Dialogs (login, confirmations, editors)
   Controls/             Vector icon control
+  Assets/               App icon and logo
   Behaviors/ Converters/ Themes/   WPF helpers and styles
 tests/InstanceManager.Tests/        xUnit tests
+scripts/                            Release build and secret scan
 ```
 
 ## Documentation

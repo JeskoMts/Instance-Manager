@@ -298,8 +298,16 @@ public sealed class AutoReconnectTests
         Assert.Equal(1, relaunches);
     }
 
+    [Theory]
+    [InlineData("[FLog::Network] Sending disconnect with reason: 285")]
+    [InlineData("[DFLog::RbxTransportDummyClient] Disconnected from server for reason: Player: 285 (DisconnectClientInitiated)")]
+    public void Classify_ClientInitiatedDisconnect_IsGracefulLeave(string line)
+    {
+        Assert.Equal(RobloxSessionSignal.GracefulLeave, RobloxLogClassifier.Classify(line));
+    }
+
     [Fact]
-    public async Task InGameMenuReturn_ReconnectsInsteadOfWaitingForAProcessCrash()
+    public async Task LeavingTheGame_KeepsTheClientOpenAndDoesNotReconnect()
     {
         using var tracker = new InstanceTracker();
         string tempDir = Path.Combine(Path.GetTempPath(), "instance-manager-tests", Guid.NewGuid().ToString("N"));
@@ -311,8 +319,8 @@ public sealed class AutoReconnectTests
             new AutoReconnectLog(Path.Combine(tempDir, "auto-reconnect.log")),
             launchUtc => new RobloxLogWatcher(tempDir, launchUtc));
 
-        var account = new Account { UserId = 43, Username = "menu-drop" };
-        var target = ServerTarget.Public(456);
+        var account = new Account { UserId = 43, Username = "leaver" };
+        var target = ServerTarget.ByJob(456, "ec1c8e3d-1c2b-4c3d-9e2a-1234567890ab");
         var version = new RobloxVersion
         {
             FolderPath = AppContext.BaseDirectory,
@@ -325,16 +333,31 @@ public sealed class AutoReconnectTests
         service.Relaunch = (_, _, _, _) =>
         {
             relaunches++;
-            return Task.FromResult<Process?>(Process.GetCurrentProcess());
+            return Task.FromResult<Process?>(null);
         };
 
-        service.RegisterLaunch(account, target, version, Process.GetCurrentProcess());
+        Process process = StartLongRunningProcess();
+        int processId = process.Id;
 
-        Signal(service, account.Id, RobloxSessionSignal.InGame);
-        Signal(service, account.Id, RobloxSessionSignal.GracefulLeave);
-        await HandleExitAsync(service, account.Id);
+        try
+        {
+            service.RegisterLaunch(account, target, version, process);
 
-        Assert.Equal(1, relaunches);
+            Signal(service, account.Id, RobloxSessionSignal.InGame);
+            Signal(service, account.Id, RobloxLogClassifier.Classify("[FLog::SingleSurfaceApp] leaveUGCGameInternal")!.Value);
+            Signal(service, account.Id, RobloxLogClassifier.Classify("[FLog::Network] Sending disconnect with reason: 285")!.Value);
+            Signal(service, account.Id, RobloxLogClassifier.Classify("[FLog::Network] Connection lost")!.Value);
+
+            Assert.False(WaitUntil(() => !IsProcessRunning(processId), 1500));
+
+            await HandleExitAsync(service, account.Id);
+
+            Assert.Equal(0, relaunches);
+        }
+        finally
+        {
+            KillIfRunning(processId);
+        }
     }
 
     [Fact]
@@ -651,9 +674,15 @@ public sealed class AutoReconnectTests
     }
 
     [Fact]
-    public void IsAutoReconnectEnabledFor_AllTriggers_DefaultOn()
+    public void IsAutoReconnectEnabledFor_OffByDefault_AndEveryTriggerOnceTheMasterIsOn()
     {
         var settings = new AppSettings();
+
+        Assert.False(settings.IsAutoReconnectEnabledFor(AutoReconnectTrigger.Error));
+        Assert.False(settings.IsAutoReconnectEnabledFor(AutoReconnectTrigger.Kick));
+        Assert.False(settings.IsAutoReconnectEnabledFor(AutoReconnectTrigger.Crash));
+
+        settings.AutoReconnectMaster = true;
 
         Assert.True(settings.IsAutoReconnectEnabledFor(AutoReconnectTrigger.Error));
         Assert.True(settings.IsAutoReconnectEnabledFor(AutoReconnectTrigger.Kick));
@@ -673,7 +702,7 @@ public sealed class AutoReconnectTests
     [Fact]
     public void IsAutoReconnectEnabledFor_PerTriggerSwitch_GatesOnlyThatTrigger()
     {
-        var settings = new AppSettings { AutoReconnectOnCrash = false };
+        var settings = new AppSettings { AutoReconnectMaster = true, AutoReconnectOnCrash = false };
 
         Assert.True(settings.IsAutoReconnectEnabledFor(AutoReconnectTrigger.Kick));
         Assert.False(settings.IsAutoReconnectEnabledFor(AutoReconnectTrigger.Crash));
@@ -897,7 +926,7 @@ public sealed class AutoReconnectTests
 
     private sealed class FakeSettingsService : ISettingsService
     {
-        public AppSettings Settings { get; } = new();
+        public AppSettings Settings { get; } = new() { AutoReconnectMaster = true };
 
         public void Save()
         {

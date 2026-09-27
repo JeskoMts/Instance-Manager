@@ -37,13 +37,15 @@ The Discord invite behind the Discord button is the only address outside Roblox 
 
 ## Updates
 
-On every start of a Release build the app asks `api.github.com` for the latest release of `JeskoMts/Instance-Manager`. The request carries only a user agent with the app version. If the release is newer than the running build, the update goes through these checks:
+On every start of the published app the app asks `api.github.com` for the latest release of `JeskoMts/Instance-Manager`. The request carries only a user agent with the app version. If the release is newer than the running build, the update goes through these checks:
 
-- The asset must be named `InstanceManager-<tag>.zip`, and its download URL must start with `https://github.com/JeskoMts/Instance-Manager/releases/download/`.
+- The asset must be named `Instance.Manager.<tag>.zip` (or, as a fallback, `InstanceManager-<tag>.zip`), and its download URL must start with `https://github.com/JeskoMts/Instance-Manager/releases/download/`. A preferred asset that fails a check is not skipped in favor of the fallback.
 - Redirects are followed by hand, at most five, HTTPS only, and only to `github.com`, `objects.githubusercontent.com` and `release-assets.githubusercontent.com`.
 - The download is capped at 64 MB, and its SHA-256 must match the `sha256:` digest GitHub reports for the asset. Without a digest there is no update.
-- The zip may only contain plain file names (no folders, no `..`, no alternate data streams, no invalid characters, no duplicates), must include `InstanceManager.exe` and `InstanceManager.dll`, and its unpacked size is capped.
-- Files are swapped by renaming, and a failed swap restores every file already replaced.
+- The zip may only contain plain file names (no folders, no `..`, no alternate data streams, no invalid characters, no duplicates), its unpacked size is capped, and only the app's exe entry is extracted.
+- The running exe is swapped by renaming, and a failed swap puts the old exe back.
+
+The single-file exe carries the native `WebView2Loader.dll`, which the .NET host extracts to `%TEMP%\.net\<exe name>\` and loads from there. Like everything else in your user profile, that folder is writable by other programs running as you; see the limits above.
 
 The digest proves the file is the one attached to the release; it doesn't prove who attached it. Release builds aren't code-signed, so the update is exactly as trustworthy as the GitHub account and repository that publish it. Whoever controls those can ship code that runs as your Windows user on the next start. This is the same trust you place in the repository when you download a release by hand.
 

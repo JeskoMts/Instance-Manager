@@ -120,6 +120,29 @@ public sealed class RobloxGamesService : IRobloxGamesService
         }
     }
 
+    public async Task<string?> GetGameNameAsync(long placeId, CancellationToken cancellationToken = default)
+    {
+        if (placeId <= 0)
+            return null;
+
+        try
+        {
+            long? universeId = await ResolvePlaceToUniverseAsync(placeId, cancellationToken).ConfigureAwait(false);
+            if (universeId is not long u)
+                return null;
+
+            Dictionary<long, GameDetail> details = await LoadDetailsAsync(
+                u.ToString(CultureInfo.InvariantCulture), cancellationToken).ConfigureAwait(false);
+            return details.TryGetValue(u, out GameDetail? d) && !string.IsNullOrWhiteSpace(d.Name)
+                ? d.Name.Trim()
+                : null;
+        }
+        catch (Exception ex) when (ex is HttpRequestException or OperationCanceledException or JsonException or NotSupportedException)
+        {
+            return null;
+        }
+    }
+
     private async Task<IReadOnlyList<GameInfo>> EnrichAsync(IReadOnlyList<long> universeIds, CancellationToken cancellationToken)
     {
         long[] ids = universeIds.Distinct().Take(MaxGames).ToArray();

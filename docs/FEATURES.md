@@ -28,11 +28,11 @@ Select the accounts you want by clicking their rows, or use the checkbox in the 
 
 If one account fails, for example because its login expired, the others still start. The summary at the end says how many started, failed or were already running.
 
-Running accounts show a green dot. The red stop button on a row closes that account's Roblox window, and Stop all above the list closes every one.
+Running accounts show a green dot. The red stop button on a row closes that account's Roblox window. While any account is running, the list header shows how many, with a Stop all button that closes every one. The header also shows how many accounts are selected; the × next to that count clears the selection.
 
 ## Favorites
 
-Favorites are games you play often. Enter a game in the launch bar and click the star to save it under a name. A favorite can also carry a private server, so picking it fills in Server mode for you. Open the favorites list from the launch bar to pick, edit, reorder or delete them. Pinned favorites stay at the top, and the favorite you picked last is selected again the next time you start the app.
+Favorites are games you play often. Enter a game or a server link in the launch bar and click the star to save it. The app fills in the game's name from Roblox, without update tags like [UPD], and you can change it before saving. A favorite can also carry a private server, so picking it fills in Server mode for you. Open the favorites list from the launch bar to pick, edit, reorder or delete them. Pinned favorites stay at the top, and the favorite you picked last is selected again the next time you start the app.
 
 ## Games tab
 
@@ -46,10 +46,12 @@ This only works if no Roblox client was already open when the app took hold of t
 
 ## Auto Reconnect
 
-Auto Reconnect restarts an account when it drops out of its game. It has a main switch and two options:
+Auto Reconnect restarts an account when it drops out of its game. It is off by default. It has a main switch and two options:
 
-- Reconnect after Kick/Error covers kicks, removals, moderation messages, error 267, lost connections, servers that shut down and being sent back to the Roblox menu.
+- Reconnect after Kick/Error covers kicks, removals, moderation messages, error 267, lost connections and servers that shut down.
 - Reconnect after Instance Crash covers a Roblox client that closes unexpectedly while you're in a game.
+
+Leaving a game yourself is never treated as a drop. Roblox goes back to its home screen and stays open.
 
 The app reads each client's own Roblox log to find out what happened, so a kick on one account only restarts that account. The retry limit sets how many times one instance may reconnect before the app gives up. It goes from 1 to 30, the last step on the slider means no limit, and the default is 3. An instance you stop yourself is never restarted.
 
@@ -67,7 +69,7 @@ Settings, Appearance, holds the built-in color themes and your own. Click a them
 
 ## Updates
 
-On every start the app checks GitHub for a newer release. If it finds one, it downloads it, verifies the checksum, replaces its own files and restarts, which usually takes a second or two. If you are launching accounts or have Roblox instances running at that moment, the update is installed when you close the app instead. After an update you'll see a notification with the new version number.
+On every start the app checks GitHub for a newer release. If it finds one, it downloads it, verifies the checksum, replaces its own exe and restarts, which usually takes a second or two. If you are launching accounts or have Roblox instances running at that moment, the update is installed when you close the app instead. After an update you'll see a notification with the new version number.
 
 ## Other settings
 

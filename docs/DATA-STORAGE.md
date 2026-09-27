@@ -21,7 +21,7 @@ The main data folder is `%APPDATA%\Instance Manager`, defined in [AppPaths.cs](.
 - `avatars\<userId>.png` caches avatar headshots so rows show them at startup. A fresh copy is still downloaded every session. The folder can be deleted at any time.
 - `webview\` is the WebView2 runtime folder for the login window. The login itself uses an InPrivate profile that is created per dialog and wiped when it closes.
 
-The app folder, where `InstanceManager.exe` sits, is only touched by the updater. During an update it contains a `.im-update` folder with the new files and `*.im-old` copies of the replaced ones. Both are deleted on the next start.
+The folder with the app's exe is only touched by the updater. During an update it contains a `.im-update` folder with the new exe and an `.im-old` copy of the replaced one. Both are deleted on the next start. The native WebView2 loader inside the exe is extracted to `%TEMP%\.net\<exe name>\`.
 
 The app also reads two Roblox folders without writing to them:
 
@@ -74,12 +74,12 @@ An account in `accounts.json`:
 
 | Area | Fields |
 |---|---|
-| Launching | `MultiInstanceEnabled` (default on), `LaunchDelayMs` (0 to 30000 ms in 500 ms steps, default 1500), `SwitchToAccountsOnGameSelect` |
+| Launching | `MultiInstanceEnabled` (default on), `LaunchDelayMs` (0 to 30000 ms in 500 ms steps, default 2000), `SwitchToAccountsOnGameSelect` |
 | Roblox version | `SelectedVersionGuid`, `VersionsPathOverride` |
 | Launch bar | `LastTargetInput`, `LastJobIdInput`, `LastJoinMode`, `LastSelectedFavoriteId` |
-| Auto Reconnect | `AutoReconnectMaster`, `AutoReconnectOnKickError`, `AutoReconnectOnCrash` (all default on), `AutoReconnectMaxAttempts` (1 to 30, 31 means no limit, default 3) |
+| Auto Reconnect | `AutoReconnectMaster` (default off), `AutoReconnectOnKickError`, `AutoReconnectOnCrash` (both default on), `AutoReconnectMaxAttempts` (1 to 30, 31 means no limit, default 3) |
 | Appearance | `ThemeId` (default `dark`), `ThemeOrder`, `WindowWidth`, `WindowHeight` |
-| Notifications | `ToastDurationMs` (500 to 5000 ms, default 4500), `NotifyMuteMaster`, `MutedNotifications` |
+| Notifications | `ToastDurationMs` (500 to 5000 ms, default 3000), `NotifyMuteMaster`, `MutedNotifications` |
 | Confirmations | `ConfirmBypassMaster` and one `ConfirmBypass...` switch per action |
 
 Older files can contain `AutoRejoin...` fields and `PrimaryFavoriteId`. They are migrated on load (see below) and written back as `null`.

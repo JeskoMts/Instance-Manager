@@ -120,8 +120,10 @@ For each launched instance, `AutoReconnectService` keeps a small session: the ac
 Signals arrive from the instance's Roblox log, through its `RobloxLogWatcher`, and from the process exit, through `InstanceTracker.RunningChanged`. The service sorts a drop into one of three triggers:
 
 - Kick, for a kick or removal (error 267, moderation messages).
-- Error, for a disconnect, a server shutdown, a generic error dialog or a return to the menu.
+- Error, for a disconnect, a server shutdown or a generic error dialog.
 - Crash, when the process died in a game without a clean leave in the log.
+
+A clean leave is the player leaving the game on purpose: the log shows `leaveUGCGameInternal` or a client-initiated disconnect (reason 285). The service then keeps the client open, ignores the disconnect errors Roblox logs while it tears down the game, and doesn't reconnect when the window is closed later. Only a kick that shows up afterwards still counts.
 
 A drop reconnects only if its trigger is enabled. `AutoReconnectOnKickError` covers Kick and Error together and `AutoReconnectOnCrash` covers Crash, both under `AutoReconnectMaster`. A manual stop sets a flag that blocks any reconnect for that instance. When a reconnect is due, the service closes the stuck client if it is still open, waits briefly and calls `LaunchService.LaunchOneAsync` for the same account. Attempts per run are capped by `AutoReconnectMaxAttempts`, and each step is written to `auto-reconnect.log`.
 
@@ -141,16 +143,20 @@ If the name exists but belongs to an object that isn't a mutex, opening it throw
 
 ## Updates
 
-`UpdateService` runs once per start, in Release builds only.
+Since 1.1.2 the app ships as one framework-dependent single-file exe. The native `WebView2Loader.dll` is bundled too; the .NET host extracts it to `%TEMP%\.net\<exe name>\` when the app starts. `UpdateService` works on the exe that is running, whatever its name, and only when it runs as a single-file bundle (an empty `Assembly.Location`), so builds from source never update themselves.
 
-1. `CleanupPreviousUpdate` deletes `*.im-old` files and the `.im-update` folder left in the app folder by the previous update.
-2. `DownloadAsync` asks `api.github.com` for the latest release of `JeskoMts/Instance-Manager`. The tag (for example `1.1.1`) is parsed as a version, and nothing happens unless it is newer than the running build. Drafts and pre-releases never show up in this endpoint.
-3. It looks for the asset named `InstanceManager-<tag>.zip`. The download URL must start with `https://github.com/JeskoMts/Instance-Manager/releases/download/`, and the asset must have a `sha256:` digest in the API response.
+1. `CleanupPreviousUpdate` deletes `*.im-old` files and the `.im-update` folder left in the app folder by the previous update. If the running exe is called `InstanceManager.exe` and an `InstanceManager.deps.json` sits next to it, the folder is an old 1.1.1 install that the 1.1.1 updater has just upgraded, and the loose files of that version are deleted as well (or renamed to `.im-old` while the old process still holds them).
+2. `DownloadAsync` asks `api.github.com` for the latest release of `JeskoMts/Instance-Manager`. The tag (for example `1.1.2`) is parsed as a version, and nothing happens unless it is newer than the running build. Drafts and pre-releases never show up in this endpoint.
+3. It looks for `Instance.Manager.<tag>.zip` and falls back to `InstanceManager-<tag>.zip`. The download URL must start with `https://github.com/JeskoMts/Instance-Manager/releases/download/`, and the asset must have a `sha256:` digest in the API response. If the first asset exists but fails these checks, there is no update and no fallback.
 4. The zip is downloaded with redirects followed by hand: at most five, HTTPS only, and only to `github.com`, `objects.githubusercontent.com` or `release-assets.githubusercontent.com`. The download is capped at 64 MB, and its SHA-256 must match the digest.
-5. The zip is unpacked into `.im-update` inside the app folder. Every entry must be a plain file name with no folders, no invalid characters and no duplicates, the package must contain `InstanceManager.exe` and `InstanceManager.dll`, and the unpacked size is capped.
-6. `Apply` renames each existing file to `<name>.im-old` and moves the new file into its place. Windows allows renaming a running executable and loaded DLLs, so this works while the app runs. If any step fails, every file already swapped is put back.
+5. Every entry must be a plain file name with no folders, no invalid characters and no duplicates, and the unpacked size is capped. Only the exe entry is extracted (`Instance Manager.exe`, or `InstanceManager.exe` in the fallback package) into `.im-update` inside the app folder.
+6. `Apply` renames the running exe to `<name>.im-old` and moves the new one into its place under the same name, so shortcuts keep working. Windows allows renaming a running executable. If the move fails, the old exe is put back.
 
-`App` decides when to call `Apply`. If no launch is running, no Roblox instance is tracked and no dialog is open, it applies the update right away, shuts down and starts the new `InstanceManager.exe` with `--updated`, which shows a notification with the new version. Otherwise it waits and applies the update in `OnExit`, so the old process never loads a file from the new version.
+`App` decides when to call `Apply`. If no launch is running, no Roblox instance is tracked and no dialog is open, it applies the update right away, shuts down and starts the exe again with `--updated`, which shows a notification with the new version. Otherwise it waits and applies the update in `OnExit`.
+
+### Upgrading from 1.1.1
+
+The 1.1.1 updater only accepts `InstanceManager-<tag>.zip` with both `InstanceManager.exe` and `InstanceManager.dll` inside, copies every file of the zip over the install and restarts `InstanceManager.exe`. `scripts/build-release.ps1` therefore builds that package with the single-file exe as `InstanceManager.exe` and the matching `InstanceManager.dll`. After the restart the bundle ignores the loose files next to it, and step 1 above removes them. Every release has to carry this package for as long as 1.1.1 installs should keep updating.
 
 ## External services
 

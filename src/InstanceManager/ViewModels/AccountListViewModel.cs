@@ -88,6 +88,14 @@ public partial class AccountListViewModel : ObservableObject
 
     partial void OnSearchTextChanged(string value) => RebuildGroups();
 
+    partial void OnSelectedCountChanged(int value) => OnPropertyChanged(nameof(SelectionText));
+
+    partial void OnAccountCountChanged(int value) => OnPropertyChanged(nameof(AccountCountText));
+
+    public string AccountCountText => AccountCount == 1 ? "1 account" : $"{AccountCount} accounts";
+
+    public string SelectionText => $"{SelectedCount} selected";
+
 
     public bool IsSearching => !string.IsNullOrWhiteSpace(SearchText);
     public bool ShowList => Groups.Count > 0;
@@ -118,6 +126,7 @@ public partial class AccountListViewModel : ObservableObject
 
     public int RunningCount => _tracker.RunningCount;
     public bool HasRunning => RunningCount > 0;
+    public string RunningText => $"{RunningCount} running";
 
     public IReadOnlyList<AccountGroup> GroupModels => _groups.All;
 
@@ -612,5 +621,6 @@ public partial class AccountListViewModel : ObservableObject
 
         OnPropertyChanged(nameof(RunningCount));
         OnPropertyChanged(nameof(HasRunning));
+        OnPropertyChanged(nameof(RunningText));
     }
 }

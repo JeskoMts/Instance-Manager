@@ -46,6 +46,58 @@
             </Setter>
         </Style>
 
+        <Style x:Key="ChipCloseButton" TargetType="Button">
+            <Setter Property="Width" Value="20" />
+            <Setter Property="Height" Value="20" />
+            <Setter Property="Foreground" Value="{DynamicResource Brush.TextSecondary}" />
+            <Setter Property="Cursor" Value="Hand" />
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="Button">
+                        <Grid Background="Transparent">
+                            <Ellipse x:Name="Hover" Fill="{DynamicResource Brush.Accent}" Opacity="0" />
+                            <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center" />
+                        </Grid>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsMouseOver" Value="True">
+                                <Setter TargetName="Hover" Property="Opacity" Value="0.16" />
+                                <Setter Property="Foreground" Value="{DynamicResource Brush.TextPrimary}" />
+                            </Trigger>
+                            <Trigger Property="IsPressed" Value="True">
+                                <Setter TargetName="Hover" Property="Opacity" Value="0.26" />
+                            </Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+
+        <Style x:Key="StopAllButton" TargetType="Button">
+            <Setter Property="Foreground" Value="{DynamicResource Brush.TextSecondary}" />
+            <Setter Property="FontSize" Value="12" />
+            <Setter Property="Padding" Value="10,0,12,0" />
+            <Setter Property="Cursor" Value="Hand" />
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="Button">
+                        <Grid Background="Transparent">
+                            <Border x:Name="Hover" CornerRadius="0,12,12,0" Background="{DynamicResource Brush.Danger}" Opacity="0" />
+                            <ContentPresenter Margin="{TemplateBinding Padding}" VerticalAlignment="Center" />
+                        </Grid>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsMouseOver" Value="True">
+                                <Setter TargetName="Hover" Property="Opacity" Value="0.14" />
+                                <Setter Property="Foreground" Value="{DynamicResource Brush.Danger}" />
+                            </Trigger>
+                            <Trigger Property="IsPressed" Value="True">
+                                <Setter TargetName="Hover" Property="Opacity" Value="0.24" />
+                            </Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+
         <Style x:Key="CaptionButton" TargetType="Button">
             <Setter Property="Width" Value="44" />
             <Setter Property="Height" Value="32" />
@@ -260,14 +312,9 @@
             </Grid.ColumnDefinitions>
 
             <StackPanel Grid.Column="0" Orientation="Horizontal" VerticalAlignment="Center" Margin="18,0,0,0">
-                <Grid Width="16" Height="16" VerticalAlignment="Center">
-                    <Border Width="11" Height="11" CornerRadius="3" BorderThickness="1.5"
-                            BorderBrush="{DynamicResource Brush.TextMuted}"
-                            HorizontalAlignment="Left" VerticalAlignment="Top" />
-                    <Border Width="11" Height="11" CornerRadius="3" Background="{DynamicResource Brush.Accent}"
-                            HorizontalAlignment="Right" VerticalAlignment="Bottom" />
-                </Grid>
-                <TextBlock Text="Instance Manager" FontSize="13" FontWeight="SemiBold" Margin="10,0,0,0" VerticalAlignment="Center" />
+                <Image Source="/Assets/Logo.png" Width="18" Height="18" VerticalAlignment="Center"
+                       RenderOptions.BitmapScalingMode="HighQuality" />
+                <TextBlock Text="Instance Manager" FontSize="13" FontWeight="SemiBold" Margin="9,0,0,0" VerticalAlignment="Center" />
             </StackPanel>
 
             <StackPanel Grid.Column="1" Orientation="Horizontal" VerticalAlignment="Center" Margin="24,0,0,0"
@@ -418,45 +465,55 @@
                         <CheckBox Style="{StaticResource RowCheckBox}" ToolTip="Select all (Ctrl+A)"
                                   IsChecked="{Binding AccountList.AllSelected, Mode=OneWay}"
                                   Command="{Binding AccountList.ToggleSelectAllCommand}" />
-                        <TextBlock Text="{Binding AccountList.AccountCount, StringFormat='{}{0} accounts'}" Margin="10,0,0,0"
-                                   FontSize="12" Foreground="{DynamicResource Brush.TextMuted}" VerticalAlignment="Center" />
-                        <StackPanel Orientation="Horizontal" VerticalAlignment="Center"
-                                    Visibility="{Binding AccountList.HasSelection, Converter={StaticResource BoolToVis}}">
-                            <TextBlock Text="·" Margin="8,0" FontSize="12" Foreground="{DynamicResource Brush.TextMuted}" VerticalAlignment="Center" />
-                            <TextBlock Text="{Binding AccountList.SelectedCount, StringFormat='{}{0} selected'}"
-                                       FontSize="12" Foreground="{DynamicResource Brush.TextPrimary}" VerticalAlignment="Center" />
-                            <Button Style="{StaticResource IconButton}" Content="Clear" FontSize="12" Padding="8,3" Margin="6,0,0,0"
-                                    ToolTip="Clear selection (Esc)" Command="{Binding AccountList.ClearSelectionCommand}" />
-                        </StackPanel>
-                        <Button Content="Select all" FontSize="12" Padding="8,3" Margin="6,0,0,0"
-                                ToolTip="Select every visible account (Ctrl+A)" Command="{Binding AccountList.SelectAllVisibleCommand}">
-                            <Button.Style>
-                                <Style TargetType="Button" BasedOn="{StaticResource IconButton}">
+                        <TextBlock Text="{Binding AccountList.AccountCountText}" Margin="10,0,0,0"
+                                   FontSize="12" Foreground="{DynamicResource Brush.TextMuted}" VerticalAlignment="Center">
+                            <TextBlock.Style>
+                                <Style TargetType="TextBlock">
                                     <Style.Triggers>
                                         <DataTrigger Binding="{Binding AccountList.HasSelection}" Value="True">
                                             <Setter Property="Visibility" Value="Collapsed" />
                                         </DataTrigger>
                                     </Style.Triggers>
                                 </Style>
-                            </Button.Style>
-                        </Button>
+                            </TextBlock.Style>
+                        </TextBlock>
+                        <Grid Height="26" Margin="8,0,0,0" VerticalAlignment="Center"
+                              Visibility="{Binding AccountList.HasSelection, Converter={StaticResource BoolToVis}}">
+                            <Border CornerRadius="13" Background="{DynamicResource Brush.Accent}" Opacity="0.12" />
+                            <Border CornerRadius="13" BorderBrush="{DynamicResource Brush.Accent}" BorderThickness="1" Opacity="0.2" />
+                            <StackPanel Orientation="Horizontal" Margin="11,0,3,0">
+                                <TextBlock Text="{Binding AccountList.SelectionText}" FontSize="12" FontWeight="SemiBold"
+                                           Foreground="{DynamicResource Brush.TextPrimary}" VerticalAlignment="Center" />
+                                <Button Style="{StaticResource ChipCloseButton}" Margin="5,0,0,0"
+                                        ToolTip="Clear selection (Esc)" Command="{Binding AccountList.ClearSelectionCommand}">
+                                    <ui:Icon Kind="Close" Size="11" StrokeThickness="2.2" />
+                                </Button>
+                            </StackPanel>
+                        </Grid>
                     </StackPanel>
 
-                    <StackPanel Grid.Column="1" Orientation="Horizontal" VerticalAlignment="Center"
-                                Visibility="{Binding AccountList.HasRunning, Converter={StaticResource BoolToVis}}">
-                        <Ellipse Width="7" Height="7" Fill="{DynamicResource Brush.Success}" VerticalAlignment="Center" />
-                        <TextBlock Text="{Binding AccountList.RunningCount, StringFormat='{}{0} running'}" Margin="7,0,0,0"
-                                   FontSize="12" Foreground="{DynamicResource Brush.TextSecondary}" VerticalAlignment="Center" />
-                        <Button Style="{StaticResource IconButton}" Margin="6,0,0,0" FontSize="12" Padding="8,3"
-                                Command="{Binding AccountList.StopAllInstancesCommand}"
-                                ToolTip="Close every running Roblox instance. Auto Reconnect won't bring them back.">
-                            <StackPanel Orientation="Horizontal">
-                                <ui:Icon Kind="Stop" Size="12" Margin="0,0,6,0"
-                                           Foreground="{DynamicResource Brush.Danger}" />
-                                <TextBlock Text="Stop all" VerticalAlignment="Center" />
-                            </StackPanel>
-                        </Button>
-                    </StackPanel>
+                    <Border Grid.Column="1" Height="26" CornerRadius="13" VerticalAlignment="Center"
+                            Background="{DynamicResource Brush.Surface}"
+                            BorderBrush="{DynamicResource Brush.Border}" BorderThickness="1"
+                            Visibility="{Binding AccountList.HasRunning, Converter={StaticResource BoolToVis}}">
+                        <StackPanel Orientation="Horizontal">
+                            <Grid Width="13" Height="13" Margin="9,0,0,0" VerticalAlignment="Center">
+                                <Ellipse Fill="{DynamicResource Brush.Success}" Opacity="0.25" />
+                                <Ellipse Width="7" Height="7" Fill="{DynamicResource Brush.Success}" />
+                            </Grid>
+                            <TextBlock Text="{Binding AccountList.RunningText}" Margin="7,0,10,0" FontSize="12"
+                                       Foreground="{DynamicResource Brush.TextSecondary}" VerticalAlignment="Center" />
+                            <Border Width="1" Margin="0,6" Background="{DynamicResource Brush.Border}" />
+                            <Button Style="{StaticResource StopAllButton}"
+                                    Command="{Binding AccountList.StopAllInstancesCommand}"
+                                    ToolTip="Close every running Roblox instance. Auto Reconnect won't bring them back.">
+                                <StackPanel Orientation="Horizontal">
+                                    <ui:Icon Kind="Stop" Size="11" Margin="0,0,6,0" />
+                                    <TextBlock Text="Stop all" VerticalAlignment="Center" />
+                                </StackPanel>
+                            </Button>
+                        </StackPanel>
+                    </Border>
                 </Grid>
 
                 <Grid Grid.Row="2" Margin="20,0,14,0">
@@ -967,6 +1024,11 @@
                     </Grid.RowDefinitions>
 
                     <Grid Grid.Row="0" Margin="20,16,20,12">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="Auto" />
+                            <ColumnDefinition Width="*" />
+                            <ColumnDefinition Width="Auto" />
+                        </Grid.ColumnDefinitions>
                         <Grid Width="340" HorizontalAlignment="Left">
                             <TextBox x:Name="GamesSearchBox" Style="{StaticResource SearchTextBox}" Height="34"
                                      VerticalContentAlignment="Center"
@@ -989,7 +1051,17 @@
                                 <ui:Icon Kind="Close" Size="13" />
                             </Button>
                         </Grid>
-                        <TextBlock Text="Click a game to make it your launch target." HorizontalAlignment="Right" VerticalAlignment="Center"
+                        <StackPanel Grid.Column="1" Orientation="Horizontal" VerticalAlignment="Center" Margin="14,0,0,0"
+                                    Visibility="{Binding IsLoading, Converter={StaticResource BoolToVis}}">
+                            <Path Style="{StaticResource Spinner}" Width="13" Height="13" Margin="0,0,8,0">
+                                <Path.RenderTransform>
+                                    <RotateTransform />
+                                </Path.RenderTransform>
+                            </Path>
+                            <TextBlock Text="Loading games…" FontSize="12" VerticalAlignment="Center"
+                                       Foreground="{DynamicResource Brush.TextSecondary}" />
+                        </StackPanel>
+                        <TextBlock Grid.Column="2" Text="Click a game to make it your launch target." VerticalAlignment="Center"
                                    FontSize="12" Foreground="{DynamicResource Brush.TextMuted}" />
                     </Grid>
 
@@ -1051,16 +1123,6 @@
                                 </ItemsControl.ItemTemplate>
                             </ItemsControl>
                         </ScrollViewer>
-
-                        <StackPanel Orientation="Horizontal" HorizontalAlignment="Center" VerticalAlignment="Center"
-                                    Visibility="{Binding IsLoading, Converter={StaticResource BoolToVis}}">
-                            <Path Style="{StaticResource Spinner}" Width="14" Height="14" Margin="0,0,10,0">
-                                <Path.RenderTransform>
-                                    <RotateTransform />
-                                </Path.RenderTransform>
-                            </Path>
-                            <TextBlock Text="Loading games…" Foreground="{DynamicResource Brush.TextSecondary}" />
-                        </StackPanel>
 
                         <TextBlock Text="No games found" HorizontalAlignment="Center" VerticalAlignment="Center"
                                    Foreground="{DynamicResource Brush.TextSecondary}">

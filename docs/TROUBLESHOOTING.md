@@ -39,15 +39,19 @@ The app checks GitHub for a new version every time it starts. When it finds one,
 
 ### The update failed
 
-The app couldn't replace its own files. This usually means it sits in a folder your Windows user can't write to, such as `C:\Program Files`, or that antivirus locked one of the files. Move the app folder somewhere you own, like `Documents\Instance Manager`, and start it again. You can also download the new version from the [releases page](https://github.com/JeskoMts/Instance-Manager/releases/latest) and unzip it over the old files; your accounts and settings aren't in that folder, so nothing is lost.
+The app couldn't replace its own exe. This usually means it sits in a folder your Windows user can't write to, such as `C:\Program Files`, or that antivirus locked the file. Move `Instance Manager.exe` somewhere you own, like the desktop or `Documents`, and start it again. You can also download `Instance.Manager.<version>.zip` from the [releases page](https://github.com/JeskoMts/Instance-Manager/releases/latest) and replace the exe by hand; your accounts and settings aren't stored next to it, so nothing is lost.
 
 ### The app never updates
 
-The check needs internet access to `api.github.com` and `github.com`. A firewall or proxy that blocks GitHub stops it silently. GitHub also limits how often one internet connection may ask for release information (60 times per hour), so on a shared network the check can be skipped now and then. It runs again at the next start. Builds you compile yourself in Debug mode never update.
+The check needs internet access to `api.github.com` and `github.com`. A firewall or proxy that blocks GitHub stops it silently. GitHub also limits how often one internet connection may ask for release information (60 times per hour), so on a shared network the check can be skipped now and then. It runs again at the next start. Builds you compile yourself never update.
 
 ### Leftover `.im-old` files or an `.im-update` folder
 
 These are left over from an update and are deleted the next time the app starts. You can also delete them yourself while the app is closed.
+
+### After updating from 1.1.1 the folder still has DLL files
+
+The first start of 1.1.2 removes the files the old version needed. If the old process was still closing at that moment, some of them are renamed to `.im-old` instead and disappear on the next start. Only `InstanceManager.exe` is left; it keeps that name so your shortcuts still work.
 
 ## Adding accounts
 
@@ -131,16 +135,16 @@ Every attempt is logged in `%APPDATA%\Instance Manager\auto-reconnect.log`, so s
 
 Check these in order:
 
-1. Did you stop it yourself? Instances you stop are never restarted.
-2. Is there a `GIVEUP` line? Then it hit the retry limit. Raise the limit in Settings, or launch the account again to reset the count.
-3. Is the matching option on? Kicks and errors fall under Reconnect after Kick/Error, crashes under Reconnect after Instance Crash.
-4. Is the Auto Reconnect main switch on?
+1. Is the Auto Reconnect main switch on? It is off by default.
+2. Did you stop it yourself or leave the game on purpose? Neither is restarted.
+3. Is there a `GIVEUP` line? Then it hit the retry limit. Raise the limit in Settings, or launch the account again to reset the count.
+4. Is the matching option on? Kicks and errors fall under Reconnect after Kick/Error, crashes under Reconnect after Instance Crash.
 
 If the log has no line at all for the drop, the app didn't recognize it as a drop, which points to the log reading covered below.
 
 ### Only some of several accounts came back
 
-Each instance follows its own Roblox log, and a fresh client can take a few seconds to create one. The app already waits for each client to open and join before starting the next. If you still see this, raise the pause between launches in Settings to 1500 ms or more.
+Each instance follows its own Roblox log, and a fresh client can take a few seconds to create one. The app already waits for each client to open and join before starting the next. If you still see this, raise the pause between launches in Settings above the default of 2 seconds.
 
 ### An instance keeps reconnecting
 

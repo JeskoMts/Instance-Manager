@@ -96,6 +96,13 @@ public static class RobloxLogClassifier
         "leaving game",
     };
 
+    private static readonly string[] ClientLeaveMarkers =
+    {
+        "disconnectclientinitiated",
+        "sending disconnect with reason: 285",
+        "disconnect reason received: 285",
+    };
+
     public static RobloxSessionSignal? Classify(string? line)
     {
         if (string.IsNullOrWhiteSpace(line))
@@ -111,6 +118,8 @@ public static class RobloxLogClassifier
 
             if (ContainsAny(text, KickMarkers))
                 return RobloxSessionSignal.Kicked;
+            if (ContainsAny(text, ClientLeaveMarkers))
+                return RobloxSessionSignal.GracefulLeave;
             if (ContainsAny(text, ErrorMarkers))
                 return RobloxSessionSignal.Error;
             if (ContainsAny(text, GracefulLeaveMarkers))

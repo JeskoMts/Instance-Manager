@@ -11,7 +11,7 @@ namespace InstanceManager.ViewModels;
 
 public partial class NotificationCenterViewModel : ObservableObject
 {
-    public static readonly TimeSpan ToastLifetime = TimeSpan.FromSeconds(4.5);
+    public static readonly TimeSpan ToastLifetime = TimeSpan.FromSeconds(3);
 
     private const int MaxToasts = 3;
     private const int MaxHistory = 50;

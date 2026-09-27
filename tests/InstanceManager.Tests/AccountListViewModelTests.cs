@@ -182,6 +182,29 @@ public class AccountListViewModelTests
     }
 
     [Fact]
+    public void HeaderTexts_UseSingularForOneAccount_AndFollowTheSelection()
+    {
+        _accounts.Upsert(new Account { Id = Guid.NewGuid(), UserId = 1, Username = "a" });
+        var vm = Create();
+        var changed = new List<string?>();
+        vm.PropertyChanged += (_, e) => changed.Add(e.PropertyName);
+
+        Assert.Equal("1 account", vm.AccountCountText);
+        Assert.Equal("0 running", vm.RunningText);
+
+        vm.Rows.OfType<AccountRowViewModel>().Single().IsSelected = true;
+
+        Assert.Equal("1 selected", vm.SelectionText);
+        Assert.Contains(nameof(AccountListViewModel.SelectionText), changed);
+
+        _accounts.Upsert(new Account { Id = Guid.NewGuid(), UserId = 2, Username = "b" });
+        vm.RebuildGroups();
+
+        Assert.Equal("2 accounts", vm.AccountCountText);
+        Assert.Contains(nameof(AccountListViewModel.AccountCountText), changed);
+    }
+
+    [Fact]
     public void LaunchStages_ShowOnRows_AndCancellingKeepsOnlyFailures()
     {
         var failing = new Account { Id = Guid.NewGuid(), UserId = 1, Username = "failing" };

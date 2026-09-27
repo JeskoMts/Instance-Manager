@@ -313,13 +313,32 @@ public sealed class XamlInteractionContractTests
     }
 
     [Fact]
+    public void GamesLoadingIndicator_SitsNextToTheSearchInsteadOfOverTheGames()
+    {
+        XDocument document = XDocument.Load(FindWorkspaceFile("src", "InstanceManager", "MainWindow.xaml"));
+        XNamespace presentation = "http://schemas.microsoft.com/winfx/2006/xaml/presentation";
+        XNamespace xaml = "http://schemas.microsoft.com/winfx/2006/xaml";
+
+        XElement gamesPage = document.Descendants(presentation + "Grid")
+            .Single(element => (string?)element.Attribute(xaml + "Name") == "GamesPage");
+        XElement loading = gamesPage.Descendants(presentation + "TextBlock")
+            .Single(element => (string?)element.Attribute("Text") == "Loading games…");
+        XElement header = loading.Ancestors(presentation + "Grid")
+            .First(element => (string?)element.Attribute("Grid.Row") == "0");
+
+        Assert.Contains(header.Descendants(presentation + "TextBox"),
+            element => (string?)element.Attribute(xaml + "Name") == "GamesSearchBox");
+    }
+
+    [Fact]
     public void AccountSelection_HeaderOffersSelectAllClearAndLaunch()
     {
         string xaml = File.ReadAllText(FindWorkspaceFile("src", "InstanceManager", "MainWindow.xaml"));
+        string code = File.ReadAllText(FindWorkspaceFile("src", "InstanceManager", "MainWindow.xaml.cs"));
 
         Assert.Contains("AccountList.ToggleSelectAllCommand", xaml, StringComparison.Ordinal);
-        Assert.Contains("AccountList.SelectAllVisibleCommand", xaml, StringComparison.Ordinal);
         Assert.Contains("AccountList.ClearSelectionCommand", xaml, StringComparison.Ordinal);
+        Assert.Contains("AccountList.SelectAllVisibleCommand", code, StringComparison.Ordinal);
         Assert.Contains("LaunchSelectedCommand", xaml, StringComparison.Ordinal);
     }
 

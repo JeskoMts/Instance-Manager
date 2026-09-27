@@ -12,4 +12,6 @@ public interface IRobloxGamesService
     Task<IReadOnlyList<GameInfo>> SearchAsync(string query, CancellationToken cancellationToken = default);
 
     Task<byte[]?> GetThumbnailAsync(string? imageUrl, CancellationToken cancellationToken = default);
+
+    Task<string?> GetGameNameAsync(long placeId, CancellationToken cancellationToken = default);
 }

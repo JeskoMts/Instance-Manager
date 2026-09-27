@@ -1,7 +1,9 @@
 using System;
 using System.Collections.Generic;
 using System.Collections.ObjectModel;
+using System.Globalization;
 using System.Linq;
+using System.Text.RegularExpressions;
 using System.Threading;
 using System.Threading.Tasks;
 using InstanceManager.Models;
@@ -18,20 +20,27 @@ public partial class LaunchPanelViewModel : ObservableObject
     private readonly ISettingsService _settings;
     private readonly IDialogService _dialogs;
     private readonly IShellCoordinator _shell;
+    private static readonly TimeSpan GameNameLookupTimeout = TimeSpan.FromSeconds(4);
+    private static readonly Regex LeadingTags = new(@"^\s*(?:[\[(【][^\])】]{0,40}[\])】]\s*)+", RegexOptions.Compiled);
+
     private readonly IServerLinkResolver? _serverLinks;
+    private readonly IRobloxGamesService? _games;
+    private readonly Dictionary<long, string> _gameNames = new();
 
     public LaunchPanelViewModel(
         IFavoriteRepository favorites,
         ISettingsService settings,
         IDialogService dialogs,
         IShellCoordinator shell,
-        IServerLinkResolver? serverLinks = null)
+        IServerLinkResolver? serverLinks = null,
+        IRobloxGamesService? games = null)
     {
         _favorites = favorites;
         _settings = settings;
         _dialogs = dialogs;
         _shell = shell;
         _serverLinks = serverLinks;
+        _games = games;
 
         selectedMode = _settings.Settings.LastJoinMode;
         targetInput = _settings.Settings.LastTargetInput ?? string.Empty;
@@ -204,6 +213,12 @@ public partial class LaunchPanelViewModel : ObservableObject
         SelectedMode = JoinMode.PublicByLink;
     }
 
+    public void RememberGameName(long placeId, string? name)
+    {
+        if (placeId > 0 && !string.IsNullOrWhiteSpace(name))
+            _gameNames[placeId] = name.Trim();
+    }
+
     [RelayCommand]
     private void ApplyFavorite(FavoriteGame? favorite)
     {
@@ -225,20 +240,37 @@ public partial class LaunchPanelViewModel : ObservableObject
     }
 
     [RelayCommand]
-    private void AddFavorite()
+    private async Task AddFavoriteAsync()
     {
-        if (!GameLinkParser.TryParsePlaceId(TargetInput, out long placeId))
+        ServerTargetResolution resolution;
+        try
         {
-            _shell.Notify(NotificationId.FavoriteNotSaved, NotificationKind.Error, "Favorite not saved", "Enter a valid game link or Place ID first.");
+            resolution = await ResolveTargetAsync();
+        }
+        catch (Exception ex) when (ex is System.Net.Http.HttpRequestException or OperationCanceledException)
+        {
+            resolution = ServerTargetResolution.Failure("The server link can't be checked right now.");
+        }
+
+        if (resolution.Target is not { Mode: not JoinMode.Home } target)
+        {
+            string hint = resolution.IsSuccess
+                ? SelectedMode == JoinMode.PrivateByJobId
+                    ? "Paste a server link first."
+                    : "Enter a game link or Place ID first."
+                : resolution.Error;
+            _shell.Notify(NotificationId.FavoriteNotSaved, NotificationKind.Error, "Favorite not saved", hint);
             return;
         }
 
-        string? name = _dialogs.Prompt("Name this favorite", $"Game {placeId}");
+        string? gameName = await LookUpGameNameAsync(target.PlaceId);
+        string suggestion = gameName != null ? CleanGameName(gameName) : $"Game {target.PlaceId}";
+        string? name = _dialogs.Prompt("Name this favorite", suggestion);
         if (string.IsNullOrWhiteSpace(name)) return;
 
-        var favorite = new FavoriteGame { Name = name.Trim(), PlaceId = placeId, SortOrder = NextSortOrder() };
-        if (SelectedMode == JoinMode.PrivateByJobId && GameLinkParser.TryParseJobId(JobIdInput, out string jobId))
-            favorite.DefaultJobId = jobId;
+        var favorite = new FavoriteGame { Name = name.Trim(), PlaceId = target.PlaceId, SortOrder = NextSortOrder() };
+        if (target.Mode == JoinMode.PrivateByJobId && !string.IsNullOrWhiteSpace(target.JobId))
+            favorite.DefaultJobId = target.JobId;
 
         _favorites.Add(favorite);
         RebuildFavorites();
@@ -286,6 +318,37 @@ public partial class LaunchPanelViewModel : ObservableObject
             if (wasSelected)
                 SelectedFavorite = Favorites.FirstOrDefault(f => f.Id == favorite.Id);
         });
+    }
+
+    internal static string CleanGameName(string gameName)
+    {
+        string name = LeadingTags.Replace(gameName, string.Empty);
+        int start = 0;
+        int end = name.Length;
+        while (start < end && IsDecoration(name[start]))
+            start++;
+        while (end > start && IsDecoration(name[end - 1]))
+            end--;
+        name = name[start..end];
+        return name.Length > 0 ? name : gameName.Trim();
+    }
+
+    private static bool IsDecoration(char c) =>
+        char.IsWhiteSpace(c) || char.IsSurrogate(c) || CharUnicodeInfo.GetUnicodeCategory(c) is
+            UnicodeCategory.OtherSymbol or UnicodeCategory.Format or
+            UnicodeCategory.NonSpacingMark or UnicodeCategory.EnclosingMark;
+
+    private async Task<string?> LookUpGameNameAsync(long placeId)
+    {
+        if (_gameNames.TryGetValue(placeId, out string? known))
+            return known;
+        if (_games == null)
+            return null;
+
+        using var timeout = new CancellationTokenSource(GameNameLookupTimeout);
+        string? name = await _games.GetGameNameAsync(placeId, timeout.Token);
+        RememberGameName(placeId, name);
+        return name;
     }
 
     private void PersistAndRebuild()

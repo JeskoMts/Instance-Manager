@@ -8,6 +8,17 @@ namespace InstanceManager.Tests;
 public sealed class AppSettingsBehaviorTests
 {
     [Fact]
+    public void Defaults_PauseTwoSeconds_DisplayThreeSeconds_AutoReconnectOff()
+    {
+        var settings = new AppSettings();
+
+        Assert.Equal(2000, settings.LaunchDelayMs);
+        Assert.Equal(3000, settings.ToastDurationMs);
+        Assert.False(settings.AutoReconnectMaster);
+        Assert.False(settings.Normalize());
+    }
+
+    [Fact]
     public void ConfirmationBypass_MasterOverridesDisabledActionWithoutChangingIt()
     {
         var settings = new AppSettings

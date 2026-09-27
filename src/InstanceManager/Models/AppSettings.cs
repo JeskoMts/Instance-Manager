@@ -22,7 +22,7 @@ public sealed class AppSettings
 
     public bool MultiInstanceEnabled { get; set; } = true;
 
-    public int LaunchDelayMs { get; set; } = 1500;
+    public int LaunchDelayMs { get; set; } = 2000;
 
     public string? VersionsPathOverride { get; set; }
 
@@ -51,9 +51,9 @@ public sealed class AppSettings
 
     public bool NotifyMuteMaster { get; set; }
     public List<NotificationId> MutedNotifications { get; set; } = new();
-    public int ToastDurationMs { get; set; } = 4500;
+    public int ToastDurationMs { get; set; } = 3000;
 
-    public bool AutoReconnectMaster { get; set; } = true;
+    public bool AutoReconnectMaster { get; set; }
 
     public bool AutoReconnectOnKickError { get; set; } = true;
 

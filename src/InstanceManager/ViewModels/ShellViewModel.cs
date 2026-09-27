@@ -39,7 +39,7 @@ public partial class ShellViewModel : ObservableObject, IShellCoordinator
         _multiInstance = multiInstance;
 
         VersionBar = new VersionBarViewModel(versions, settings);
-        LaunchPanel = new LaunchPanelViewModel(favorites, settings, dialogs, this, serverLinks);
+        LaunchPanel = new LaunchPanelViewModel(favorites, settings, dialogs, this, serverLinks, games);
         AccountList = new AccountListViewModel(accounts, groups, dialogs, this, tracker, VersionBar, avatars, autoReconnect);
         Games = new GamesViewModel(games, this);
         Settings = new SettingsViewModel(settings, dialogs, multiInstance);
@@ -78,6 +78,7 @@ public partial class ShellViewModel : ObservableObject, IShellCoordinator
     public void ApplyGameTarget(long placeId, string? gameName)
     {
         LaunchPanel.ApplyGameTargetFromGames(placeId);
+        LaunchPanel.RememberGameName(placeId, gameName);
         string label = string.IsNullOrWhiteSpace(gameName) ? placeId.ToString() : gameName.Trim();
         Notify(NotificationId.GameSelected, NotificationKind.Info, "Game selected", $"Selected '{label}' as launch target.");
 
