@@ -51,4 +51,57 @@ public class GameLinkParserTests
     {
         Assert.False(GameLinkParser.TryParseJobId(input, out _));
     }
+
+    [Theory]
+    [InlineData("12345678901234567890123456789012", "12345678901234567890123456789012")]
+    [InlineData("  0123456789abcdef0123456789ABCDEF ", "0123456789abcdef0123456789ABCDEF")]
+    [InlineData("a-b_c", "a-b_c")]
+    public void TryParseLinkCode_LettersDigitsDashAndUnderscore_AreAccepted(string input, string expected)
+    {
+        Assert.True(GameLinkParser.TryParseLinkCode(input, out string linkCode));
+        Assert.Equal(expected, linkCode);
+    }
+
+    [Theory]
+    [InlineData(null)]
+    [InlineData("")]
+    [InlineData("   ")]
+    [InlineData("12 34")]
+    [InlineData("12&linkCode=34")]
+    [InlineData("12+34")]
+    [InlineData("12%2634")]
+    [InlineData("code\nsecond line")]
+    public void TryParseLinkCode_AnythingElse_IsRefused(string? input)
+    {
+        Assert.False(GameLinkParser.TryParseLinkCode(input, out string linkCode));
+        Assert.Equal(string.Empty, linkCode);
+    }
+
+    [Fact]
+    public void TryParseLinkCode_StopsAt128Characters()
+    {
+        Assert.True(GameLinkParser.TryParseLinkCode(new string('7', 128), out _));
+        Assert.False(GameLinkParser.TryParseLinkCode(new string('7', 129), out _));
+    }
+
+    [Theory]
+    [InlineData("https://www.roblox.com/games/920587237/Adopt-Me?privateServerLinkCode=123")]
+    [InlineData("https://www.roblox.com/share?code=0123456789abcdef0123456789abcdef&type=Server")]
+    [InlineData("https://www.roblox.com/share-links?code=0123456789abcdef0123456789abcdef&type=Server")]
+    [InlineData("roblox://navigation/share_links?code=0123456789abcdef0123456789abcdef&type=Server")]
+    [InlineData("https://www.roblox.com/games/start?placeId=1&gameInstanceId=ec1c8e3d-1c2b-4c3d-9e2a-1234567890ab")]
+    public void LooksLikeServerLink_KnowsEveryServerLinkForm(string input)
+    {
+        Assert.True(GameLinkParser.LooksLikeServerLink(input));
+    }
+
+    [Theory]
+    [InlineData(null)]
+    [InlineData("")]
+    [InlineData("920587237")]
+    [InlineData("https://www.roblox.com/games/920587237/Adopt-Me")]
+    public void LooksLikeServerLink_AGameAlone_IsNoServerLink(string? input)
+    {
+        Assert.False(GameLinkParser.LooksLikeServerLink(input));
+    }
 }

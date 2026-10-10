@@ -1,17 +1,12 @@
-# Build
 bin/
 obj/
 *.user
 
-# Test output
 **/.test-output/
 
-# Instance Manager-/Laufzeitdaten (enthalten verschlüsselte Cookies — NIEMALS einchecken)
-# Tatsächlicher Speicherort: %APPDATA%\Instance Manager (außerhalb des Repos), hier nur zur Sicherheit:
 **/Instance Manager-data/
 *.dat
 
-# Lokale Konfiguration / Secrets
 .env
 .env.*
 !.env.example
@@ -36,10 +31,8 @@ artifacts/
 publish/
 .release-final/
 
-# Local files for manual GitHub Releases
 release-assets/
 
-# IDE
 .vs/
 .vscode/
 .idea/

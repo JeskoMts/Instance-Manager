@@ -19,6 +19,7 @@ public sealed class RobloxGamesService : IRobloxGamesService
     private const string ThumbnailsUrl =
         "https://thumbnails.roblox.com/v1/games/multiget/thumbnails?countPerUniverse=1&size=480x270&format=Jpeg&defaults=true&universeIds=";
     private const string PlaceToUniverseUrl = "https://apis.roblox.com/universes/v1/places/{0}/universe";
+    private const string PublicServersUrl = "https://games.roblox.com/v1/games/{0}/servers/Public?sortOrder=Desc&excludeFullGames=true&limit=100";
 
     private const string ExploreSortsUrl = "https://apis.roblox.com/explore-api/v1/get-sorts?sessionId=";
     private const string GamesListUrl = "https://games.roblox.com/v1/games/list?maxRows=24&keyword=";
@@ -104,7 +105,8 @@ public sealed class RobloxGamesService : IRobloxGamesService
 
         try
         {
-            using HttpResponseMessage response = await _http.GetAsync(uri, cancellationToken).ConfigureAwait(false);
+            using HttpResponseMessage response = await _http.GetAsync(
+                uri, HttpCompletionOption.ResponseHeadersRead, cancellationToken).ConfigureAwait(false);
             if (!response.IsSuccessStatusCode)
                 return null;
 
@@ -117,6 +119,76 @@ public sealed class RobloxGamesService : IRobloxGamesService
         catch (Exception ex) when (ex is HttpRequestException or TaskCanceledException or IOException)
         {
             return null;
+        }
+    }
+
+    public async Task<string?> GetGameNameAsync(long placeId, CancellationToken cancellationToken = default)
+    {
+        if (placeId <= 0)
+            return null;
+
+        try
+        {
+            long? universeId = await ResolvePlaceToUniverseAsync(placeId, cancellationToken).ConfigureAwait(false);
+            if (universeId is not long u)
+                return null;
+
+            Dictionary<long, GameDetail> details = await LoadDetailsAsync(
+                u.ToString(CultureInfo.InvariantCulture), cancellationToken).ConfigureAwait(false);
+            return details.TryGetValue(u, out GameDetail? d) && !string.IsNullOrWhiteSpace(d.Name)
+                ? d.Name.Trim()
+                : null;
+        }
+        catch (Exception ex) when (ex is HttpRequestException or OperationCanceledException or JsonException or NotSupportedException)
+        {
+            return null;
+        }
+    }
+
+    public async Task<long?> GetRootPlaceIdAsync(long universeId, CancellationToken cancellationToken = default)
+    {
+        if (universeId <= 0)
+            return null;
+
+        try
+        {
+            Dictionary<long, GameDetail> details = await LoadDetailsAsync(
+                universeId.ToString(CultureInfo.InvariantCulture), cancellationToken).ConfigureAwait(false);
+            return details.TryGetValue(universeId, out GameDetail? d) && d.RootPlaceId > 0 ? d.RootPlaceId : null;
+        }
+        catch (Exception ex) when (ex is JsonException or NotSupportedException)
+        {
+            return null;
+        }
+    }
+
+    public async Task<IReadOnlyList<PublicServer>> GetPublicServersAsync(long placeId, CancellationToken cancellationToken = default)
+    {
+        if (placeId <= 0)
+            return Array.Empty<PublicServer>();
+
+        try
+        {
+            string url = string.Format(CultureInfo.InvariantCulture, PublicServersUrl, placeId);
+            using HttpResponseMessage response = await _http.GetAsync(url, cancellationToken).ConfigureAwait(false);
+            if (!response.IsSuccessStatusCode)
+                return Array.Empty<PublicServer>();
+
+            ServersResponse? payload = await response.Content.ReadFromJsonAsync<ServersResponse>(cancellationToken).ConfigureAwait(false);
+            if (payload?.Data == null)
+                return Array.Empty<PublicServer>();
+
+            var servers = new List<PublicServer>();
+            foreach (ServerEntry entry in payload.Data)
+            {
+                if (GameLinkParser.TryParseJobId(entry.Id, out string jobId) && entry.MaxPlayers > 0)
+                    servers.Add(new PublicServer(jobId, entry.Playing, entry.MaxPlayers));
+            }
+            return servers;
+        }
+        catch (Exception ex) when (ex is HttpRequestException or OperationCanceledException or JsonException or NotSupportedException)
+        {
+            return Array.Empty<PublicServer>();
         }
     }
 
@@ -342,6 +414,18 @@ public sealed class RobloxGamesService : IRobloxGamesService
     {
         public string? State { get; set; }
         public string? ImageUrl { get; set; }
+    }
+
+    private sealed class ServersResponse
+    {
+        public ServerEntry[]? Data { get; set; }
+    }
+
+    private sealed class ServerEntry
+    {
+        public string? Id { get; set; }
+        public int Playing { get; set; }
+        public int MaxPlayers { get; set; }
     }
 
     private sealed class UniverseResponse

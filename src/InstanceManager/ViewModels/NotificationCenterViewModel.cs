@@ -11,7 +11,7 @@ namespace InstanceManager.ViewModels;
 
 public partial class NotificationCenterViewModel : ObservableObject
 {
-    public static readonly TimeSpan ToastLifetime = TimeSpan.FromSeconds(4.5);
+    public static readonly TimeSpan ToastLifetime = TimeSpan.FromSeconds(3);
 
     private const int MaxToasts = 3;
     private const int MaxHistory = 50;
@@ -33,10 +33,10 @@ public partial class NotificationCenterViewModel : ObservableObject
     public bool HasHistory => History.Count > 0;
     public string UnreadBadge => UnreadCount > 9 ? "9+" : UnreadCount.ToString();
 
-    public void Show(NotificationId id, NotificationKind kind, string title, string message, TimeSpan? lifetime = null, Action? undoAction = null)
+    public void Show(NotificationId id, NotificationKind kind, string title, string message, TimeSpan? lifetime = null, Action? undoAction = null, string? actionLabel = null)
     {
         Guid toastId = Guid.NewGuid();
-        AddToHistory(kind, title, message, undoAction, toastId);
+        AddToHistory(kind, title, message, undoAction, toastId, actionLabel);
 
         if (_settings?.Settings.IsNotificationMuted(id) == true)
             return;
@@ -52,6 +52,7 @@ public partial class NotificationCenterViewModel : ObservableObject
             Title = title,
             Message = message,
             UndoAction = undoAction,
+            ActionLabel = actionLabel ?? "Undo",
             LifetimeMs = (int)duration.TotalMilliseconds
         };
         Items.Insert(0, toast);
@@ -68,12 +69,12 @@ public partial class NotificationCenterViewModel : ObservableObject
         return TimeSpan.FromMilliseconds(ms);
     }
 
-    private void AddToHistory(NotificationKind kind, string title, string message, Action? undoAction = null, Guid? sharedId = null)
+    private void AddToHistory(NotificationKind kind, string title, string message, Action? undoAction = null, Guid? sharedId = null, string? actionLabel = null)
     {
         if (History.FirstOrDefault() is { } latest && latest.Kind == kind && latest.Title == title && latest.Message == message)
             return;
 
-        History.Insert(0, new ToastViewModel { Id = sharedId ?? Guid.NewGuid(), Kind = kind, Title = title, Message = message, UndoAction = undoAction });
+        History.Insert(0, new ToastViewModel { Id = sharedId ?? Guid.NewGuid(), Kind = kind, Title = title, Message = message, UndoAction = undoAction, ActionLabel = actionLabel ?? "Undo" });
         while (History.Count > MaxHistory)
             History.RemoveAt(History.Count - 1);
 

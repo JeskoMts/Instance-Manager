@@ -4,6 +4,7 @@ using System.Diagnostics;
 using System.Linq;
 using System.Threading.Tasks;
 using System.Windows;
+using System.Windows.Threading;
 using InstanceManager.Models;
 using InstanceManager.Services;
 using Microsoft.Web.WebView2.Core;
@@ -21,6 +22,7 @@ public partial class AddAccountWindow : Window
     private bool _ready;
     private bool _closingAfterCleanup;
     private Task? _sessionCleanup;
+    private readonly DispatcherTimer _poll = new() { Interval = TimeSpan.FromMilliseconds(1500) };
 
     public Account? Result { get; private set; }
 
@@ -32,7 +34,10 @@ public partial class AddAccountWindow : Window
         Loaded += AddAccountWindow_Loaded;
         Closing += AddAccountWindow_Closing;
         Closed += AddAccountWindow_Closed;
+        _poll.Tick += Poll_Tick;
     }
+
+    private async void Poll_Tick(object? sender, EventArgs e) => await TryCaptureAsync();
 
     public static Task<Account?> RunAsync(Window owner, RobloxAuthService auth, DpapiSecureStore secure)
     {
@@ -50,7 +55,7 @@ public partial class AddAccountWindow : Window
     private async void WebView_NavigationCompleted(
         object? sender,
         CoreWebView2NavigationCompletedEventArgs e) =>
-        await TryCaptureAsync(manual: false);
+        await TryCaptureAsync();
 
     private async void AddAccountWindow_Closing(object? sender, CancelEventArgs e)
     {
@@ -69,6 +74,8 @@ public partial class AddAccountWindow : Window
         Loaded -= AddAccountWindow_Loaded;
         Closing -= AddAccountWindow_Closing;
         Closed -= AddAccountWindow_Closed;
+        _poll.Stop();
+        _poll.Tick -= Poll_Tick;
         _ready = false;
 
         try
@@ -80,6 +87,7 @@ public partial class AddAccountWindow : Window
                 core.NewWindowRequested -= WebView_NewWindowRequested;
                 core.DownloadStarting -= WebView_DownloadStarting;
                 core.LaunchingExternalUriScheme -= WebView_LaunchingExternalUriScheme;
+                core.PermissionRequested -= WebView_PermissionRequested;
                 core.CookieManager.DeleteAllCookies();
                 core.Stop();
             }
@@ -123,9 +131,10 @@ public partial class AddAccountWindow : Window
             core.NewWindowRequested += WebView_NewWindowRequested;
             core.DownloadStarting += WebView_DownloadStarting;
             core.LaunchingExternalUriScheme += WebView_LaunchingExternalUriScheme;
+            core.PermissionRequested += WebView_PermissionRequested;
             core.Navigate(LoginUrl);
             _ready = true;
-            SetStatus("Waiting for you to sign in…");
+            _poll.Start();
         }
         catch (Exception ex)
         {
@@ -159,7 +168,12 @@ public partial class AddAccountWindow : Window
         CoreWebView2LaunchingExternalUriSchemeEventArgs e) =>
         e.Cancel = true;
 
-    private async Task TryCaptureAsync(bool manual)
+    private static void WebView_PermissionRequested(
+        object? sender,
+        CoreWebView2PermissionRequestedEventArgs e) =>
+        e.State = CoreWebView2PermissionState.Deny;
+
+    private async Task TryCaptureAsync()
     {
         if (_capturing || !_ready)
             return;
@@ -171,18 +185,14 @@ public partial class AddAccountWindow : Window
                 c => string.Equals(c.Name, ".ROBLOSECURITY", StringComparison.OrdinalIgnoreCase));
 
             if (roblox is null || string.IsNullOrWhiteSpace(roblox.Value))
-            {
-                if (manual) SetStatus("You're not signed in yet. Sign in to Roblox above first.");
                 return;
-            }
 
-            SetStatus("Checking the account with Roblox…");
             RobloxUserInfo? info = await _auth.GetUserInfoAsync(roblox.Value);
             if (info is null)
-            {
-                if (manual) SetStatus("Sign-in isn't finished yet. Complete it above, then try again.");
                 return;
-            }
+
+            _poll.Stop();
+            SetStatus("Signed in as " + info.Name + ". Saving the account…");
 
             Result = new Account
             {
@@ -198,7 +208,7 @@ public partial class AddAccountWindow : Window
         }
         catch (Exception ex)
         {
-            SetStatus("Something went wrong: " + ex.Message);
+            SetStatus("The login couldn't be read: " + ex.Message + " Sign in again or close this window.");
         }
         finally
         {
@@ -226,8 +236,6 @@ public partial class AddAccountWindow : Window
         }
     }
 
-    private async void Capture_Click(object sender, RoutedEventArgs e) => await TryCaptureAsync(manual: true);
-
     private async void Cancel_Click(object sender, RoutedEventArgs e)
     {
         _ready = false;
@@ -245,6 +253,7 @@ public partial class AddAccountWindow : Window
         DownloadRuntimeButton.Visibility = runtimeMissing ? Visibility.Visible : Visibility.Collapsed;
         ErrorPanel.Visibility = Visibility.Visible;
         SetStatus("The sign-in window couldn't start.");
+        _poll.Stop();
     }
 
     private void DownloadRuntime_Click(object sender, RoutedEventArgs e)

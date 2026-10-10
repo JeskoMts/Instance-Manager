@@ -15,6 +15,8 @@ public static class GameLinkParser
 
     private static readonly Regex PureDigits = new(@"^\s*(?<id>\d{1,19})\s*$", RegexOptions.Compiled);
 
+    private static readonly Regex LinkCode = new(@"\A[A-Za-z0-9_\-]{1,128}\z", RegexOptions.Compiled);
+
     public static bool TryParsePlaceId(string? input, out long placeId)
     {
         placeId = 0;
@@ -30,6 +32,24 @@ public static class GameLinkParser
             return false;
 
         return long.TryParse(m.Groups["id"].Value, out placeId) && placeId > 0;
+    }
+
+    public static bool LooksLikeServerLink(string? input) =>
+        !string.IsNullOrWhiteSpace(input) &&
+        (input.Contains("gameInstanceId", StringComparison.OrdinalIgnoreCase) ||
+         input.Contains("linkCode", StringComparison.OrdinalIgnoreCase) ||
+         input.Contains("roblox.com/share", StringComparison.OrdinalIgnoreCase) ||
+         input.Contains("share?code", StringComparison.OrdinalIgnoreCase) ||
+         input.Contains("share_links", StringComparison.OrdinalIgnoreCase));
+
+    public static bool TryParseLinkCode(string? input, out string linkCode)
+    {
+        linkCode = input?.Trim() ?? string.Empty;
+        if (LinkCode.IsMatch(linkCode))
+            return true;
+
+        linkCode = string.Empty;
+        return false;
     }
 
     public static bool TryParseJobId(string? input, out string jobId)

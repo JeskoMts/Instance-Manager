@@ -9,6 +9,13 @@ namespace InstanceManager.Services;
 
 public sealed record RobloxUserInfo(long Id, string Name, string DisplayName);
 
+public enum SessionStatus
+{
+    Valid,
+    Expired,
+    Unknown
+}
+
 public sealed class RobloxAuthException : Exception
 {
     public RobloxAuthException(string message, bool requiresSignIn = false) : base(message) =>
@@ -110,10 +117,37 @@ public sealed class RobloxAuthService
         return new RobloxUserInfo(dto.Id, dto.Name ?? string.Empty, dto.DisplayName ?? dto.Name ?? string.Empty);
     }
 
-    private static void AddCookie(HttpRequestMessage req, string cookie) =>
+    public async Task<SessionStatus> CheckSessionAsync(string cookie, long expectedUserId, CancellationToken ct = default)
+    {
+        if (!IsValidCookieValue(cookie))
+            return SessionStatus.Expired;
+
+        try
+        {
+            using var req = new HttpRequestMessage(HttpMethod.Get, AuthenticatedUserUrl);
+            AddCookie(req, cookie);
+
+            using HttpResponseMessage resp = await _http.SendAsync(req, ct);
+            if (resp.StatusCode is HttpStatusCode.Unauthorized or HttpStatusCode.Forbidden)
+                return SessionStatus.Expired;
+            if (!resp.IsSuccessStatusCode)
+                return SessionStatus.Unknown;
+
+            var dto = await resp.Content.ReadFromJsonAsync<AuthenticatedUserDto>(cancellationToken: ct);
+            if (dto is null || dto.Id == 0)
+                return SessionStatus.Unknown;
+            return expectedUserId <= 0 || dto.Id == expectedUserId ? SessionStatus.Valid : SessionStatus.Expired;
+        }
+        catch (Exception ex) when (ex is HttpRequestException or TaskCanceledException or System.Text.Json.JsonException or NotSupportedException)
+        {
+            return SessionStatus.Unknown;
+        }
+    }
+
+    internal static void AddCookie(HttpRequestMessage req, string cookie) =>
         req.Headers.TryAddWithoutValidation("Cookie", $".ROBLOSECURITY={cookie}");
 
-    private static bool IsValidCookieValue(string? cookie)
+    internal static bool IsValidCookieValue(string? cookie)
     {
         if (string.IsNullOrWhiteSpace(cookie) || cookie.Length > MaxCookieCharacters)
             return false;

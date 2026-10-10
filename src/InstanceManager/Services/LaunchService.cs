@@ -41,6 +41,7 @@ public sealed class LaunchService
     private readonly MultiInstanceManager _multiInstance;
     private readonly ISettingsService _settings;
     private readonly AutoReconnectService? _autoReconnect;
+    private readonly RobloxGraphicsService? _graphics;
 
     private readonly SemaphoreSlim _launchSlot = new(1, 1);
 
@@ -51,7 +52,8 @@ public sealed class LaunchService
         InstanceTracker tracker,
         MultiInstanceManager multiInstance,
         ISettingsService settings,
-        AutoReconnectService? autoReconnect = null)
+        AutoReconnectService? autoReconnect = null,
+        RobloxGraphicsService? graphics = null)
     {
         _secure = secure;
         _auth = auth;
@@ -60,6 +62,7 @@ public sealed class LaunchService
         _multiInstance = multiInstance;
         _settings = settings;
         _autoReconnect = autoReconnect;
+        _graphics = graphics;
 
         if (_autoReconnect != null)
             _autoReconnect.Relaunch = (account, target, version, ct) => LaunchOneAsync(account, target, version, ct);
@@ -257,7 +260,11 @@ public sealed class LaunchService
         long now = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds();
         string url = RobloxLauncher.BuildLaunchUrl(ticket, target, btid, now);
 
-        Process proc = await Task.Run(() => _launcher.Launch(version, url), ct);
+        Process proc = await Task.Run(() =>
+        {
+            _graphics?.PrepareLaunch(version);
+            return _launcher.Launch(version, url);
+        }, ct);
         _tracker.Track(account.Id, proc);
         return proc;
     }

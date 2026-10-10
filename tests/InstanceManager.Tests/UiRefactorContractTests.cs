@@ -10,7 +10,7 @@ public sealed class UiRefactorContractTests
     [Fact]
     public void SearchBox_IsStableAndLeftAlignedAfterIcon()
     {
-        string main = Read("src", "InstanceManager", "MainWindow.xaml");
+        string main = Read("src", "InstanceManager", "Views", "Pages", "AccountsPage.xaml");
         string controls = Read("src", "InstanceManager", "Themes", "Controls.xaml");
 
         Assert.Contains("x:Name=\"SearchBox\"", main, StringComparison.Ordinal);
@@ -21,7 +21,7 @@ public sealed class UiRefactorContractTests
     [Fact]
     public void LaunchPanel_UsesShortModeLabelsAndSingleServerLinkField()
     {
-        string main = Read("src", "InstanceManager", "MainWindow.xaml");
+        string main = Read("src", "InstanceManager", "Views", "Pages", "AccountsPage.xaml");
 
         Assert.Contains("Content=\"Game\"", main, StringComparison.Ordinal);
         Assert.Contains("Content=\"Server\"", main, StringComparison.Ordinal);
@@ -30,22 +30,24 @@ public sealed class UiRefactorContractTests
     }
 
     [Fact]
-    public void MainWindow_ExposesFavoriteStarGroupsToastsAndLaunchDelay()
+    public void Ui_ExposesFavoriteStarGroupsToastsAndLaunchDelay()
     {
         string main = Read("src", "InstanceManager", "MainWindow.xaml");
+        string accounts = Read("src", "InstanceManager", "Views", "Pages", "AccountsPage.xaml");
+        string settings = Read("src", "InstanceManager", "Views", "Settings", "LaunchSettings.xaml");
 
-        Assert.Contains("TogglePrimaryCommand", main, StringComparison.Ordinal);
-        Assert.Contains("LaunchGroupCommand", main, StringComparison.Ordinal);
+        Assert.Contains("TogglePrimaryCommand", accounts, StringComparison.Ordinal);
+        Assert.Contains("LaunchGroupCommand", accounts, StringComparison.Ordinal);
         Assert.Contains("Notifications.Items", main, StringComparison.Ordinal);
-        Assert.Contains("Maximum=\"30000\"", main, StringComparison.Ordinal);
+        Assert.Contains("Maximum=\"30000\"", settings, StringComparison.Ordinal);
     }
 
     [Fact]
-    public void Controls_DefinesColorChoiceAndModernMenuTemplates()
+    public void Controls_DefinesModernMenuTemplates_AndNoLongerTheOldColorChoices()
     {
         string controls = Read("src", "InstanceManager", "Themes", "Controls.xaml");
 
-        Assert.Contains("x:Key=\"ColorChoice\"", controls, StringComparison.Ordinal);
+        Assert.DoesNotContain("x:Key=\"ColorChoice\"", controls, StringComparison.Ordinal);
         Assert.Contains("<ControlTemplate TargetType=\"MenuItem\"", controls, StringComparison.Ordinal);
     }
 

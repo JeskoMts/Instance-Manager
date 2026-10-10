@@ -182,6 +182,29 @@ public class AccountListViewModelTests
     }
 
     [Fact]
+    public void HeaderTexts_UseSingularForOneAccount_AndFollowTheSelection()
+    {
+        _accounts.Upsert(new Account { Id = Guid.NewGuid(), UserId = 1, Username = "a" });
+        var vm = Create();
+        var changed = new List<string?>();
+        vm.PropertyChanged += (_, e) => changed.Add(e.PropertyName);
+
+        Assert.Equal("1 account", vm.AccountCountText);
+        Assert.Equal("0 running", vm.RunningText);
+
+        vm.Rows.OfType<AccountRowViewModel>().Single().IsSelected = true;
+
+        Assert.Equal("1 selected", vm.SelectionText);
+        Assert.Contains(nameof(AccountListViewModel.SelectionText), changed);
+
+        _accounts.Upsert(new Account { Id = Guid.NewGuid(), UserId = 2, Username = "b" });
+        vm.RebuildGroups();
+
+        Assert.Equal("2 accounts", vm.AccountCountText);
+        Assert.Contains(nameof(AccountListViewModel.AccountCountText), changed);
+    }
+
+    [Fact]
     public void LaunchStages_ShowOnRows_AndCancellingKeepsOnlyFailures()
     {
         var failing = new Account { Id = Guid.NewGuid(), UserId = 1, Username = "failing" };
@@ -290,6 +313,35 @@ public class AccountListViewModelTests
         }
 
         public void Remove(AccountGroup group) => _items.RemoveAll(g => g.Id == group.Id);
+    }
+
+    [Fact]
+    public async System.Threading.Tasks.Task CheckSessions_MarksExpiredLogins_AndClearsOnesThatWorkAgain()
+    {
+        var fine = new Account { Id = Guid.NewGuid(), UserId = 1, Username = "fine", SortOrder = 0 };
+        var gone = new Account { Id = Guid.NewGuid(), UserId = 2, Username = "gone", SortOrder = 1 };
+        _accounts.Upsert(fine);
+        _accounts.Upsert(gone);
+        var sessions = new FakeSessions { [fine.Id] = SessionStatus.Valid, [gone.Id] = SessionStatus.Expired };
+        var vm = new AccountListViewModel(_accounts, _groups, _dialogs, _shell, _tracker, sessions: sessions);
+        vm.RebuildGroups();
+        AccountRowViewModel fineRow = vm.Rows.OfType<AccountRowViewModel>().Single(r => r.Account.Id == fine.Id);
+        AccountRowViewModel goneRow = vm.Rows.OfType<AccountRowViewModel>().Single(r => r.Account.Id == gone.Id);
+        vm.SetLaunchStage(fine.Id, LaunchStage.Failed, "expired", requiresSignIn: true);
+
+        await vm.CheckSessionsCommand.ExecuteAsync(null);
+
+        Assert.False(fineRow.RequiresSignIn);
+        Assert.True(goneRow.RequiresSignIn);
+        Assert.Equal("Login expired", goneRow.StatusText);
+        Assert.Equal("Add gone again to sign back in.", _shell.LastStatus);
+        Assert.False(vm.IsCheckingSessions);
+    }
+
+    private sealed class FakeSessions : Dictionary<Guid, SessionStatus>, ISessionChecker
+    {
+        public System.Threading.Tasks.Task<SessionStatus> CheckAsync(Account account, System.Threading.CancellationToken cancellationToken = default) =>
+            System.Threading.Tasks.Task.FromResult(TryGetValue(account.Id, out SessionStatus status) ? status : SessionStatus.Unknown);
     }
 
     private sealed class FakeDialogService : IDialogService

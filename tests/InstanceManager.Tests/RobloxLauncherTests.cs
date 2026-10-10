@@ -32,6 +32,31 @@ public class RobloxLauncherTests
     }
 
     [Fact]
+    public void BuildPlaceLauncherUrl_PrivateServer_UsesRequestPrivateGameWithTheLinkCode()
+    {
+        var target = ServerTarget.PrivateServer(920587237, "12345678901234567890123456789012");
+        string url = RobloxLauncher.BuildPlaceLauncherUrl(target, 999);
+
+        Assert.Equal(
+            RobloxLauncher.PlaceLauncherBase +
+            "?request=RequestPrivateGame&browserTrackerId=999&placeId=920587237" +
+            "&accessCode=&linkCode=12345678901234567890123456789012",
+            url);
+    }
+
+    [Fact]
+    public void BuildLaunchUrl_PrivateServer_CarriesTheEncodedPlaceLauncher()
+    {
+        var target = ServerTarget.PrivateServer(1, "abc-DEF_123");
+        string launchUrl = RobloxLauncher.BuildLaunchUrl("T", target, 42, 1);
+
+        Assert.Contains("+launchmode:play+", launchUrl);
+        Assert.Contains(
+            "placelauncherurl:" + Uri.EscapeDataString(RobloxLauncher.BuildPlaceLauncherUrl(target, 42)), launchUrl);
+        Assert.Contains("linkCode%3Dabc-DEF_123", launchUrl);
+    }
+
+    [Fact]
     public void BuildLaunchUrl_ContainsTicketAndEncodedPlaceLauncher()
     {
         var target = ServerTarget.Public(920587237);

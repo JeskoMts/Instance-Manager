@@ -27,9 +27,6 @@ public sealed class WpfDialogService : IDialogService
 
     public FavoriteGame? EditFavorite(FavoriteGame existing) => FavoriteEditorDialog.Show(Owner, existing);
 
-    public ThemeDefinition? EditTheme(string? id, string name, ThemePalette palette, string title) =>
-        ThemeEditorDialog.Show(Owner, id, name, palette, title);
-
     public AccountGroup? EditGroup(AccountGroup? existing, string suggestedColor) =>
         GroupEditorDialog.Show(Owner, existing, suggestedColor);
 

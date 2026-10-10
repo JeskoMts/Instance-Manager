@@ -3,6 +3,8 @@ using System.Collections.Generic;
 using System.Collections.ObjectModel;
 using System.Linq;
 using System.Windows;
+using System.Windows.Threading;
+using InstanceManager.Controls;
 using InstanceManager.Models;
 using InstanceManager.Services;
 using InstanceManager.Storage;
@@ -27,8 +29,125 @@ public partial class ThemeViewModel : ObservableObject
         _dialogs = dialogs;
         _shell = shell;
 
+        foreach (PaletteToken token in PaletteTokens)
+            ColorTokens.Add(new ColorTokenViewModel(this, token.Key, token.Label));
+
+        if (Application.Current != null)
+        {
+            _applyTimer = new DispatcherTimer { Interval = TimeSpan.FromMilliseconds(40) };
+            _applyTimer.Tick += (_, _) => FlushColorChanges();
+        }
+
         RefreshThemes();
         selectedTheme = Themes.FirstOrDefault(t => t.Id == _settings.Settings.ThemeId) ?? Themes.FirstOrDefault();
+        SyncTokens();
+    }
+
+    internal sealed record PaletteToken(string Key, string Label, Func<ThemePalette, string> Get, Action<ThemePalette, string> Set);
+
+    internal static readonly PaletteToken[] PaletteTokens =
+    {
+        new("Window", "Background", p => p.Window, (p, v) => p.Window = v),
+        new("Surface", "Panels", p => p.Surface, (p, v) => p.Surface = v),
+        new("SurfaceHover", "Hover", p => p.SurfaceHover, (p, v) => p.SurfaceHover = v),
+        new("SurfaceActive", "Selection", p => p.SurfaceActive, (p, v) => p.SurfaceActive = v),
+        new("Elevated", "Raised", p => p.Elevated, (p, v) => p.Elevated = v),
+        new("ElevatedHover", "Raised, hover", p => p.ElevatedHover, (p, v) => p.ElevatedHover = v),
+        new("Border", "Borders", p => p.Border, (p, v) => p.Border = v),
+        new("BorderStrong", "Strong borders", p => p.BorderStrong, (p, v) => p.BorderStrong = v),
+        new("TextPrimary", "Text", p => p.TextPrimary, (p, v) => p.TextPrimary = v),
+        new("TextSecondary", "Secondary text", p => p.TextSecondary, (p, v) => p.TextSecondary = v),
+        new("TextMuted", "Muted text", p => p.TextMuted, (p, v) => p.TextMuted = v),
+        new("Accent", "Accent", p => p.Accent, (p, v) => p.Accent = v),
+        new("OnAccent", "Text on accent", p => p.OnAccent, (p, v) => p.OnAccent = v),
+        new("Success", "Success", p => p.Success, (p, v) => p.Success = v),
+        new("Danger", "Danger", p => p.Danger, (p, v) => p.Danger = v)
+    };
+
+    private readonly DispatcherTimer? _applyTimer;
+    private bool _syncingTokens;
+    private bool _colorsDirty;
+
+    public ObservableCollection<ColorTokenViewModel> ColorTokens { get; } = new();
+
+    [ObservableProperty] private bool isEditingColors;
+
+    public string ColorsHint => IsCustomSelected
+        ? "Click a color or type a hex value. Changes apply right away and are saved to this theme."
+        : "Built-in themes stay as they are. Customize makes an editable copy of this theme.";
+
+    [RelayCommand]
+    private void CustomizeColors()
+    {
+        if (SelectedTheme is not { } current)
+            return;
+
+        if (current.IsBuiltIn)
+        {
+            var copy = new ThemeDefinition
+            {
+                Id = Guid.NewGuid().ToString("N"),
+                Name = MakeUniqueName(current.Name + " custom"),
+                IsBuiltIn = false,
+                Palette = current.Palette.Clone()
+            };
+            _repository.Add(copy);
+            RefreshThemes();
+            SelectById(copy.Id);
+            IsEditingColors = true;
+            _shell.Notify(NotificationId.ThemeCreated, NotificationKind.Success,
+                "Theme copied", $"Created '{copy.Name}'. Its colors can be changed now.");
+            return;
+        }
+
+        IsEditingColors = !IsEditingColors;
+    }
+
+    internal void SetColor(string key, string hex)
+    {
+        if (_syncingTokens || SelectedTheme is not { IsBuiltIn: false } theme)
+            return;
+        string? normalized = ColorMath.NormalizeHex(hex);
+        PaletteToken? token = PaletteTokens.FirstOrDefault(t => t.Key == key);
+        if (normalized == null || token == null || string.Equals(token.Get(theme.Palette), normalized, StringComparison.OrdinalIgnoreCase))
+            return;
+
+        token.Set(theme.Palette, normalized);
+        _colorsDirty = true;
+        if (_applyTimer != null)
+        {
+            _applyTimer.Stop();
+            _applyTimer.Start();
+        }
+        else
+        {
+            FlushColorChanges();
+        }
+    }
+
+    internal void FlushColorChanges()
+    {
+        _applyTimer?.Stop();
+        if (!_colorsDirty || SelectedTheme is not { IsBuiltIn: false } theme)
+            return;
+        _colorsDirty = false;
+        _repository.Update(theme);
+        if (_settings.Settings.ThemeId == theme.Id)
+            _themeService.Apply(theme.Palette);
+    }
+
+    private void SyncTokens()
+    {
+        _syncingTokens = true;
+        ThemePalette palette = (SelectedTheme ?? BuiltInThemes.Dark).Palette;
+        foreach (ColorTokenViewModel token in ColorTokens)
+        {
+            PaletteToken definition = PaletteTokens.First(t => t.Key == token.Key);
+            token.Hex = ColorMath.NormalizeHex(definition.Get(palette)) ?? definition.Get(palette);
+            token.IsEditable = SelectedTheme is { IsBuiltIn: false };
+        }
+        _syncingTokens = false;
+        OnPropertyChanged(nameof(ColorsHint));
     }
 
     public const int PrimaryThemeCount = 8;
@@ -46,6 +165,9 @@ public partial class ThemeViewModel : ObservableObject
     partial void OnSelectedThemeChanged(ThemeDefinition? value)
     {
         OnPropertyChanged(nameof(IsCustomSelected));
+        if (value is not { IsBuiltIn: false })
+            IsEditingColors = false;
+        SyncTokens();
     }
 
     public void Activate(ThemeDefinition? theme)
@@ -73,16 +195,20 @@ public partial class ThemeViewModel : ObservableObject
     [RelayCommand]
     private void CreateTheme()
     {
-        ThemePalette seed = (SelectedTheme?.Palette ?? BuiltInThemes.Dark.Palette).Clone();
-        ThemeDefinition? created = _dialogs.EditTheme(null, "My theme", seed, "New theme");
-        if (created == null)
-            return;
+        var created = new ThemeDefinition
+        {
+            Id = Guid.NewGuid().ToString("N"),
+            Name = MakeUniqueName("My theme"),
+            IsBuiltIn = false,
+            Palette = (SelectedTheme?.Palette ?? BuiltInThemes.Dark.Palette).Clone()
+        };
 
         _repository.Add(created);
         RefreshThemes();
         SelectById(created.Id);
+        IsEditingColors = true;
         _shell.Notify(NotificationId.ThemeCreated, NotificationKind.Success,
-            "Theme created", $"Created '{created.Name}'.");
+            "Theme created", $"Created '{created.Name}'. Pick its colors below.");
     }
 
     [RelayCommand]
@@ -91,15 +217,16 @@ public partial class ThemeViewModel : ObservableObject
         if (theme is not { IsBuiltIn: false })
             return;
 
-        ThemeDefinition? edited = _dialogs.EditTheme(theme.Id, theme.Name, theme.Palette.Clone(), "Edit theme");
-        if (edited == null)
+        string? name = _dialogs.Prompt("Rename theme", theme.Name)?.Trim();
+        if (string.IsNullOrEmpty(name) || name == theme.Name)
             return;
 
-        _repository.Update(edited);
+        theme.Name = name;
+        _repository.Update(theme);
         RefreshThemes();
-        SelectById(edited.Id);
+        SelectById(theme.Id);
         _shell.Notify(NotificationId.ThemeUpdated, NotificationKind.Success,
-            "Theme updated", $"Updated '{edited.Name}'.");
+            "Theme renamed", $"Renamed the theme to '{theme.Name}'.");
     }
 
     [RelayCommand]
@@ -241,5 +368,36 @@ public partial class ThemeViewModel : ObservableObject
 
         _settings.Settings.ThemeOrder = Themes.Select(t => t.Id).ToList();
         _settings.Save();
+    }
+}
+
+public sealed partial class ColorTokenViewModel : ObservableObject
+{
+    private readonly ThemeViewModel _owner;
+
+    public ColorTokenViewModel(ThemeViewModel owner, string key, string label)
+    {
+        _owner = owner;
+        Key = key;
+        Label = label;
+    }
+
+    public string Key { get; }
+
+    public string Label { get; }
+
+    [ObservableProperty] private string hex = "#000000";
+
+    [ObservableProperty] private bool isEditable;
+
+    [ObservableProperty] private bool isPickerOpen;
+
+    partial void OnHexChanged(string value) => _owner.SetColor(Key, value);
+
+    [RelayCommand]
+    private void TogglePicker()
+    {
+        if (IsEditable)
+            IsPickerOpen = !IsPickerOpen;
     }
 }

@@ -26,7 +26,9 @@ public sealed class ThemedDialogResourceTests
             CreatePrivate("InstanceManager.Views.ConfirmDialog", "Confirm action", "Delete group 'Farm'?", "Delete");
             CreatePrivate("InstanceManager.Views.DropActionDialog", "Tester", "Farm");
             CreatePrivate("InstanceManager.Views.GroupEditorDialog", (AccountGroup?)null, "#6E8FD9");
-            CreatePrivate("InstanceManager.Views.ThemeEditorDialog", (string?)null, "My theme", BuiltInThemes.Dark.Palette, "New theme");
+            CreatePrivate("InstanceManager.Views.FavoriteEditorDialog",
+                new FavoriteGame { Name = "My server", PlaceId = 920587237, PrivateServerLinkCode = "123" }, "Edit favorite");
+            CreatePrivate("InstanceManager.Controls.ColorPicker");
         });
 
         Assert.Null(failure);
@@ -68,7 +70,58 @@ public sealed class ThemedDialogResourceTests
         Assert.Null(failure);
     }
 
-    private static void EnsureAppResources()
+    [Fact]
+    public void EverySettingsCategoryAndTheReworkedPages_ResolveTheirResources()
+    {
+        Exception? failure = RunOnStaThread(() =>
+        {
+            EnsureAppResources();
+            EnsureAppConverters();
+
+            foreach (InstanceManager.ViewModels.SettingsCategory category in Enum.GetValues<InstanceManager.ViewModels.SettingsCategory>())
+                Assert.NotNull(InstanceManager.Views.Settings.SettingsCategoryHost.Create(category));
+
+            CreatePrivate("InstanceManager.Views.Pages.AccountsPage");
+            CreatePrivate("InstanceManager.Views.Pages.SettingsPage");
+            CreatePrivate("InstanceManager.Views.Pages.AutomationPage");
+            CreatePrivate("InstanceManager.Views.Pages.GamesPage");
+        });
+
+        Assert.Null(failure);
+    }
+
+    internal static void EnsureAppConverters()
+    {
+        ResourceDictionary resources = Application.Current!.Resources;
+        if (resources.Contains("EnumVis"))
+            return;
+
+        string appXaml = System.IO.File.ReadAllText(FindSource("App.xaml"))
+            .Replace("clr-namespace:InstanceManager.Converters\"", "clr-namespace:InstanceManager.Converters;assembly=InstanceManager\"", StringComparison.Ordinal);
+        System.Xml.Linq.XNamespace presentation = "http://schemas.microsoft.com/winfx/2006/xaml/presentation";
+        System.Xml.Linq.XElement dictionary = System.Xml.Linq.XDocument.Parse(appXaml).Root!
+            .Element(presentation + "Application.Resources")!.Element(presentation + "ResourceDictionary")!;
+        dictionary.Element(presentation + "ResourceDictionary.MergedDictionaries")?.Remove();
+
+        var converters = (ResourceDictionary)System.Windows.Markup.XamlReader.Parse(dictionary.ToString());
+        foreach (object key in converters.Keys)
+            resources[key] = converters[key];
+    }
+
+    private static string FindSource(string name)
+    {
+        var directory = new System.IO.DirectoryInfo(AppContext.BaseDirectory);
+        while (directory != null)
+        {
+            string path = System.IO.Path.Combine(directory.FullName, "src", "InstanceManager", name);
+            if (System.IO.File.Exists(path))
+                return path;
+            directory = directory.Parent;
+        }
+        throw new System.IO.FileNotFoundException(name);
+    }
+
+    internal static void EnsureAppResources()
     {
         if (Application.Current == null)
             _ = new Application();
@@ -89,10 +142,10 @@ public sealed class ThemedDialogResourceTests
         Type type = typeof(InstanceManager.MainWindow).Assembly.GetType(typeName)
             ?? throw new InvalidOperationException($"Type not found: {typeName}");
 
-        _ = Activator.CreateInstance(type, BindingFlags.Instance | BindingFlags.NonPublic, null, args, null);
+        _ = Activator.CreateInstance(type, BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic, null, args, null);
     }
 
-    private static Exception? RunOnStaThread(Action action)
+    internal static Exception? RunOnStaThread(Action action)
     {
         Exception? captured = null;
         var thread = new Thread(() =>

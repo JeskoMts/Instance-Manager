@@ -1,5 +1,8 @@
 using System;
+using System.Collections.Concurrent;
 using System.Collections.Generic;
+using System.IO;
+using System.Linq;
 using System.Net;
 using System.Net.Http;
 using System.Text;
@@ -92,6 +95,115 @@ public sealed class RobloxAvatarServiceTests
 
         Assert.Null(result);
     }
+
+    [Fact]
+    public async Task GetAvatarAsync_LooksUpManyAccountsInBatchesOfOneHundred()
+    {
+        var lookups = new ConcurrentBag<string>();
+        var handler = new FakeHandler(request =>
+        {
+            if (request.RequestUri!.Host != "thumbnails.roblox.com")
+                return Image(request.RequestUri.AbsolutePath);
+
+            string ids = QueryValue(request.RequestUri, "userIds");
+            lookups.Add(ids);
+            var data = ids.Split(',').Select(id =>
+                $$"""{"targetId":{{id}},"state":"Completed","imageUrl":"https://tr.rbxcdn.com/avatar-{{id}}.png","version":"TN3"}""");
+            return Json("{\"data\":[" + string.Join(",", data) + "]}");
+        });
+        using var http = new HttpClient(handler);
+        var service = new RobloxAvatarService(http);
+        long[] ids = Enumerable.Range(1, 250).Select(i => (long)i * 7).ToArray();
+
+        byte[]?[] avatars = await Task.WhenAll(ids.Select(id => service.GetAvatarAsync(id)));
+
+        Assert.Equal(3, lookups.Count);
+        Assert.All(lookups, ids => Assert.InRange(ids.Split(',').Length, 1, 100));
+        Assert.Equal(ids.Length, lookups.Sum(l => l.Split(',').Length));
+        for (int i = 0; i < ids.Length; i++)
+            Assert.Equal("/avatar-" + ids[i] + ".png", Encoding.ASCII.GetString(avatars[i]!));
+    }
+
+    [Fact]
+    public async Task GetAvatarAsync_ReusesCachedHeadshotWhileRobloxServesTheSameImage()
+    {
+        string cache = NewDirectory();
+        try
+        {
+            string imageUrl = "https://tr.rbxcdn.com/avatar-v1.png";
+            int downloads = 0;
+            var handler = new FakeHandler(request =>
+            {
+                if (request.RequestUri!.Host == "thumbnails.roblox.com")
+                    return Json($$"""{"data":[{"targetId":42,"state":"Completed","imageUrl":"{{imageUrl}}","version":"TN3"}]}""");
+                Interlocked.Increment(ref downloads);
+                return Image(request.RequestUri.AbsolutePath);
+            });
+            using var http = new HttpClient(handler);
+
+            byte[]? first = await new RobloxAvatarService(http, cache).GetAvatarAsync(42);
+            byte[]? nextStart = await new RobloxAvatarService(http, cache).GetAvatarAsync(42);
+
+            Assert.Equal("/avatar-v1.png", Encoding.ASCII.GetString(first!));
+            Assert.Equal(first, nextStart);
+            Assert.Equal(1, downloads);
+
+            imageUrl = "https://tr.rbxcdn.com/avatar-v2.png";
+            byte[]? changed = await new RobloxAvatarService(http, cache).GetAvatarAsync(42);
+
+            Assert.Equal("/avatar-v2.png", Encoding.ASCII.GetString(changed!));
+            Assert.Equal(2, downloads);
+            Assert.Equal(changed, await new RobloxAvatarService(http, cache).GetCachedAvatarAsync(42));
+        }
+        finally
+        {
+            Directory.Delete(cache, recursive: true);
+        }
+    }
+
+    [Fact]
+    public async Task GetAvatarAsync_DownloadsAgainWhenTheCachedImageIsGone()
+    {
+        string cache = NewDirectory();
+        try
+        {
+            int downloads = 0;
+            var handler = new FakeHandler(request =>
+            {
+                if (request.RequestUri!.Host == "thumbnails.roblox.com")
+                    return Json("""{"data":[{"targetId":42,"state":"Completed","imageUrl":"https://tr.rbxcdn.com/avatar.png","version":"TN3"}]}""");
+                Interlocked.Increment(ref downloads);
+                return Image(request.RequestUri.AbsolutePath);
+            });
+            using var http = new HttpClient(handler);
+            await new RobloxAvatarService(http, cache).GetAvatarAsync(42);
+            File.Delete(Path.Combine(cache, "42.png"));
+
+            byte[]? again = await new RobloxAvatarService(http, cache).GetAvatarAsync(42);
+
+            Assert.Equal("/avatar.png", Encoding.ASCII.GetString(again!));
+            Assert.Equal(2, downloads);
+        }
+        finally
+        {
+            Directory.Delete(cache, recursive: true);
+        }
+    }
+
+    private static string NewDirectory()
+    {
+        string path = Path.Combine(Path.GetTempPath(), "InstanceManager.Tests", Guid.NewGuid().ToString("N"));
+        Directory.CreateDirectory(path);
+        return path;
+    }
+
+    private static string QueryValue(Uri uri, string key) =>
+        Uri.UnescapeDataString(uri.Query.TrimStart('?').Split('&').First(p => p.StartsWith(key + "=", StringComparison.Ordinal))[(key.Length + 1)..]);
+
+    private static HttpResponseMessage Image(string content) => new(HttpStatusCode.OK)
+    {
+        Content = new ByteArrayContent(Encoding.ASCII.GetBytes(content))
+    };
 
     private static HttpResponseMessage Json(string value) => new(HttpStatusCode.OK)
     {

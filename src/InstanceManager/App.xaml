@@ -9,6 +9,8 @@
                 <ResourceDictionary Source="Themes/Controls.xaml" />
             </ResourceDictionary.MergedDictionaries>
 
+            <BooleanToVisibilityConverter x:Key="BoolToVis" />
+            <conv:InverseBooleanToVisibilityConverter x:Key="InverseBoolToVis" />
             <conv:StringToBrushConverter x:Key="HexToBrush" />
             <conv:EnumToBooleanConverter x:Key="EnumBool" />
             <conv:EnumToVisibilityConverter x:Key="EnumVis" />
@@ -19,6 +21,7 @@
             <conv:AttemptsToLabelConverter x:Key="AttemptsLabel" />
             <conv:ThemeCardVisibilityConverter x:Key="ThemeCardVis" PrimaryCount="8" />
             <conv:ThemeGridColumnsConverter x:Key="ThemeGridColumns" />
+            <conv:GameGridColumnsConverter x:Key="GameGridColumns" />
         </ResourceDictionary>
     </Application.Resources>
 </Application>

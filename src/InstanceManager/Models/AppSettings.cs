@@ -13,6 +13,12 @@ public sealed class AppSettings
 
     public const int UnlimitedAutoReconnectAttempts = MaxAutoReconnectAttempts + 1;
     public const string DefaultThemeId = "dark";
+    public const int MinUpdateIntervalMinutes = 15;
+    public const int MaxUpdateIntervalMinutes = 1440;
+    public const int MaxGraphicsQuality = 10;
+
+    public static readonly int[] FpsCapChoices = { 0, 30, 60, 75, 120, 144, 165, 240 };
+    public static readonly int[] AntiAliasingChoices = { -1, 0, 1, 2, 4, 8 };
 
     public string? SelectedVersionGuid { get; set; }
 
@@ -22,7 +28,7 @@ public sealed class AppSettings
 
     public bool MultiInstanceEnabled { get; set; } = true;
 
-    public int LaunchDelayMs { get; set; } = 1500;
+    public int LaunchDelayMs { get; set; } = 2000;
 
     public string? VersionsPathOverride { get; set; }
 
@@ -30,7 +36,59 @@ public sealed class AppSettings
 
     public string? LastJobIdInput { get; set; }
 
-    public bool SwitchToAccountsOnGameSelect { get; set; }
+    public bool SwitchToAccountsOnGameSelect { get; set; } = true;
+
+    public bool StartInTray { get; set; }
+
+    public bool CloseToTray { get; set; }
+
+    public bool CompactAccountList { get; set; }
+
+    public bool SidebarCollapsed { get; set; }
+
+    public bool AntiAfkEnabled { get; set; }
+    public int AntiAfkIntervalMinutes { get; set; } = 15;
+    public string AntiAfkKey { get; set; } = AntiAfkKeys.Default;
+    public bool AntiAfkReturnFocus { get; set; } = true;
+    public bool LiveAvatars { get; set; } = true;
+
+    public int FpsCap { get; set; }
+
+    public bool ApplyFastFlags { get; set; }
+
+    public GraphicsApi GraphicsApi { get; set; }
+
+    public int GraphicsQuality { get; set; }
+
+    public int AntiAliasing { get; set; } = -1;
+
+    public int TextureQuality { get; set; } = -1;
+
+    public bool IgnoreDisplayScaling { get; set; }
+
+    public bool HideGrass { get; set; }
+
+    public bool GraySky { get; set; }
+
+    public bool FreezeLighting { get; set; }
+
+    public bool ExclusiveFullscreen { get; set; }
+
+    public string CustomFastFlags { get; set; } = string.Empty;
+
+    public string? AppliedFastFlagsHash { get; set; }
+
+    public bool UpdateCheckOnStartup { get; set; } = true;
+
+    public bool UpdateCheckAutomatically { get; set; } = true;
+
+    public int UpdateCheckIntervalMinutes { get; set; } = 60;
+
+    public bool UpdateIncludePrereleases { get; set; }
+
+    public string? SkippedUpdateVersion { get; set; }
+
+    public bool KeepPreviousVersion { get; set; } = true;
 
     public System.Guid? LastSelectedFavoriteId { get; set; }
 
@@ -51,9 +109,9 @@ public sealed class AppSettings
 
     public bool NotifyMuteMaster { get; set; }
     public List<NotificationId> MutedNotifications { get; set; } = new();
-    public int ToastDurationMs { get; set; } = 4500;
+    public int ToastDurationMs { get; set; } = 3000;
 
-    public bool AutoReconnectMaster { get; set; } = true;
+    public bool AutoReconnectMaster { get; set; }
 
     public bool AutoReconnectOnKickError { get; set; } = true;
 
@@ -67,6 +125,42 @@ public sealed class AppSettings
     public int? AutoRejoinMaxAttempts { get; set; }
     public bool? AutoRejoinOnError { get; set; }
     public bool? AutoRejoinOnKick { get; set; }
+
+    private bool NormalizeGraphics()
+    {
+        bool changed = false;
+        if (System.Array.IndexOf(FpsCapChoices, FpsCap) < 0)
+        {
+            FpsCap = 0;
+            changed = true;
+        }
+        if (System.Array.IndexOf(AntiAliasingChoices, AntiAliasing) < 0)
+        {
+            AntiAliasing = -1;
+            changed = true;
+        }
+        if (TextureQuality is < -1 or > 3)
+        {
+            TextureQuality = -1;
+            changed = true;
+        }
+        if (GraphicsQuality is < 0 or > MaxGraphicsQuality)
+        {
+            GraphicsQuality = 0;
+            changed = true;
+        }
+        if (!System.Enum.IsDefined(GraphicsApi))
+        {
+            GraphicsApi = GraphicsApi.Automatic;
+            changed = true;
+        }
+        if (CustomFastFlags == null)
+        {
+            CustomFastFlags = string.Empty;
+            changed = true;
+        }
+        return changed;
+    }
 
     public bool IsConfirmBypassed(ConfirmAction action) => ConfirmBypassMaster || action switch
     {
@@ -177,6 +271,21 @@ public sealed class AppSettings
         }
 
         MutedNotifications ??= new();
+        if (CompactAccountList) { CompactAccountList = false; changed = true; }
+
+        int afkInterval = System.Math.Clamp(AntiAfkIntervalMinutes, 1, 60);
+        if (afkInterval != AntiAfkIntervalMinutes) { AntiAfkIntervalMinutes = afkInterval; changed = true; }
+        string afkKey = AntiAfkKeys.Normalize(AntiAfkKey);
+        if (afkKey != AntiAfkKey) { AntiAfkKey = afkKey; changed = true; }
+
+        changed |= NormalizeGraphics();
+
+        int interval = System.Math.Clamp(UpdateCheckIntervalMinutes, MinUpdateIntervalMinutes, MaxUpdateIntervalMinutes);
+        if (interval != UpdateCheckIntervalMinutes)
+        {
+            UpdateCheckIntervalMinutes = interval;
+            changed = true;
+        }
 
         return changed;
     }

@@ -58,6 +58,93 @@ public sealed class AutoReconnectTests
         Assert.Equal(RobloxSessionSignal.Kicked, RobloxLogClassifier.Classify(line));
     }
 
+    [Theory]
+    [InlineData("2026-10-09T22:20:35.343Z,22.343328,13c0,12 [DFLog::HttpTraceError] CURLOPT_ERRORBUFFER: Failed to connect to 10.110.101.222 port 5052 after 21003 ms: Error")]
+    [InlineData("2026-10-09T22:20:35.343Z,22.343328,70f4,6 [DFLog::WebSocketTraceError] ws: 0 url: http://10.110.101.222:5052 error: Connection closed")]
+    [InlineData("2026-10-09T22:19:55.610Z,1.610881,4e18,6 [DFLog::SignalRCoreError] ID: 1 Disconnected - connection lost")]
+    [InlineData("2026-10-09T22:21:06.604Z,19.604477,71f0,6,Info [FLog::CreatorOutput] Boss fight: you were kicked from this arena")]
+    [InlineData("2026-10-09T22:21:06.604Z,19.604477,71f0,6,Warning [FLog::CreatorWarning] DataStore: connection lost, leaving game queue")]
+    public void Classify_IgnoresNetworkDiagnosticsAndWhatGameScriptsPrint(string line)
+    {
+        Assert.Null(RobloxLogClassifier.Classify(line));
+    }
+
+    [Theory]
+    [InlineData("2026-10-09T22:20:35.343Z,22.3,13c0,6 [FLog::Output] Failed to connect to the Game. (ID = 17: Connection attempt failed.)", RobloxSessionSignal.Error)]
+    [InlineData("2026-10-09T22:20:35.343Z,22.3,13c0,6 [FLog::Network] Connection lost", RobloxSessionSignal.Error)]
+    [InlineData("2026-10-09T22:20:21.818Z,14.8,6440,6 [FLog::Output] ! Joining game 'b3ac2acd-f601-46b1-a3b7-f0a1fd5aa837' place 107778070777162 at 10.9.6.144", RobloxSessionSignal.InGame)]
+    public void Classify_StillReadsTheSameWordsFromSessionChannels(string line, RobloxSessionSignal expected)
+    {
+        Assert.Equal(expected, RobloxLogClassifier.Classify(line));
+    }
+
+    [Fact]
+    public void KickOrErrorBeforeTheClientStartedToJoin_NeitherClosesNorRestartsIt()
+    {
+        using var tracker = new InstanceTracker();
+        string tempDir = Path.Combine(Path.GetTempPath(), "instance-manager-tests", Guid.NewGuid().ToString("N"));
+        Directory.CreateDirectory(tempDir);
+
+        using var service = new AutoReconnectService(
+            tracker,
+            new FakeSettingsService(),
+            new AutoReconnectLog(Path.Combine(tempDir, "auto-reconnect.log")),
+            launchUtc => new RobloxLogWatcher(tempDir, launchUtc));
+
+        var account = new Account { UserId = 81, Username = "still-starting" };
+        int relaunches = 0;
+        service.Relaunch = (_, _, _, _) =>
+        {
+            relaunches++;
+            return Task.FromResult<Process?>(null);
+        };
+
+        Process process = StartLongRunningProcess();
+        int processId = process.Id;
+
+        try
+        {
+            service.RegisterLaunch(account, ServerTarget.Public(111), JoinTestVersion(), process);
+
+            Signal(service, account.Id, RobloxSessionSignal.Error);
+            Signal(service, account.Id, RobloxSessionSignal.Kicked);
+
+            Assert.False(WaitUntil(() => !IsProcessRunning(processId), 1500));
+            Assert.Equal(0, relaunches);
+        }
+        finally
+        {
+            KillIfRunning(processId);
+        }
+    }
+
+    [Fact]
+    public void AccountOpenedOnTheHomeScreen_IsLeftAlone_AndItsEarlierGameSessionEnds()
+    {
+        using var tracker = new InstanceTracker();
+        string tempDir = Path.Combine(Path.GetTempPath(), "instance-manager-tests", Guid.NewGuid().ToString("N"));
+        Directory.CreateDirectory(tempDir);
+
+        using var service = new AutoReconnectService(
+            tracker,
+            new FakeSettingsService(),
+            new AutoReconnectLog(Path.Combine(tempDir, "auto-reconnect.log")),
+            launchUtc => new RobloxLogWatcher(tempDir, launchUtc));
+
+        var account = new Account { UserId = 82, Username = "home-screen" };
+
+        service.RegisterLaunch(account, ServerTarget.Public(111), JoinTestVersion(), Process.GetCurrentProcess());
+        Assert.True(IsWatched(service, account.Id));
+
+        service.RegisterLaunch(account, ServerTarget.Home(), JoinTestVersion(), Process.GetCurrentProcess());
+        Assert.False(IsWatched(service, account.Id));
+    }
+
+    private static bool IsWatched(AutoReconnectService service, Guid accountId) =>
+        ((IDictionary)typeof(AutoReconnectService)
+            .GetField("_sessions", BindingFlags.Instance | BindingFlags.NonPublic)!
+            .GetValue(service)!).Contains(accountId);
+
     [Fact]
     public void LogWatcher_ChoosesSessionCreatedNearLaunch_NotOlderRecentlyWrittenLog()
     {
@@ -298,8 +385,16 @@ public sealed class AutoReconnectTests
         Assert.Equal(1, relaunches);
     }
 
+    [Theory]
+    [InlineData("[FLog::Network] Sending disconnect with reason: 285")]
+    [InlineData("[DFLog::RbxTransportDummyClient] Disconnected from server for reason: Player: 285 (DisconnectClientInitiated)")]
+    public void Classify_ClientInitiatedDisconnect_IsGracefulLeave(string line)
+    {
+        Assert.Equal(RobloxSessionSignal.GracefulLeave, RobloxLogClassifier.Classify(line));
+    }
+
     [Fact]
-    public async Task InGameMenuReturn_ReconnectsInsteadOfWaitingForAProcessCrash()
+    public async Task LeavingTheGame_KeepsTheClientOpen_ButKillingItLaterStillReconnects()
     {
         using var tracker = new InstanceTracker();
         string tempDir = Path.Combine(Path.GetTempPath(), "instance-manager-tests", Guid.NewGuid().ToString("N"));
@@ -311,8 +406,62 @@ public sealed class AutoReconnectTests
             new AutoReconnectLog(Path.Combine(tempDir, "auto-reconnect.log")),
             launchUtc => new RobloxLogWatcher(tempDir, launchUtc));
 
-        var account = new Account { UserId = 43, Username = "menu-drop" };
-        var target = ServerTarget.Public(456);
+        var account = new Account { UserId = 43, Username = "leaver" };
+        var target = ServerTarget.ByJob(456, "ec1c8e3d-1c2b-4c3d-9e2a-1234567890ab");
+        var version = new RobloxVersion
+        {
+            FolderPath = AppContext.BaseDirectory,
+            VersionGuid = "version-test",
+            PlayerExePath = Environment.ProcessPath ?? "dotnet",
+            FileVersion = "test"
+        };
+
+        int relaunches = 0;
+        service.Relaunch = (_, _, _, _) =>
+        {
+            relaunches++;
+            return Task.FromResult<Process?>(null);
+        };
+
+        Process process = StartLongRunningProcess();
+        int processId = process.Id;
+
+        try
+        {
+            service.RegisterLaunch(account, target, version, process);
+
+            Signal(service, account.Id, RobloxSessionSignal.InGame);
+            Signal(service, account.Id, RobloxLogClassifier.Classify("[FLog::SingleSurfaceApp] leaveUGCGameInternal")!.Value);
+            Signal(service, account.Id, RobloxLogClassifier.Classify("[FLog::Network] Sending disconnect with reason: 285")!.Value);
+            Signal(service, account.Id, RobloxLogClassifier.Classify("[FLog::Network] Connection lost")!.Value);
+
+            Assert.False(WaitUntil(() => !IsProcessRunning(processId), 1500));
+            Assert.Equal(0, relaunches);
+
+            await HandleExitAsync(service, account.Id);
+
+            Assert.Equal(1, relaunches);
+        }
+        finally
+        {
+            KillIfRunning(processId);
+        }
+    }
+
+    [Fact]
+    public async Task JoiningAnotherGameAfterLeaving_ReconnectsOnTheNextError()
+    {
+        using var tracker = new InstanceTracker();
+        string tempDir = Path.Combine(Path.GetTempPath(), "instance-manager-tests", Guid.NewGuid().ToString("N"));
+        Directory.CreateDirectory(tempDir);
+
+        using var service = new AutoReconnectService(
+            tracker,
+            new FakeSettingsService(),
+            new AutoReconnectLog(Path.Combine(tempDir, "auto-reconnect.log")),
+            launchUtc => new RobloxLogWatcher(tempDir, launchUtc));
+
+        var account = new Account { UserId = 48, Username = "rejoiner" };
         var version = new RobloxVersion
         {
             FolderPath = AppContext.BaseDirectory,
@@ -328,10 +477,13 @@ public sealed class AutoReconnectTests
             return Task.FromResult<Process?>(Process.GetCurrentProcess());
         };
 
-        service.RegisterLaunch(account, target, version, Process.GetCurrentProcess());
+        service.RegisterLaunch(account, ServerTarget.Public(789), version, Process.GetCurrentProcess());
 
         Signal(service, account.Id, RobloxSessionSignal.InGame);
         Signal(service, account.Id, RobloxSessionSignal.GracefulLeave);
+        Signal(service, account.Id, RobloxSessionSignal.Error);
+        Signal(service, account.Id, RobloxSessionSignal.InGame);
+        Signal(service, account.Id, RobloxSessionSignal.Error);
         await HandleExitAsync(service, account.Id);
 
         Assert.Equal(1, relaunches);
@@ -651,9 +803,15 @@ public sealed class AutoReconnectTests
     }
 
     [Fact]
-    public void IsAutoReconnectEnabledFor_AllTriggers_DefaultOn()
+    public void IsAutoReconnectEnabledFor_OffByDefault_AndEveryTriggerOnceTheMasterIsOn()
     {
         var settings = new AppSettings();
+
+        Assert.False(settings.IsAutoReconnectEnabledFor(AutoReconnectTrigger.Error));
+        Assert.False(settings.IsAutoReconnectEnabledFor(AutoReconnectTrigger.Kick));
+        Assert.False(settings.IsAutoReconnectEnabledFor(AutoReconnectTrigger.Crash));
+
+        settings.AutoReconnectMaster = true;
 
         Assert.True(settings.IsAutoReconnectEnabledFor(AutoReconnectTrigger.Error));
         Assert.True(settings.IsAutoReconnectEnabledFor(AutoReconnectTrigger.Kick));
@@ -673,7 +831,7 @@ public sealed class AutoReconnectTests
     [Fact]
     public void IsAutoReconnectEnabledFor_PerTriggerSwitch_GatesOnlyThatTrigger()
     {
-        var settings = new AppSettings { AutoReconnectOnCrash = false };
+        var settings = new AppSettings { AutoReconnectMaster = true, AutoReconnectOnCrash = false };
 
         Assert.True(settings.IsAutoReconnectEnabledFor(AutoReconnectTrigger.Kick));
         Assert.False(settings.IsAutoReconnectEnabledFor(AutoReconnectTrigger.Crash));
@@ -897,7 +1055,7 @@ public sealed class AutoReconnectTests
 
     private sealed class FakeSettingsService : ISettingsService
     {
-        public AppSettings Settings { get; } = new();
+        public AppSettings Settings { get; } = new() { AutoReconnectMaster = true };
 
         public void Save()
         {

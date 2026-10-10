@@ -1,0 +1,80 @@
+<UserControl x:Class="InstanceManager.Views.Settings.LaunchSettings"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:ui="clr-namespace:InstanceManager.Controls">
+    <StackPanel>
+        <TextBlock Style="{StaticResource GroupTitle}" Text="Launch queue" />
+        <Border Style="{StaticResource SettingsCard}">
+            <StackPanel>
+                <StackPanel Margin="0,12,0,8">
+                    <Grid>
+                        <TextBlock Style="{StaticResource RowTitle}" Text="Pause between launches" VerticalAlignment="Center" />
+                        <TextBlock Style="{StaticResource SettingValue}" Text="{Binding Value, ElementName=DelaySlider, Converter={StaticResource MsToSec}}" />
+                    </Grid>
+                    <TextBlock Style="{StaticResource RowHint}"
+                               Text="Each account waits until the one before it has opened and joined, then waits this long on top. Raise it if some accounts don't make it into the game." />
+                    <Slider x:Name="DelaySlider" Style="{StaticResource ModernSlider}" Margin="0,10,0,0" Minimum="0" Maximum="30000"
+                            SmallChange="500" LargeChange="500" TickFrequency="500" IsSnapToTickEnabled="True"
+                            Value="{Binding Settings.LaunchDelayMs, Delay=150}" />
+                </StackPanel>
+                <Border Style="{StaticResource RowDivider}" />
+                <Grid Style="{StaticResource SettingRow}">
+                    <StackPanel VerticalAlignment="Center" Margin="0,0,70,0">
+                        <TextBlock Style="{StaticResource RowTitle}" Text="Multi-instance" />
+                        <TextBlock Style="{StaticResource RowHint}" Text="Lets every account run in its own Roblox window at the same time." />
+                    </StackPanel>
+                    <CheckBox Style="{StaticResource ToggleSwitch}" HorizontalAlignment="Right"
+                              IsChecked="{Binding Settings.MultiInstanceEnabled}" />
+                </Grid>
+            </StackPanel>
+        </Border>
+
+        <TextBlock Style="{StaticResource GroupTitle}" Text="Roblox version" />
+        <Border Style="{StaticResource SettingsCard}">
+            <StackPanel>
+                <Grid Style="{StaticResource SettingRow}">
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="*" />
+                        <ColumnDefinition Width="Auto" />
+                        <ColumnDefinition Width="Auto" />
+                    </Grid.ColumnDefinitions>
+                    <StackPanel Margin="0,0,16,0" VerticalAlignment="Center">
+                        <TextBlock Style="{StaticResource RowTitle}" Text="Default version" />
+                        <TextBlock Style="{StaticResource RowHint}" Text="Every account uses it unless you pick another one in the account's ⋯ menu." />
+                    </StackPanel>
+                    <ComboBox Grid.Column="1" Style="{StaticResource ModernComboBox}" Width="200" VerticalAlignment="Center"
+                              ItemsSource="{Binding VersionBar.Versions}" SelectedItem="{Binding VersionBar.SelectedVersion}">
+                        <ComboBox.ItemTemplate>
+                            <DataTemplate>
+                                <TextBlock Text="{Binding DisplayLabel}" />
+                            </DataTemplate>
+                        </ComboBox.ItemTemplate>
+                    </ComboBox>
+                    <Button Grid.Column="2" Style="{StaticResource IconButton}" Margin="4,0,0,0" Width="34" Height="34" Padding="0"
+                            VerticalAlignment="Center"
+                            Command="{Binding VersionBar.RefreshVersionsCommand}"
+                            ToolTip="Look for installed versions again, for example after Roblox updated">
+                        <ui:Icon Kind="Refresh" Size="15" />
+                    </Button>
+                </Grid>
+                <Border Style="{StaticResource RowDivider}" />
+                <StackPanel Margin="0,12,0,14">
+                    <TextBlock Style="{StaticResource RowTitle}" Text="Custom versions folder" />
+                    <TextBlock Style="{StaticResource RowHint}" Text="Leave it empty to use the normal Roblox folder. Network and removable drives aren't allowed." Margin="0,3,0,10" />
+                    <Grid>
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="*" />
+                            <ColumnDefinition Width="Auto" />
+                            <ColumnDefinition Width="Auto" />
+                        </Grid.ColumnDefinitions>
+                        <TextBox Style="{StaticResource ModernTextBox}" Height="34" Padding="10,0" Text="{Binding Settings.VersionsPathOverride}" />
+                        <Button Grid.Column="1" Style="{StaticResource GhostButton}" Content="Browse…" Margin="8,0,0,0"
+                                Command="{Binding Settings.BrowseVersionsPathCommand}" />
+                        <Button Grid.Column="2" Style="{StaticResource IconButton}" Content="Reset" Margin="4,0,0,0" Padding="10,0" Height="34"
+                                Command="{Binding Settings.ResetVersionsPathCommand}" />
+                    </Grid>
+                </StackPanel>
+            </StackPanel>
+        </Border>
+    </StackPanel>
+</UserControl>

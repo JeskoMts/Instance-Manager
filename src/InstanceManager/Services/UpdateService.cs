@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Diagnostics.CodeAnalysis;
 using System.IO;
 using System.IO.Compression;
 using System.Net.Http;
@@ -16,12 +17,17 @@ public sealed class UpdateService
 {
     public const string UpdatedArgument = "--updated";
 
+    internal const string ExecutableName = "Instance Manager.exe";
+    internal const string LegacyExecutableName = "InstanceManager.exe";
+    internal const string LegacyMarkerName = "InstanceManager.deps.json";
+
     private const string LatestReleaseUrl = "https://api.github.com/repos/JeskoMts/Instance-Manager/releases/latest";
+    private const string ReleasesUrl = "https://api.github.com/repos/JeskoMts/Instance-Manager/releases?per_page=15";
+    private const string PreviousPrefix = "Instance Manager ";
     private const string DownloadPrefix = "https://github.com/JeskoMts/Instance-Manager/releases/download/";
-    private const string ExecutableName = "InstanceManager.exe";
-    private const string AssemblyName = "InstanceManager.dll";
     private const string BackupSuffix = ".im-old";
     private const string StagingFolderName = ".im-update";
+    private const string StagedFileName = "update.exe";
     private const string DigestPrefix = "sha256:";
     private const int MaxReleaseJsonBytes = 1024 * 1024;
     private const int MaxPackageBytes = 64 * 1024 * 1024;
@@ -36,28 +42,57 @@ public sealed class UpdateService
         "release-assets.githubusercontent.com"
     };
 
+    private static readonly string[] LegacyFiles =
+    {
+        LegacyExecutableName,
+        "CommunityToolkit.Mvvm.dll",
+        "InstanceManager.dll",
+        "InstanceManager.pdb",
+        "InstanceManager.runtimeconfig.json",
+        "Microsoft.Extensions.DependencyInjection.Abstractions.dll",
+        "Microsoft.Extensions.DependencyInjection.dll",
+        "Microsoft.Web.WebView2.Core.dll",
+        "Microsoft.Web.WebView2.Core.xml",
+        "Microsoft.Web.WebView2.WinForms.dll",
+        "Microsoft.Web.WebView2.WinForms.xml",
+        "Microsoft.Web.WebView2.Wpf.dll",
+        "Microsoft.Web.WebView2.Wpf.xml",
+        "WebView2Loader.dll",
+        "THIRD-PARTY-NOTICES.md",
+        LegacyMarkerName
+    };
+
     private static readonly char[] InvalidNameChars = Path.GetInvalidFileNameChars();
 
     private readonly HttpClient _http;
     private readonly string _appDirectory;
+    private readonly bool _isSingleFile;
 
     public UpdateService(HttpClient http)
-        : this(http, AppContext.BaseDirectory, typeof(UpdateService).Assembly.GetName().Version ?? new Version(0, 0, 0))
+        : this(
+            http,
+            Environment.ProcessPath ?? Path.Combine(AppContext.BaseDirectory, ExecutableName),
+            typeof(UpdateService).Assembly.GetName().Version ?? new Version(0, 0, 0),
+            IsRunningAsSingleFile())
     {
     }
 
-    internal UpdateService(HttpClient http, string appDirectory, Version currentVersion)
+    internal UpdateService(HttpClient http, string executablePath, Version currentVersion, bool isSingleFile)
     {
         _http = http;
-        _appDirectory = Path.GetFullPath(appDirectory);
+        ExecutablePath = Path.GetFullPath(executablePath);
+        _appDirectory = Path.GetDirectoryName(ExecutablePath)!;
         CurrentVersion = Normalize(currentVersion);
+        _isSingleFile = isSingleFile;
     }
 
     public Version CurrentVersion { get; }
 
-    public string ExecutablePath => Path.Combine(_appDirectory, ExecutableName);
+    public string ExecutablePath { get; }
 
     private string StagingDirectory => Path.Combine(_appDirectory, StagingFolderName);
+
+    private string StagedExecutablePath => Path.Combine(StagingDirectory, StagedFileName);
 
     public void CleanupPreviousUpdate()
     {
@@ -74,85 +109,140 @@ public sealed class UpdateService
         }
 
         TryDeleteDirectory(StagingDirectory);
+        RemoveLegacyInstall();
     }
+
+    public bool CanUpdate => _isSingleFile;
 
     public async Task<Version?> DownloadAsync(CancellationToken cancellationToken = default)
     {
+        ReleaseInfo? release = await CheckAsync(includePrereleases: false, cancellationToken).ConfigureAwait(false);
+        return release != null && await DownloadAndStageAsync(release, cancellationToken).ConfigureAwait(false)
+            ? release.Version
+            : null;
+    }
+
+    public async Task<ReleaseInfo?> CheckAsync(bool includePrereleases, CancellationToken cancellationToken = default)
+    {
+        if (!_isSingleFile)
+            return null;
+
         byte[]? json;
         using (HttpResponseMessage response = await SendAsync(
-                   new Uri(LatestReleaseUrl), "application/vnd.github+json", cancellationToken).ConfigureAwait(false))
+                   new Uri(includePrereleases ? ReleasesUrl : LatestReleaseUrl), "application/vnd.github+json", cancellationToken).ConfigureAwait(false))
         {
             if (!response.IsSuccessStatusCode)
-                return null;
+                throw new HttpRequestException($"GitHub answered {(int)response.StatusCode}.");
             json = await BoundedHttpContentReader.ReadAsync(
                 response.Content, MaxReleaseJsonBytes, cancellationToken).ConfigureAwait(false);
         }
 
-        if (json is null || !TryParseRelease(json, out ReleaseInfo? release) || release!.Version <= CurrentVersion)
+        if (json is null)
             return null;
 
-        byte[]? package = await DownloadPackageAsync(release.DownloadUri, cancellationToken).ConfigureAwait(false);
-        if (package is null || !MatchesDigest(package, release.Sha256))
-            return null;
-
-        return Stage(package) ? release.Version : null;
+        ReleaseInfo? release = includePrereleases ? PickNewest(json) : TryParseRelease(json, out ReleaseInfo? latest) ? latest : null;
+        return release != null && release.Version > CurrentVersion ? release : null;
     }
 
-    public bool Apply()
+    public async Task<bool> DownloadAndStageAsync(ReleaseInfo release, CancellationToken cancellationToken = default)
     {
-        string staging = StagingDirectory;
-        if (!Directory.Exists(staging))
-            return false;
+        ArgumentNullException.ThrowIfNull(release);
+        byte[]? package = await DownloadPackageAsync(release.DownloadUri, cancellationToken).ConfigureAwait(false);
+        return package is not null && MatchesDigest(package, release.Sha256) && Stage(package);
+    }
 
-        var replaced = new List<(string Target, string? Backup)>();
+    public bool KeepCurrentVersion(string directory)
+    {
         try
         {
-            foreach (string source in Directory.GetFiles(staging))
+            Directory.CreateDirectory(directory);
+            string target = Path.Combine(directory, PreviousPrefix + CurrentVersion.ToString(3) + ".exe");
+            foreach (string old in Directory.GetFiles(directory, "*.exe"))
             {
-                string target = Path.Combine(_appDirectory, Path.GetFileName(source));
-                string? backup = null;
-                if (File.Exists(target))
-                {
-                    backup = target + BackupSuffix;
-                    File.Delete(backup);
-                    File.Move(target, backup);
-                }
+                if (!string.Equals(old, target, StringComparison.OrdinalIgnoreCase))
+                    File.Delete(old);
+            }
+            File.Copy(ExecutablePath, target, overwrite: true);
+            return true;
+        }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+        {
+            return false;
+        }
+    }
 
-                try
-                {
-                    File.Move(source, target);
-                }
-                catch
-                {
-                    if (backup != null)
-                        File.Move(backup, target);
-                    throw;
-                }
-
-                replaced.Add((target, backup));
+    public static (Version Version, string Path)? FindKeptVersion(string directory)
+    {
+        try
+        {
+            if (!Directory.Exists(directory))
+                return null;
+            foreach (string file in Directory.GetFiles(directory, PreviousPrefix + "*.exe"))
+            {
+                string name = Path.GetFileNameWithoutExtension(file)[PreviousPrefix.Length..];
+                if (Version.TryParse(name, out Version? version))
+                    return (Normalize(version), file);
             }
         }
         catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
         {
-            for (int i = replaced.Count - 1; i >= 0; i--)
-            {
-                (string target, string? backup) = replaced[i];
-                try
-                {
-                    File.Delete(target);
-                    if (backup != null)
-                        File.Move(backup, target);
-                }
-                catch (Exception rollbackError) when (rollbackError is IOException or UnauthorizedAccessException)
-                {
-                }
-            }
+        }
+        return null;
+    }
 
+    public bool StageLocal(string executable)
+    {
+        string staging = StagingDirectory;
+        try
+        {
+            TryDeleteDirectory(staging);
+            Directory.CreateDirectory(staging);
+            File.Copy(executable, StagedExecutablePath, overwrite: true);
+            return true;
+        }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+        {
             TryDeleteDirectory(staging);
             return false;
         }
+    }
 
-        TryDeleteDirectory(staging);
+    public bool HasStagedUpdate => File.Exists(StagedExecutablePath);
+
+    public void DiscardStaged() => TryDeleteDirectory(StagingDirectory);
+
+    public bool Apply()
+    {
+        string staged = StagedExecutablePath;
+        if (!File.Exists(staged))
+            return false;
+
+        string backup = ExecutablePath + BackupSuffix;
+        bool movedAside = false;
+        try
+        {
+            if (File.Exists(ExecutablePath))
+            {
+                File.Delete(backup);
+                File.Move(ExecutablePath, backup);
+                movedAside = true;
+            }
+
+            File.Move(staged, ExecutablePath);
+        }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+        {
+            if (movedAside)
+            {
+                try { File.Move(backup, ExecutablePath); }
+                catch (Exception rollbackError) when (rollbackError is IOException or UnauthorizedAccessException) { }
+            }
+
+            TryDeleteDirectory(StagingDirectory);
+            return false;
+        }
+
+        TryDeleteDirectory(StagingDirectory);
         return true;
     }
 
@@ -163,12 +253,12 @@ public sealed class UpdateService
         {
             TryDeleteDirectory(staging);
             using var archive = new ZipArchive(new MemoryStream(package), ZipArchiveMode.Read);
-            if (!IsValidPackage(archive))
+            ZipArchiveEntry? executable = FindExecutable(archive);
+            if (executable is null)
                 return false;
 
             Directory.CreateDirectory(staging);
-            foreach (ZipArchiveEntry entry in archive.Entries)
-                entry.ExtractToFile(Path.Combine(staging, entry.FullName));
+            executable.ExtractToFile(StagedExecutablePath);
             return true;
         }
         catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or InvalidDataException)
@@ -191,31 +281,60 @@ public sealed class UpdateService
             return false;
         }
 
-        string? tag = dto?.TagName?.Trim().TrimStart('v', 'V');
-        if (tag is null || dto!.Assets is null || !Version.TryParse(tag, out Version? parsed))
-            return false;
+        return dto != null && TryParseRelease(dto, out release);
+    }
 
-        string assetName = $"InstanceManager-{tag}.zip";
-        foreach (AssetDto asset in dto.Assets)
+    internal static ReleaseInfo? PickNewest(byte[] json)
+    {
+        List<ReleaseDto>? releases;
+        try
         {
-            if (!string.Equals(asset.Name, assetName, StringComparison.Ordinal))
-                continue;
-
-            if (asset.Url is null ||
-                !asset.Url.StartsWith(DownloadPrefix, StringComparison.Ordinal) ||
-                !Uri.TryCreate(asset.Url, UriKind.Absolute, out Uri? uri) ||
-                asset.Digest is null ||
-                !asset.Digest.StartsWith(DigestPrefix, StringComparison.OrdinalIgnoreCase))
-            {
-                return false;
-            }
-
-            release = new ReleaseInfo(Normalize(parsed), uri, asset.Digest[DigestPrefix.Length..]);
-            return true;
+            releases = JsonSerializer.Deserialize<List<ReleaseDto>>(json);
+        }
+        catch (JsonException)
+        {
+            return null;
         }
 
-        return false;
+        ReleaseInfo? newest = null;
+        foreach (ReleaseDto dto in releases ?? new List<ReleaseDto>())
+        {
+            if (dto.Draft || !TryParseRelease(dto, out ReleaseInfo? candidate))
+                continue;
+            if (newest == null || candidate!.Version > newest.Version)
+                newest = candidate;
+        }
+        return newest;
     }
+
+    private static bool TryParseRelease(ReleaseDto dto, out ReleaseInfo? release)
+    {
+        release = null;
+        string? rawTag = dto.TagName?.Trim();
+        string? tag = rawTag?.TrimStart('v', 'V');
+        if (tag is null || dto.Assets is null || !Version.TryParse(tag, out Version? parsed))
+            return false;
+
+        string assetName = PackageName(tag);
+        AssetDto? asset = dto.Assets.Find(a => string.Equals(a.Name, assetName, StringComparison.Ordinal));
+        if (asset?.Url is null ||
+            !Uri.TryCreate(asset.Url, UriKind.Absolute, out Uri? uri) ||
+            !string.Equals(uri.AbsoluteUri, DownloadPrefix + rawTag + "/" + assetName, StringComparison.Ordinal) ||
+            asset.Digest is null ||
+            !asset.Digest.StartsWith(DigestPrefix, StringComparison.OrdinalIgnoreCase))
+        {
+            return false;
+        }
+
+        release = new ReleaseInfo(Normalize(parsed), uri, asset.Digest[DigestPrefix.Length..],
+            IsReleasePage(dto.HtmlUrl) ? dto.HtmlUrl : null, dto.Prerelease);
+        return true;
+    }
+
+    internal static string PackageName(string tag) => $"InstanceManager-{tag}.zip";
+
+    private static bool IsReleasePage(string? url) =>
+        url != null && url.StartsWith("https://github.com/JeskoMts/Instance-Manager/releases/", StringComparison.Ordinal);
 
     internal static bool IsAllowedDownloadUri(Uri uri) =>
         uri.Scheme == Uri.UriSchemeHttps &&
@@ -258,13 +377,14 @@ public sealed class UpdateService
         return _http.SendAsync(request, HttpCompletionOption.ResponseHeadersRead, cancellationToken);
     }
 
-    private static bool IsValidPackage(ZipArchive archive)
+    private static ZipArchiveEntry? FindExecutable(ZipArchive archive)
     {
         if (archive.Entries.Count is 0 or > MaxPackageEntries)
-            return false;
+            return null;
 
         var names = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
         long unpacked = 0;
+        ZipArchiveEntry? executable = null;
         foreach (ZipArchiveEntry entry in archive.Entries)
         {
             string name = entry.FullName;
@@ -274,16 +394,45 @@ public sealed class UpdateService
                 name.EndsWith(BackupSuffix, StringComparison.OrdinalIgnoreCase) ||
                 !names.Add(name))
             {
-                return false;
+                return null;
             }
 
             unpacked += entry.Length;
             if (unpacked > MaxUnpackedBytes)
-                return false;
+                return null;
+
+            if (string.Equals(name, ExecutableName, StringComparison.OrdinalIgnoreCase))
+                executable = entry;
         }
 
-        return names.Contains(ExecutableName) && names.Contains(AssemblyName);
+        return executable is { Length: > 0 } ? executable : null;
     }
+
+    private void RemoveLegacyInstall()
+    {
+        if (!_isSingleFile || !File.Exists(Path.Combine(_appDirectory, LegacyMarkerName)))
+            return;
+
+        foreach (string name in LegacyFiles)
+        {
+            string path = Path.Combine(_appDirectory, name);
+            if (!File.Exists(path) || string.Equals(path, ExecutablePath, StringComparison.OrdinalIgnoreCase))
+                continue;
+
+            try
+            {
+                File.Delete(path);
+            }
+            catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+            {
+                try { File.Move(path, path + BackupSuffix, overwrite: true); }
+                catch (Exception moveError) when (moveError is IOException or UnauthorizedAccessException) { }
+            }
+        }
+    }
+
+    [UnconditionalSuppressMessage("SingleFile", "IL3000")]
+    private static bool IsRunningAsSingleFile() => string.IsNullOrEmpty(typeof(UpdateService).Assembly.Location);
 
     private static Version Normalize(Version version) =>
         new(version.Major, version.Minor, Math.Max(version.Build, 0));
@@ -300,11 +449,15 @@ public sealed class UpdateService
         }
     }
 
-    internal sealed record ReleaseInfo(Version Version, Uri DownloadUri, string Sha256);
+    public sealed record ReleaseInfo(Version Version, Uri DownloadUri, string Sha256,
+        string? PageUrl = null, bool IsPrerelease = false);
 
     private sealed class ReleaseDto
     {
         [JsonPropertyName("tag_name")] public string? TagName { get; set; }
+        [JsonPropertyName("html_url")] public string? HtmlUrl { get; set; }
+        [JsonPropertyName("draft")] public bool Draft { get; set; }
+        [JsonPropertyName("prerelease")] public bool Prerelease { get; set; }
         [JsonPropertyName("assets")] public List<AssetDto>? Assets { get; set; }
     }
 

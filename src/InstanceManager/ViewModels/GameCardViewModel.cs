@@ -5,18 +5,17 @@ using System.Threading.Tasks;
 using System.Windows.Media;
 using CommunityToolkit.Mvvm.ComponentModel;
 using InstanceManager.Models;
-using InstanceManager.Services;
 
 namespace InstanceManager.ViewModels;
 
 public partial class GameCardViewModel : ObservableObject
 {
-    private readonly IRobloxGamesService _games;
+    private readonly Func<string?, CancellationToken, Task<ImageSource?>> _loadThumbnail;
 
-    public GameCardViewModel(GameInfo info, IRobloxGamesService games)
+    public GameCardViewModel(GameInfo info, Func<string?, CancellationToken, Task<ImageSource?>> loadThumbnail)
     {
         Info = info;
-        _games = games;
+        _loadThumbnail = loadThumbnail;
     }
 
     public GameInfo Info { get; }
@@ -33,11 +32,9 @@ public partial class GameCardViewModel : ObservableObject
     {
         try
         {
-            byte[]? bytes = await _games.GetThumbnailAsync(Info.ThumbnailUrl, cancellationToken);
-            if (bytes is not { Length: > 0 })
-                return;
-
-            Thumbnail = await Task.Run(() => AccountRowViewModel.DecodeFrozen(bytes, 360), cancellationToken);
+            ImageSource? image = await _loadThumbnail(Info.ThumbnailUrl, cancellationToken);
+            if (image != null)
+                Thumbnail = image;
         }
         catch
         {

@@ -20,6 +20,32 @@ public sealed class AutoReconnectLogSecurityTests
     }
 
     [Fact]
+    public void Attempt_ToAPrivateServer_DoesNotWriteItsLinkCode()
+    {
+        string directory = Path.Combine(
+            Path.GetTempPath(), "InstanceManager.Tests", Guid.NewGuid().ToString("N"));
+        Directory.CreateDirectory(directory);
+        try
+        {
+            string path = Path.Combine(directory, "auto-reconnect.log");
+            var log = new AutoReconnectLog(path);
+
+            log.Attempt(
+                new InstanceManager.Models.Account { Username = "owner", UserId = 7 },
+                InstanceManager.Models.AutoReconnectTrigger.Kick, 1, 3,
+                InstanceManager.Models.ServerTarget.PrivateServer(920587237, "12345678901234567890123456789012"));
+
+            string line = File.ReadAllText(path);
+            Assert.Contains("placeId=920587237 private server", line);
+            Assert.DoesNotContain("12345678901234567890123456789012", line);
+        }
+        finally
+        {
+            Directory.Delete(directory, recursive: true);
+        }
+    }
+
+    [Fact]
     public void Write_WhenLogExceedsLimit_RotatesBeforeAppending()
     {
         string directory = Path.Combine(

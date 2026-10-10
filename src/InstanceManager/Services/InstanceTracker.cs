@@ -48,6 +48,8 @@ public sealed class InstanceTracker : IDisposable
         }
     }
 
+    public IReadOnlyList<Process> RunningProcesses => _byAccount.Values.Where(IsAlive).ToArray();
+
     public bool Stop(Guid accountId)
     {
         if (!_byAccount.TryGetValue(accountId, out Process? p))

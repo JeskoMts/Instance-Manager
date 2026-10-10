@@ -40,7 +40,24 @@ public enum IconKind
     AlertTriangle,
     Minimize,
     Maximize,
-    Restore
+    Restore,
+    Zap,
+    Monitor,
+    Palette,
+    Download,
+    Shield,
+    ShieldCheck,
+    Power,
+    PanelLeft,
+    Clock,
+    Calendar,
+    Shuffle,
+    ExternalLink,
+    RotateCcw,
+    Sliders,
+    Activity,
+    Timer,
+    Copy
 }
 
 public sealed class Icon : FrameworkElement
@@ -102,7 +119,7 @@ public sealed class Icon : FrameworkElement
 
     protected override void OnRender(DrawingContext dc)
     {
-        if (!Shapes.TryGetValue(Kind, out IconShape shape))
+        if (!TryGetShape(Kind, out IconShape shape))
             return;
 
         double scale = Math.Min(ActualWidth, ActualHeight) / 24;
@@ -123,20 +140,44 @@ public sealed class Icon : FrameworkElement
     }
 
     internal static Geometry? GeometryFor(IconKind kind) =>
-        Shapes.TryGetValue(kind, out IconShape shape) ? shape.Geometry : null;
+        TryGetShape(kind, out IconShape shape) ? shape.Geometry : null;
+
+    private static bool TryGetShape(IconKind kind, out IconShape shape)
+    {
+        lock (Parsed)
+        {
+            if (Parsed.TryGetValue(kind, out shape))
+                return true;
+            if (!Shapes.TryGetValue(kind, out IconSource source))
+                return false;
+
+            Geometry geometry = Geometry.Parse(source.Data);
+            geometry.Freeze();
+            shape = new IconShape(geometry, source.Paint);
+            Parsed[kind] = shape;
+            return true;
+        }
+    }
 
     private enum Paint { Stroke, Fill, FillAndStroke }
 
+    private readonly record struct IconSource(string Data, Paint Paint);
+
     private readonly record struct IconShape(Geometry Geometry, Paint Paint);
+
+    private static readonly Dictionary<IconKind, IconShape> Parsed = new();
 
     private const string Circle12R10 = "M2 12a10 10 0 1 0 20 0a10 10 0 1 0-20 0";
     private const string FolderOutline =
         "M20 20a2 2 0 0 0 2-2V8a2 2 0 0 0-2-2h-7.9a2 2 0 0 1-1.69-0.9L9.6 3.9A2 2 0 0 0 7.93 3H4a2 2 0 0 0-2 2v13a2 2 0 0 0 2 2z";
     private const string Person = "M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2 M5 7a4 4 0 1 0 8 0a4 4 0 1 0-8 0";
+    private const string ShieldOutline =
+        "M20 13c0 5-3.5 7.5-7.66 8.95a1 1 0 0 1-0.67-0.01C7.5 20.5 4 18 4 13V6a1 1 0 0 1 1-1c2 0 4.5-1.2 6.24-2.72" +
+        "a1.17 1.17 0 0 1 1.52 0C14.51 3.81 17 5 19 5a1 1 0 0 1 1 1z";
     private const string StarOutline =
         "M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01z";
 
-    private static readonly Dictionary<IconKind, IconShape> Shapes = new()
+    private static readonly Dictionary<IconKind, IconSource> Shapes = new()
     {
         [IconKind.Users] = S(Person + " M22 21v-2a4 4 0 0 0-3-3.87 M16 3.13a4 4 0 0 1 0 7.75"),
         [IconKind.UserPlus] = S(Person + " M19 8v6 M22 11h-6"),
@@ -216,13 +257,29 @@ public sealed class Icon : FrameworkElement
         [IconKind.Maximize] = S("M5 7a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2v10a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2z"),
         [IconKind.Restore] = S(
             "M4 10a2 2 0 0 1 2-2h8a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2z " +
-            "M8 6a2 2 0 0 1 2-2h8a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2")
+            "M8 6a2 2 0 0 1 2-2h8a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2"),
+        [IconKind.Zap] = S("M13 2L3 14h9l-1 8 10-12h-9l1-8z"),
+        [IconKind.Monitor] = S("M2 5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v10a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2z M8 21h8 M12 17v4"),
+        [IconKind.Palette] = S(
+            "M12 22a10 10 0 1 1 10-10c0 2.5-2 4-4.5 4H15a2 2 0 0 0-1.5 3.3A1.7 1.7 0 0 1 12 22z " +
+            "M7.5 11h0.01 M10 7h0.01 M14.5 7h0.01 M17 11h0.01"),
+        [IconKind.Download] = S("M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4 M7 10l5 5 5-5 M12 15V3"),
+        [IconKind.Shield] = S(ShieldOutline),
+        [IconKind.ShieldCheck] = S(ShieldOutline + " M9 12l2 2 4-4"),
+        [IconKind.Power] = S("M12 2v10 M18.4 6.6a9 9 0 1 1-12.77 0.04"),
+        [IconKind.PanelLeft] = S("M3 5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z M9 3v18"),
+        [IconKind.Clock] = S(Circle12R10 + " M12 6v6l4 2"),
+        [IconKind.Calendar] = S("M3 6a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z M16 2v4 M8 2v4 M3 10h18"),
+        [IconKind.Shuffle] = S(
+            "M2 18h1.4c1.3 0 2.5-0.6 3.3-1.7l6.1-8.6c0.7-1.1 2-1.7 3.3-1.7H22 M18 2l4 4-4 4 " +
+            "M2 6h1.9c1.5 0 2.9 0.9 3.6 2.2 M22 18h-5.9c-1.3 0-2.6-0.7-3.3-1.8l-0.5-0.8 M18 14l4 4-4 4"),
+        [IconKind.ExternalLink] = S("M15 3h6v6 M10 14L21 3 M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"),
+        [IconKind.RotateCcw] = S("M3 12a9 9 0 1 0 9-9a9.75 9.75 0 0 0-6.74 2.74L3 8 M3 3v5h5"),
+        [IconKind.Sliders] = S("M4 21v-7 M4 10V3 M12 21v-9 M12 8V3 M20 21v-5 M20 12V3 M2 14h4 M10 8h4 M18 16h4"),
+        [IconKind.Activity] = S("M22 12h-4l-3 9L9 3l-3 9H2"),
+        [IconKind.Timer] = S("M10 2h4 M12 14l3-3 M4 14a8 8 0 1 0 16 0a8 8 0 1 0-16 0"),
+        [IconKind.Copy] = S("M10 8h10a2 2 0 0 1 2 2v10a2 2 0 0 1-2 2H10a2 2 0 0 1-2-2V10a2 2 0 0 1 2-2z M4 16c-1.1 0-2-0.9-2-2V4c0-1.1 0.9-2 2-2h10c1.1 0 2 0.9 2 2")
     };
 
-    private static IconShape S(string data, Paint paint = Paint.Stroke)
-    {
-        Geometry geometry = Geometry.Parse(data);
-        geometry.Freeze();
-        return new IconShape(geometry, paint);
-    }
+    private static IconSource S(string data, Paint paint = Paint.Stroke) => new(data, paint);
 }

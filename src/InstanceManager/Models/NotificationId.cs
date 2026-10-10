@@ -33,5 +33,10 @@ public enum NotificationId
     ThemeExported,
     ThemeImported,
     ThemeImportFailed,
-    AppUpdated
+    AppUpdated,
+    SessionsChecked,
+    AutomationRun,
+    ServerHop,
+    SettingProblem,
+    ToolMessage
 }

@@ -1,0 +1,33 @@
+<UserControl x:Class="InstanceManager.Views.Settings.PrivacySettings"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:ui="clr-namespace:InstanceManager.Controls">
+    <StackPanel>
+        <Border Style="{StaticResource SettingsCard}" Padding="18,16">
+            <Grid>
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="*" />
+                    <ColumnDefinition Width="Auto" />
+                </Grid.ColumnDefinitions>
+                <StackPanel Margin="0,0,16,0">
+                    <TextBlock Style="{StaticResource RowTitle}" Text="Everything stays on this PC" />
+                    <TextBlock Style="{StaticResource RowHint}"
+                               Text="Saved logins are encrypted with Windows DPAPI. The app talks to Roblox and to GitHub for updates. There is no telemetry." />
+                    <TextBlock Text="{Binding Settings.DataFolder}" FontSize="11" TextWrapping="Wrap" Margin="0,8,0,0"
+                               Foreground="{DynamicResource Brush.TextMuted}" />
+                </StackPanel>
+                <Button Grid.Column="1" Style="{StaticResource GhostButton}" VerticalAlignment="Top"
+                        Command="{Binding Settings.OpenDataFolderCommand}">
+                    <StackPanel Orientation="Horizontal">
+                        <ui:Icon Kind="FolderOpen" Margin="0,0,7,0" />
+                        <TextBlock Text="Open folder" VerticalAlignment="Center" />
+                    </StackPanel>
+                </Button>
+            </Grid>
+        </Border>
+
+        <TextBlock HorizontalAlignment="Left" Margin="2,0,0,0" FontSize="12" Foreground="{DynamicResource Brush.TextMuted}">
+            <Run Text="Instance Manager" FontWeight="SemiBold" /><Run Text=" " /><Run Text="{Binding AppVersion, Mode=OneWay}" /><Run Text=" · Apache License 2.0 · Run several Roblox accounts at once." />
+        </TextBlock>
+    </StackPanel>
+</UserControl>

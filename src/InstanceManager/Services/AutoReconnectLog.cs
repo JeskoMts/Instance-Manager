@@ -23,6 +23,7 @@ public sealed class AutoReconnectLog
         string where = target.Mode switch
         {
             JoinMode.PrivateByJobId => $"placeId={target.PlaceId} jobId={target.JobId}",
+            JoinMode.PrivateServer => $"placeId={target.PlaceId} private server",
             JoinMode.Home => "home screen",
             _ => $"placeId={target.PlaceId}"
         };
@@ -75,9 +76,15 @@ public sealed class AutoReconnectLog
         for (int i = 0; i < length; i++)
         {
             char c = value[i];
-            builder.Append(char.IsControl(c) ? ' ' : c);
+            builder.Append(IsUnsafeInLog(c) ? ' ' : c);
         }
 
         return builder.ToString();
     }
+
+    private static bool IsUnsafeInLog(char c) =>
+        char.IsControl(c) ||
+        c is (char)0x2028 or (char)0x2029 or (char)0x061C or (char)0x200E or (char)0x200F ||
+        c is >= (char)0x202A and <= (char)0x202E ||
+        c is >= (char)0x2066 and <= (char)0x2069;
 }

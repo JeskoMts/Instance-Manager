@@ -6,7 +6,9 @@ public enum JoinMode
 
     PrivateByJobId,
 
-    Home
+    Home,
+
+    PrivateServer
 }
 
 public sealed class ServerTarget
@@ -17,11 +19,16 @@ public sealed class ServerTarget
 
     public string? JobId { get; init; }
 
+    public string? LinkCode { get; init; }
+
     public static ServerTarget Public(long placeId) =>
         new() { Mode = JoinMode.PublicByLink, PlaceId = placeId };
 
     public static ServerTarget ByJob(long placeId, string jobId) =>
         new() { Mode = JoinMode.PrivateByJobId, PlaceId = placeId, JobId = jobId };
+
+    public static ServerTarget PrivateServer(long placeId, string linkCode) =>
+        new() { Mode = JoinMode.PrivateServer, PlaceId = placeId, LinkCode = linkCode };
 
     public static ServerTarget Home() => new() { Mode = JoinMode.Home, PlaceId = 0 };
 }

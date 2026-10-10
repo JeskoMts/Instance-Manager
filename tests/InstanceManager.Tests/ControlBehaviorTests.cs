@@ -54,7 +54,7 @@ public sealed class ControlBehaviorTests
             panel.Measure(new Size(300, 100));
             panel.Arrange(new Rect(0, 0, 300, 100));
 
-            var ghost = (System.Windows.Media.Imaging.BitmapSource)MainWindow.CreateDragGhost(second).Source;
+            var ghost = (System.Windows.Media.Imaging.BitmapSource)InstanceManager.Behaviors.DragAdorner.CreateGhost(second).Source;
             var pixel = new byte[4];
             ghost.CopyPixels(new Int32Rect(50, 25, 1, 1), pixel, 4, 0);
 

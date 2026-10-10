@@ -1,0 +1,169 @@
+<UserControl x:Class="InstanceManager.Views.Settings.GraphicsSettings"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+    <StackPanel>
+        <TextBlock Style="{StaticResource GroupTitle}" Text="Frame rate" />
+        <Border Style="{StaticResource SettingsCard}">
+            <StackPanel>
+                <Grid Style="{StaticResource SettingRow}">
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="*" />
+                        <ColumnDefinition Width="Auto" />
+                    </Grid.ColumnDefinitions>
+                    <StackPanel VerticalAlignment="Center" Margin="0,0,16,0">
+                        <TextBlock Style="{StaticResource RowTitle}" Text="FPS cap" />
+                        <TextBlock Style="{StaticResource RowHint}" Text="Saved into Roblox's own settings before each launch, the same value as the frame rate option inside Roblox." />
+                    </StackPanel>
+                    <ComboBox Grid.Column="1" Style="{StaticResource ModernComboBox}" Width="200" VerticalAlignment="Center"
+                              ItemsSource="{Binding Graphics.FpsCapChoices}" DisplayMemberPath="Label" SelectedValuePath="Value"
+                              SelectedValue="{Binding Graphics.FpsCap}" />
+                </Grid>
+                <Border Style="{StaticResource RowDivider}" />
+                <Grid Style="{StaticResource SettingRow}">
+                    <StackPanel VerticalAlignment="Center">
+                        <TextBlock Style="{StaticResource RowTitle}" Text="Current Roblox setting" />
+                        <TextBlock Style="{StaticResource RowHint}" Text="{Binding Graphics.RobloxFpsText}" />
+                    </StackPanel>
+                </Grid>
+            </StackPanel>
+        </Border>
+
+        <Grid Margin="2,0,0,10">
+            <TextBlock Style="{StaticResource GroupTitle}" Text="FastFlags" Margin="0" />
+            <TextBlock Text="{Binding Graphics.FlagSummary}" HorizontalAlignment="Right" VerticalAlignment="Center" FontSize="12"
+                       Foreground="{DynamicResource Brush.TextMuted}" />
+        </Grid>
+        <Border Style="{StaticResource SettingsCard}">
+            <StackPanel>
+                <Grid Style="{StaticResource SettingRow}">
+                    <StackPanel VerticalAlignment="Center" Margin="0,0,70,0">
+                        <TextBlock Style="{StaticResource RowTitle}" Text="Apply FastFlags" />
+                        <TextBlock Style="{StaticResource RowHint}" Text="Writes the options below into every Roblox version before launch. Turning it off removes them again." />
+                    </StackPanel>
+                    <CheckBox Style="{StaticResource ToggleSwitch}" HorizontalAlignment="Right"
+                              IsChecked="{Binding Graphics.ApplyFastFlags}" />
+                </Grid>
+                <StackPanel IsEnabled="{Binding Graphics.ApplyFastFlags}" Style="{StaticResource DimWhenDisabled}">
+                    <Border Style="{StaticResource RowDivider}" />
+                    <Grid Style="{StaticResource SettingRow}">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="*" />
+                            <ColumnDefinition Width="Auto" />
+                        </Grid.ColumnDefinitions>
+                        <StackPanel VerticalAlignment="Center" Margin="0,0,16,0">
+                            <TextBlock Style="{StaticResource RowTitle}" Text="Graphics API" />
+                            <TextBlock Style="{StaticResource RowHint}" Text="Direct3D 11 is the most compatible. Vulkan or OpenGL can help on some graphics cards." />
+                        </StackPanel>
+                        <ComboBox Grid.Column="1" Style="{StaticResource ModernComboBox}" Width="200" VerticalAlignment="Center"
+                                  ItemsSource="{Binding Graphics.GraphicsApiChoices}" DisplayMemberPath="Label" SelectedValuePath="Value"
+                                  SelectedValue="{Binding Graphics.GraphicsApi}" />
+                    </Grid>
+                    <Border Style="{StaticResource RowDivider}" />
+                    <Grid Style="{StaticResource SettingRow}">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="*" />
+                            <ColumnDefinition Width="Auto" />
+                        </Grid.ColumnDefinitions>
+                        <StackPanel VerticalAlignment="Center" Margin="0,0,16,0">
+                            <TextBlock Style="{StaticResource RowTitle}" Text="Graphics quality" />
+                            <TextBlock Style="{StaticResource RowHint}" Text="Locks the quality level. Automatic lets Roblox adjust it." />
+                        </StackPanel>
+                        <ComboBox Grid.Column="1" Style="{StaticResource ModernComboBox}" Width="200" VerticalAlignment="Center"
+                                  ItemsSource="{Binding Graphics.QualityChoices}" DisplayMemberPath="Label" SelectedValuePath="Value"
+                                  SelectedValue="{Binding Graphics.GraphicsQuality}" />
+                    </Grid>
+                    <Border Style="{StaticResource RowDivider}" />
+                    <Grid Style="{StaticResource SettingRow}">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="*" />
+                            <ColumnDefinition Width="Auto" />
+                        </Grid.ColumnDefinitions>
+                        <StackPanel VerticalAlignment="Center" Margin="0,0,16,0">
+                            <TextBlock Style="{StaticResource RowTitle}" Text="Anti-aliasing" />
+                            <TextBlock Style="{StaticResource RowHint}" Text="Smooths edges. Higher values cost more GPU time." />
+                        </StackPanel>
+                        <ComboBox Grid.Column="1" Style="{StaticResource ModernComboBox}" Width="200" VerticalAlignment="Center"
+                                  ItemsSource="{Binding Graphics.AntiAliasingChoices}" DisplayMemberPath="Label" SelectedValuePath="Value"
+                                  SelectedValue="{Binding Graphics.AntiAliasing}" />
+                    </Grid>
+                    <Border Style="{StaticResource RowDivider}" />
+                    <Grid Style="{StaticResource SettingRow}">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="*" />
+                            <ColumnDefinition Width="Auto" />
+                        </Grid.ColumnDefinitions>
+                        <StackPanel VerticalAlignment="Center" Margin="0,0,16,0">
+                            <TextBlock Style="{StaticResource RowTitle}" Text="Texture quality" />
+                            <TextBlock Style="{StaticResource RowHint}" Text="Lower quality saves video memory when many clients run." />
+                        </StackPanel>
+                        <ComboBox Grid.Column="1" Style="{StaticResource ModernComboBox}" Width="200" VerticalAlignment="Center"
+                                  ItemsSource="{Binding Graphics.TextureChoices}" DisplayMemberPath="Label" SelectedValuePath="Value"
+                                  SelectedValue="{Binding Graphics.TextureQuality}" />
+                    </Grid>
+                    <Border Style="{StaticResource RowDivider}" />
+                    <Grid Style="{StaticResource SettingRow}">
+                        <StackPanel VerticalAlignment="Center" Margin="0,0,70,0">
+                            <TextBlock Style="{StaticResource RowTitle}" Text="Ignore display scaling" />
+                            <TextBlock Style="{StaticResource RowHint}" Text="Renders at full resolution on high-DPI screens." />
+                        </StackPanel>
+                        <CheckBox Style="{StaticResource ToggleSwitch}" HorizontalAlignment="Right" IsChecked="{Binding Graphics.IgnoreDisplayScaling}" />
+                    </Grid>
+                    <Border Style="{StaticResource RowDivider}" />
+                    <Grid Style="{StaticResource SettingRow}">
+                        <StackPanel VerticalAlignment="Center" Margin="0,0,70,0">
+                            <TextBlock Style="{StaticResource RowTitle}" Text="Hide grass" />
+                            <TextBlock Style="{StaticResource RowHint}" Text="Removes terrain grass for a higher frame rate." />
+                        </StackPanel>
+                        <CheckBox Style="{StaticResource ToggleSwitch}" HorizontalAlignment="Right" IsChecked="{Binding Graphics.HideGrass}" />
+                    </Grid>
+                    <Border Style="{StaticResource RowDivider}" />
+                    <Grid Style="{StaticResource SettingRow}">
+                        <StackPanel VerticalAlignment="Center" Margin="0,0,70,0">
+                            <TextBlock Style="{StaticResource RowTitle}" Text="Gray sky" />
+                            <TextBlock Style="{StaticResource RowHint}" Text="Replaces the sky with plain gray." />
+                        </StackPanel>
+                        <CheckBox Style="{StaticResource ToggleSwitch}" HorizontalAlignment="Right" IsChecked="{Binding Graphics.GraySky}" />
+                    </Grid>
+                    <Border Style="{StaticResource RowDivider}" />
+                    <Grid Style="{StaticResource SettingRow}">
+                        <StackPanel VerticalAlignment="Center" Margin="0,0,70,0">
+                            <TextBlock Style="{StaticResource RowTitle}" Text="Freeze lighting" />
+                            <TextBlock Style="{StaticResource RowHint}" Text="Pauses lighting updates to save CPU. Light no longer changes while you play." />
+                        </StackPanel>
+                        <CheckBox Style="{StaticResource ToggleSwitch}" HorizontalAlignment="Right" IsChecked="{Binding Graphics.FreezeLighting}" />
+                    </Grid>
+                    <Border Style="{StaticResource RowDivider}" />
+                    <Grid Style="{StaticResource SettingRow}">
+                        <StackPanel VerticalAlignment="Center" Margin="0,0,70,0">
+                            <TextBlock Style="{StaticResource RowTitle}" Text="Exclusive fullscreen with Alt+Enter" />
+                            <TextBlock Style="{StaticResource RowHint}" Text="Alt+Enter switches to exclusive fullscreen, which can lower input lag." />
+                        </StackPanel>
+                        <CheckBox Style="{StaticResource ToggleSwitch}" HorizontalAlignment="Right" IsChecked="{Binding Graphics.ExclusiveFullscreen}" />
+                    </Grid>
+                    <Border Style="{StaticResource RowDivider}" />
+                    <StackPanel Margin="0,12,0,14">
+                        <TextBlock Style="{StaticResource RowTitle}" Text="Custom flags" />
+                        <TextBlock Style="{StaticResource RowHint}" Text="A JSON object with more flags. Flags that aren't on Roblox's allowlist are skipped and listed here." />
+                        <TextBox Style="{StaticResource MultilineTextBox}" Height="110" Margin="0,10,0,0"
+                                 Text="{Binding Graphics.CustomFastFlags, UpdateSourceTrigger=PropertyChanged, Delay=600}" />
+                        <TextBlock Text="{Binding Graphics.CustomFlagsMessage}" FontSize="12" TextWrapping="Wrap" Margin="0,6,0,0">
+                            <TextBlock.Style>
+                                <Style TargetType="TextBlock">
+                                    <Setter Property="Foreground" Value="{DynamicResource Brush.TextMuted}" />
+                                    <Style.Triggers>
+                                        <DataTrigger Binding="{Binding Graphics.CustomFlagsHasError}" Value="True">
+                                            <Setter Property="Foreground" Value="{DynamicResource Brush.Danger}" />
+                                        </DataTrigger>
+                                        <DataTrigger Binding="{Binding Graphics.CustomFlagsMessage}" Value="{x:Null}">
+                                            <Setter Property="Visibility" Value="Collapsed" />
+                                        </DataTrigger>
+                                    </Style.Triggers>
+                                </Style>
+                            </TextBlock.Style>
+                        </TextBlock>
+                    </StackPanel>
+                </StackPanel>
+            </StackPanel>
+        </Border>
+    </StackPanel>
+</UserControl>

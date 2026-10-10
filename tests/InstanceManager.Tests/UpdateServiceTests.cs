@@ -15,14 +15,16 @@ namespace InstanceManager.Tests;
 
 public sealed class UpdateServiceTests : IDisposable
 {
-    private const string DownloadUrl = "https://github.com/JeskoMts/Instance-Manager/releases/download/1.2.0/InstanceManager-1.2.0.zip";
+    private const string DownloadRoot = "https://github.com/JeskoMts/Instance-Manager/releases/download/1.2.0/";
+    private const string DownloadUrl = DownloadRoot + "InstanceManager-1.2.0.zip";
     private readonly string _appDir = Path.Combine(Path.GetTempPath(), "im-update-" + Guid.NewGuid().ToString("N"));
+    private readonly string _exe;
 
     public UpdateServiceTests()
     {
         Directory.CreateDirectory(_appDir);
-        File.WriteAllText(Path.Combine(_appDir, "InstanceManager.exe"), "old exe");
-        File.WriteAllText(Path.Combine(_appDir, "InstanceManager.dll"), "old dll");
+        _exe = Path.Combine(_appDir, "Instance Manager.exe");
+        File.WriteAllText(_exe, "old exe");
     }
 
     public void Dispose()
@@ -32,9 +34,9 @@ public sealed class UpdateServiceTests : IDisposable
     }
 
     [Fact]
-    public async Task DownloadAsync_NewerRelease_FollowsGitHubRedirectAndStagesVerifiedPackage()
+    public async Task DownloadAsync_NewerRelease_FollowsGitHubRedirectAndReplacesOnlyTheRunningExe()
     {
-        byte[] package = Zip(("InstanceManager.exe", "new exe"), ("InstanceManager.dll", "new dll"), ("Extra.dll", "extra"));
+        byte[] package = Zip(("Instance Manager.exe", "new exe"));
         var requests = new List<Uri>();
         var http = new HttpClient(new StubHandler(request =>
         {
@@ -42,7 +44,7 @@ public sealed class UpdateServiceTests : IDisposable
             Assert.Contains("InstanceManager", request.Headers.UserAgent.ToString(), StringComparison.Ordinal);
             return request.RequestUri!.Host switch
             {
-                "api.github.com" => Json(ReleaseJson("1.2.0", DownloadUrl, Sha256(package))),
+                "api.github.com" => Json(ReleaseJson("1.2.0", (Url: DownloadUrl, Digest: "sha256:" + Sha256(package)))),
                 "github.com" => new HttpResponseMessage(HttpStatusCode.Found)
                 {
                     Headers = { Location = new Uri("https://release-assets.githubusercontent.com/asset?sig=1") }
@@ -51,34 +53,69 @@ public sealed class UpdateServiceTests : IDisposable
                 _ => throw new InvalidOperationException(request.RequestUri.ToString())
             };
         }));
-        var updater = new UpdateService(http, _appDir, new Version(1, 1, 1, 0));
+        var updater = new UpdateService(http, _exe, new Version(1, 1, 1, 0), isSingleFile: true);
 
         Version? next = await updater.DownloadAsync();
 
         Assert.Equal(new Version(1, 2, 0), next);
+        Assert.Equal(DownloadUrl, requests[1].ToString());
         Assert.Equal(3, requests.Count);
         Assert.True(updater.Apply());
-        Assert.Equal("new exe", File.ReadAllText(Path.Combine(_appDir, "InstanceManager.exe")));
-        Assert.Equal("extra", File.ReadAllText(Path.Combine(_appDir, "Extra.dll")));
-        Assert.Equal("old exe", File.ReadAllText(Path.Combine(_appDir, "InstanceManager.exe.im-old")));
+        Assert.Equal("new exe", File.ReadAllText(_exe));
+        Assert.Equal("old exe", File.ReadAllText(_exe + ".im-old"));
+        Assert.Equal(new[] { _exe, _exe + ".im-old" }, Sorted(Directory.GetFiles(_appDir)));
 
         updater.CleanupPreviousUpdate();
-        Assert.False(File.Exists(Path.Combine(_appDir, "InstanceManager.exe.im-old")));
+        Assert.False(File.Exists(_exe + ".im-old"));
         Assert.False(Directory.Exists(Path.Combine(_appDir, ".im-update")));
+    }
+
+    [Fact]
+    public async Task DownloadAsync_RenamedExe_KeepsTheRunningFileNameAndIgnoresExtraEntries()
+    {
+        string renamed = Path.Combine(_appDir, "My Alts.exe");
+        File.Move(_exe, renamed);
+        byte[] package = Zip(("Instance Manager.exe", "new exe"), ("InstanceManager.dll", "stray dll"));
+        var http = new HttpClient(new StubHandler(request => request.RequestUri!.Host == "api.github.com"
+            ? Json(ReleaseJson("1.2.0", (Url: DownloadUrl, Digest: "sha256:" + Sha256(package))))
+            : new HttpResponseMessage(HttpStatusCode.OK) { Content = new ByteArrayContent(package) }));
+        var updater = new UpdateService(http, renamed, new Version(1, 1, 2), isSingleFile: true);
+
+        Assert.Equal(new Version(1, 2, 0), await updater.DownloadAsync());
+        Assert.True(updater.Apply());
+
+        Assert.Equal("new exe", File.ReadAllText(renamed));
+        Assert.False(File.Exists(_exe));
+        Assert.False(File.Exists(Path.Combine(_appDir, "InstanceManager.dll")));
+    }
+
+    [Fact]
+    public async Task DownloadAsync_NotSingleFileBuild_NeverContactsGitHub()
+    {
+        int calls = 0;
+        var http = new HttpClient(new StubHandler(_ =>
+        {
+            calls++;
+            return new HttpResponseMessage(HttpStatusCode.OK);
+        }));
+        var updater = new UpdateService(http, _exe, new Version(1, 1, 2), isSingleFile: false);
+
+        Assert.Null(await updater.DownloadAsync());
+        Assert.Equal(0, calls);
     }
 
     [Fact]
     public async Task DownloadAsync_DigestMismatch_StagesNothing()
     {
-        byte[] package = Zip(("InstanceManager.exe", "new exe"), ("InstanceManager.dll", "new dll"));
+        byte[] package = Zip(("Instance Manager.exe", "new exe"));
         var http = new HttpClient(new StubHandler(request => request.RequestUri!.Host == "api.github.com"
-            ? Json(ReleaseJson("1.2.0", DownloadUrl, new string('0', 64)))
+            ? Json(ReleaseJson("1.2.0", (Url: DownloadUrl, Digest: "sha256:" + new string('0', 64))))
             : new HttpResponseMessage(HttpStatusCode.OK) { Content = new ByteArrayContent(package) }));
-        var updater = new UpdateService(http, _appDir, new Version(1, 1, 1));
+        var updater = new UpdateService(http, _exe, new Version(1, 1, 1), isSingleFile: true);
 
         Assert.Null(await updater.DownloadAsync());
         Assert.False(updater.Apply());
-        Assert.Equal("old exe", File.ReadAllText(Path.Combine(_appDir, "InstanceManager.exe")));
+        Assert.Equal("old exe", File.ReadAllText(_exe));
     }
 
     [Fact]
@@ -88,22 +125,40 @@ public sealed class UpdateServiceTests : IDisposable
         var http = new HttpClient(new StubHandler(_ =>
         {
             calls++;
-            return Json(ReleaseJson("1.1.1", DownloadUrl.Replace("1.2.0", "1.1.1"), new string('0', 64)));
+            return Json(ReleaseJson("1.1.2", (Url: DownloadUrl.Replace("1.2.0", "1.1.2"), Digest: "sha256:00")));
         }));
-        var updater = new UpdateService(http, _appDir, new Version(1, 1, 1, 0));
+        var updater = new UpdateService(http, _exe, new Version(1, 1, 2, 0), isSingleFile: true);
 
         Assert.Null(await updater.DownloadAsync());
         Assert.Equal(1, calls);
     }
 
     [Theory]
-    [InlineData("https://evil.example/InstanceManager-1.2.0.zip", "sha256:" + "00")]
+    [InlineData("https://evil.example/InstanceManager-1.2.0.zip", "sha256:00")]
     [InlineData(DownloadUrl, null)]
+    [InlineData("https://github.com/JeskoMts/Instance-Manager/releases/download/../../../../evil/fork/releases/download/1.2.0/InstanceManager-1.2.0.zip", "sha256:00")]
+    [InlineData("https://github.com/JeskoMts/Instance-Manager/releases/download/%2e%2e/%2e%2e/%2e%2e/%2e%2e/evil/fork/releases/download/1.2.0/InstanceManager-1.2.0.zip", "sha256:00")]
     public void TryParseRelease_RejectsForeignUrlOrMissingDigest(string url, string? digest)
     {
-        byte[] json = Encoding.UTF8.GetBytes(ReleaseJsonRaw("1.2.0", url, digest));
+        byte[] json = Encoding.UTF8.GetBytes(ReleaseJson("1.2.0", (Url: url, Digest: digest)));
 
         Assert.False(UpdateService.TryParseRelease(json, out _));
+    }
+
+    [Fact]
+    public void TryParseRelease_IgnoresAssetsWithOtherNames()
+    {
+        string json = ReleaseJson("1.2.0", (Url: DownloadRoot + "Instance.Manager.1.2.0.zip", Digest: "sha256:00"))
+            .Replace("\"InstanceManager-1.2.0.zip\"", "\"Instance.Manager.1.2.0.zip\"", StringComparison.Ordinal);
+
+        Assert.False(UpdateService.TryParseRelease(Encoding.UTF8.GetBytes(json), out _));
+    }
+
+    [Fact]
+    public void PackageName_MatchesTheReleaseAsset()
+    {
+        Assert.Equal("InstanceManager-1.1.2.zip", UpdateService.PackageName("1.1.2"));
+        Assert.Equal("Instance Manager.exe", UpdateService.ExecutableName);
     }
 
     [Theory]
@@ -116,49 +171,209 @@ public sealed class UpdateServiceTests : IDisposable
         Assert.Equal(allowed, UpdateService.IsAllowedDownloadUri(new Uri(url)));
 
     [Theory]
-    [InlineData("../InstanceManager.exe")]
-    [InlineData("sub/InstanceManager.exe")]
-    [InlineData("InstanceManager.exe:stream")]
+    [InlineData("../Instance Manager.exe")]
+    [InlineData("sub/Instance Manager.exe")]
+    [InlineData("Instance Manager.exe:stream")]
     public void Stage_RejectsUnsafeEntryNames(string name)
     {
-        var updater = new UpdateService(new HttpClient(), _appDir, new Version(1, 1, 1));
+        var updater = new UpdateService(new HttpClient(), _exe, new Version(1, 1, 1), isSingleFile: true);
 
-        Assert.False(updater.Stage(Zip((name, "x"), ("InstanceManager.dll", "new dll"))));
+        Assert.False(updater.Stage(Zip((name, "x"), ("Instance Manager.exe", "new exe"))));
         Assert.False(Directory.Exists(Path.Combine(_appDir, ".im-update")));
     }
 
     [Fact]
     public void Stage_RejectsPackageWithoutExecutable()
     {
-        var updater = new UpdateService(new HttpClient(), _appDir, new Version(1, 1, 1));
+        var updater = new UpdateService(new HttpClient(), _exe, new Version(1, 1, 1), isSingleFile: true);
 
         Assert.False(updater.Stage(Zip(("InstanceManager.dll", "new dll"))));
+        Assert.False(updater.Stage(Zip(("Instance Manager.exe", ""))));
     }
 
     [Fact]
-    public void Apply_FailureRestoresEveryOriginalFile()
+    public void Apply_FailureKeepsTheOriginalExe()
     {
-        var updater = new UpdateService(new HttpClient(), _appDir, new Version(1, 1, 1));
-        Assert.True(updater.Stage(Zip(("InstanceManager.exe", "new exe"), ("InstanceManager.dll", "new dll"))));
-        string blockedBackup = Path.Combine(_appDir, "InstanceManager.exe.im-old");
+        var updater = new UpdateService(new HttpClient(), _exe, new Version(1, 1, 1), isSingleFile: true);
+        Assert.True(updater.Stage(Zip(("Instance Manager.exe", "new exe"))));
+        string blockedBackup = _exe + ".im-old";
         File.WriteAllText(blockedBackup, "locked");
 
         using (new FileStream(blockedBackup, FileMode.Open, FileAccess.Read, FileShare.None))
             Assert.False(updater.Apply());
 
-        Assert.Equal("old exe", File.ReadAllText(Path.Combine(_appDir, "InstanceManager.exe")));
-        Assert.Equal("old dll", File.ReadAllText(Path.Combine(_appDir, "InstanceManager.dll")));
+        Assert.Equal("old exe", File.ReadAllText(_exe));
     }
 
-    private static string ReleaseJson(string tag, string url, string sha256) => ReleaseJsonRaw(tag, url, "sha256:" + sha256);
+    [Theory]
+    [InlineData("Instance Manager.exe")]
+    [InlineData("InstanceManager.exe")]
+    public void CleanupPreviousUpdate_InAnOldFolderInstall_RemovesTheOldFilesButNotItself(string runningName)
+    {
+        File.Delete(_exe);
+        string running = Path.Combine(_appDir, runningName);
+        File.WriteAllText(running, "single-file 1.1.2");
+        string[] leftovers =
+        {
+            "InstanceManager.exe", "CommunityToolkit.Mvvm.dll", "InstanceManager.dll", "InstanceManager.deps.json",
+            "InstanceManager.runtimeconfig.json", "Microsoft.Web.WebView2.Core.dll", "WebView2Loader.dll",
+            "THIRD-PARTY-NOTICES.md", "InstanceManager.dll.im-old"
+        };
+        foreach (string name in leftovers)
+        {
+            string path = Path.Combine(_appDir, name);
+            if (!string.Equals(path, running, StringComparison.OrdinalIgnoreCase))
+                File.WriteAllText(path, name);
+        }
+        File.WriteAllText(Path.Combine(_appDir, "notes.txt"), "mine");
 
-    private static string ReleaseJsonRaw(string tag, string url, string? digest) =>
-        $$"""
-        {"tag_name":"{{tag}}","assets":[
-          {"name":"InstanceManager-Source-Code-{{tag}}.zip","browser_download_url":"https://github.com/JeskoMts/Instance-Manager/releases/download/{{tag}}/src.zip","digest":"sha256:00"},
-          {"name":"InstanceManager-{{tag}}.zip","browser_download_url":"{{url}}"{{(digest is null ? "" : $",\"digest\":\"{digest}\"")}}}
-        ]}
-        """;
+        new UpdateService(new HttpClient(), running, new Version(1, 1, 2), isSingleFile: true).CleanupPreviousUpdate();
+
+        Assert.Equal(
+            Sorted(new[] { running, Path.Combine(_appDir, "notes.txt") }),
+            Sorted(Directory.GetFiles(_appDir)));
+        Assert.Equal("single-file 1.1.2", File.ReadAllText(running));
+    }
+
+    [Theory]
+    [InlineData(true, false)]
+    [InlineData(false, true)]
+    public void CleanupPreviousUpdate_WithoutAnOldInstallOrFromSource_LeavesOtherFilesAlone(bool isSingleFile, bool withMarker)
+    {
+        string oldExe = Path.Combine(_appDir, "InstanceManager.exe");
+        string oldDll = Path.Combine(_appDir, "InstanceManager.dll");
+        File.WriteAllText(oldExe, "other exe");
+        File.WriteAllText(oldDll, "dll");
+        if (withMarker)
+            File.WriteAllText(Path.Combine(_appDir, "InstanceManager.deps.json"), "{}");
+
+        new UpdateService(new HttpClient(), _exe, new Version(1, 1, 2), isSingleFile).CleanupPreviousUpdate();
+
+        Assert.True(File.Exists(oldExe));
+        Assert.True(File.Exists(oldDll));
+    }
+
+    [Fact]
+    public async Task CheckAsync_WithPrereleases_PicksTheNewestPublishedRelease()
+    {
+        byte[] package = Zip(("Instance Manager.exe", "new exe"));
+        string digest = "sha256:" + Sha256(package);
+        string stable = ReleaseJson("1.2.0", (DownloadUrl, digest));
+        string beta = ReleaseJson("1.3.0", (DownloadRoot.Replace("1.2.0", "1.3.0") + "InstanceManager-1.3.0.zip", digest))
+            .Replace("{\"tag_name\"", "{\"prerelease\":true,\"tag_name\"");
+        string draft = ReleaseJson("1.4.0", (DownloadRoot.Replace("1.2.0", "1.4.0") + "InstanceManager-1.4.0.zip", digest))
+            .Replace("{\"tag_name\"", "{\"draft\":true,\"tag_name\"");
+        var requests = new List<Uri>();
+        var http = new HttpClient(new StubHandler(request =>
+        {
+            requests.Add(request.RequestUri!);
+            return request.RequestUri!.AbsolutePath.EndsWith("/latest", StringComparison.Ordinal)
+                ? Json(stable)
+                : Json($"[{stable},{beta},{draft}]");
+        }));
+        var updater = new UpdateService(http, _exe, new Version(1, 1, 2), isSingleFile: true);
+
+        UpdateService.ReleaseInfo? latest = await updater.CheckAsync(includePrereleases: false);
+        UpdateService.ReleaseInfo? newest = await updater.CheckAsync(includePrereleases: true);
+
+        Assert.Equal(new Version(1, 2, 0), latest?.Version);
+        Assert.False(latest!.IsPrerelease);
+        Assert.Equal(new Version(1, 3, 0), newest?.Version);
+        Assert.True(newest!.IsPrerelease);
+        Assert.Contains("per_page", requests[1].Query, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public async Task CheckAsync_GitHubError_IsReportedInsteadOfLookingUpToDate()
+    {
+        var http = new HttpClient(new StubHandler(_ => new HttpResponseMessage(HttpStatusCode.Forbidden)));
+        var updater = new UpdateService(http, _exe, new Version(1, 1, 2), isSingleFile: true);
+
+        await Assert.ThrowsAsync<HttpRequestException>(() => updater.CheckAsync(includePrereleases: false));
+    }
+
+    [Fact]
+    public void KeepCurrentVersion_StoresOneCopyThatCanBeRolledBackTo()
+    {
+        string kept = Path.Combine(_appDir, "previous");
+        Directory.CreateDirectory(kept);
+        File.WriteAllText(Path.Combine(kept, "Instance Manager 1.0.0.exe"), "ancient");
+        var updater = new UpdateService(new HttpClient(), _exe, new Version(1, 1, 2, 0), isSingleFile: true);
+
+        Assert.True(updater.KeepCurrentVersion(kept));
+
+        (Version Version, string Path)? found = UpdateService.FindKeptVersion(kept);
+        Assert.NotNull(found);
+        (Version version, string path) = found.Value;
+        Assert.Equal(new Version(1, 1, 2), version);
+        Assert.Equal(new[] { Path.Combine(kept, "Instance Manager 1.1.2.exe") }, Directory.GetFiles(kept));
+
+        File.WriteAllText(_exe, "newer exe");
+        Assert.True(updater.StageLocal(path));
+        Assert.True(updater.HasStagedUpdate);
+        Assert.True(updater.Apply());
+        Assert.Equal("old exe", File.ReadAllText(_exe));
+        Assert.Null(UpdateService.FindKeptVersion(Path.Combine(_appDir, "missing")));
+    }
+
+    [Fact]
+    public async Task SkippingAReadyUpdate_DiscardsItSoNothingInstallsOnExit()
+    {
+        byte[] package = Zip(("Instance Manager.exe", "new exe"));
+        int downloads = 0;
+        var http = new HttpClient(new StubHandler(request =>
+        {
+            if (request.RequestUri!.Host == "api.github.com")
+                return Json(ReleaseJson("1.2.0", (DownloadUrl, "sha256:" + Sha256(package))));
+            downloads++;
+            return new HttpResponseMessage(HttpStatusCode.OK) { Content = new ByteArrayContent(package) };
+        }));
+        var updater = new UpdateService(http, _exe, new Version(1, 1, 2), isSingleFile: true);
+        var settings = new UpdateSettings();
+        var vm = new InstanceManager.ViewModels.UpdatesViewModel(updater, settings, new SilentShell(), Path.Combine(_appDir, "previous"));
+
+        await vm.CheckAsync(startup: false, manual: true);
+        Assert.True(vm.IsUpdateReady);
+        Assert.True(updater.HasStagedUpdate);
+
+        vm.SkipVersionCommand.Execute(null);
+
+        Assert.False(vm.IsUpdateReady);
+        Assert.False(updater.HasStagedUpdate);
+        Assert.Equal("1.2.0", settings.Settings.SkippedUpdateVersion);
+        Assert.False(vm.ApplyOnExit());
+        Assert.Equal("old exe", File.ReadAllText(_exe));
+
+        await vm.CheckAsync(startup: false, manual: false);
+        Assert.False(vm.IsUpdateReady);
+        Assert.Equal(1, downloads);
+    }
+
+    private sealed class UpdateSettings : InstanceManager.Storage.ISettingsService
+    {
+        public InstanceManager.Models.AppSettings Settings { get; } = new();
+        public void Save() { }
+    }
+
+    private sealed class SilentShell : InstanceManager.ViewModels.IShellCoordinator
+    {
+        public Task LaunchAsync(IReadOnlyList<InstanceManager.Models.Account> accounts) => Task.CompletedTask;
+        public void SetStatus(string message) { }
+    }
+
+    private static string[] Sorted(string[] paths)
+    {
+        Array.Sort(paths, StringComparer.OrdinalIgnoreCase);
+        return paths;
+    }
+
+    private static string ReleaseJson(string tag, (string Url, string? Digest) package)
+    {
+        string source = $$"""{"name":"InstanceManager-Source-Code-{{tag}}.zip","browser_download_url":"https://github.com/JeskoMts/Instance-Manager/releases/download/{{tag}}/src.zip","digest":"sha256:00"}""";
+        string digestJson = package.Digest is null ? "" : $",\"digest\":\"{package.Digest}\"";
+        string app = $$"""{"name":"InstanceManager-{{tag}}.zip","browser_download_url":"{{package.Url}}"{{digestJson}}}""";
+        return $$"""{"tag_name":"{{tag}}","assets":[{{source}},{{app}}]}""";
+    }
 
     private static HttpResponseMessage Json(string json) =>
         new(HttpStatusCode.OK) { Content = new StringContent(json, Encoding.UTF8, "application/json") };

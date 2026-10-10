@@ -16,6 +16,14 @@ public enum RobloxSessionSignal
 
 public static class RobloxLogClassifier
 {
+    private static readonly string[] IgnoredChannels =
+    {
+        "log::httptrace",
+        "log::websockettrace",
+        "log::signalrcore",
+        "log::creator",
+    };
+
     private static readonly string[] KickMarkers =
     {
         "error code: 267",
@@ -96,6 +104,13 @@ public static class RobloxLogClassifier
         "leaving game",
     };
 
+    private static readonly string[] ClientLeaveMarkers =
+    {
+        "disconnectclientinitiated",
+        "sending disconnect with reason: 285",
+        "disconnect reason received: 285",
+    };
+
     public static RobloxSessionSignal? Classify(string? line)
     {
         if (string.IsNullOrWhiteSpace(line))
@@ -109,8 +124,13 @@ public static class RobloxLogClassifier
         {
             ReadOnlySpan<char> text = buffer[..line.AsSpan().ToLowerInvariant(buffer)];
 
+            if (ContainsAny(Channel(text), IgnoredChannels))
+                return null;
+
             if (ContainsAny(text, KickMarkers))
                 return RobloxSessionSignal.Kicked;
+            if (ContainsAny(text, ClientLeaveMarkers))
+                return RobloxSessionSignal.GracefulLeave;
             if (ContainsAny(text, ErrorMarkers))
                 return RobloxSessionSignal.Error;
             if (ContainsAny(text, GracefulLeaveMarkers))
@@ -125,6 +145,16 @@ public static class RobloxLogClassifier
             if (rented != null)
                 ArrayPool<char>.Shared.Return(rented);
         }
+    }
+
+    private static ReadOnlySpan<char> Channel(ReadOnlySpan<char> text)
+    {
+        int open = text.IndexOf('[');
+        if (open < 0)
+            return default;
+
+        int length = text[open..].IndexOf(']');
+        return length < 0 ? default : text.Slice(open, length + 1);
     }
 
     private static bool ContainsAny(ReadOnlySpan<char> text, string[] markers)

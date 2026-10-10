@@ -14,6 +14,7 @@ public sealed partial class ToastViewModel : ObservableObject
 
     public Action? UndoAction { get; init; }
     public bool CanUndo => UndoAction != null;
+    public string ActionLabel { get; init; } = "Undo";
 
     [ObservableProperty] private bool isClosing;
 

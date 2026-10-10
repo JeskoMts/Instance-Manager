@@ -97,6 +97,37 @@ public class RobloxAuthServiceTests
         Assert.Equal(0, calls);
     }
 
+    [Theory]
+    [InlineData(HttpStatusCode.OK, "{\"id\":42,\"name\":\"alt\"}", SessionStatus.Valid)]
+    [InlineData(HttpStatusCode.OK, "{\"id\":7,\"name\":\"other\"}", SessionStatus.Expired)]
+    [InlineData(HttpStatusCode.Unauthorized, "", SessionStatus.Expired)]
+    [InlineData(HttpStatusCode.Forbidden, "", SessionStatus.Expired)]
+    [InlineData(HttpStatusCode.InternalServerError, "", SessionStatus.Unknown)]
+    [InlineData(HttpStatusCode.OK, "not json", SessionStatus.Unknown)]
+    public async Task CheckSessionAsync_TellsValidExpiredAndUnknownApart(HttpStatusCode status, string body, SessionStatus expected)
+    {
+        string? sentCookie = null;
+        using var http = new HttpClient(new FakeHandler(request =>
+        {
+            Assert.Equal("users.roblox.com", request.RequestUri!.Host);
+            sentCookie = string.Join(";", request.Headers.GetValues("Cookie"));
+            return new HttpResponseMessage(status) { Content = new StringContent(body, System.Text.Encoding.UTF8, "application/json") };
+        }));
+
+        SessionStatus result = await new RobloxAuthService(http).CheckSessionAsync("cookie-value", 42);
+
+        Assert.Equal(expected, result);
+        Assert.Equal(".ROBLOSECURITY=cookie-value", sentCookie);
+    }
+
+    [Fact]
+    public async Task CheckSessionAsync_BrokenCookieIsExpiredWithoutAsking()
+    {
+        using var http = new HttpClient(new FakeHandler(_ => throw new InvalidOperationException("no request expected")));
+
+        Assert.Equal(SessionStatus.Expired, await new RobloxAuthService(http).CheckSessionAsync("bad\r\ncookie", 42));
+    }
+
     private sealed class FakeHandler : HttpMessageHandler
     {
         private readonly Func<HttpRequestMessage, HttpResponseMessage> _factory;

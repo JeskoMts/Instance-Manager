@@ -227,6 +227,148 @@ public sealed class LaunchPanelPrimaryFavoriteTests
     }
 
     [Fact]
+    public async Task AddFavorite_SuggestsTheGameNameInsteadOfThePlaceId()
+    {
+        var favorites = new FakeFavoriteRepository();
+        var dialogs = new FakeDialogService { PromptResult = "Mine" };
+        var games = new FakeGamesService { Name = "Grow a Garden 2" };
+        var vm = new LaunchPanelViewModel(favorites, new FakeSettingsService(), dialogs, new FakeShell(),
+            new FakeServerLinkResolver(), games);
+        vm.TargetInput = "https://www.roblox.com/games/126884695634066/Grow-a-Garden";
+
+        await vm.AddFavoriteCommand.ExecuteAsync(null);
+
+        Assert.Equal(126884695634066, games.LastPlaceId);
+        Assert.Equal("Grow a Garden 2", dialogs.LastPromptInitialValue);
+        Assert.Equal("Mine", Assert.Single(vm.Favorites).Name);
+    }
+
+    [Theory]
+    [InlineData("Grow a Garden 2", "Grow a Garden 2")]
+    [InlineData("[✨BONUS] Forsaken", "Forsaken")]
+    [InlineData("[🍓] [UPD] Ride A Pet", "Ride A Pet")]
+    [InlineData("(BETA) Drive A Kukirin!", "Drive A Kukirin!")]
+    [InlineData("🍅 Grow a Garden 🌱", "Grow a Garden")]
+    [InlineData("99 Nights in the Forest 🚀", "99 Nights in the Forest")]
+    [InlineData("Cold War [APC]", "Cold War [APC]")]
+    [InlineData("[UPDATE]", "[UPDATE]")]
+    public void CleanGameName_DropsUpdateTagsAndEdgeEmoji(string raw, string expected)
+    {
+        Assert.Equal(expected, LaunchPanelViewModel.CleanGameName(raw));
+    }
+
+    [Fact]
+    public async Task AddFavorite_FallsBackToPlaceId_WhenTheNameCantBeLoaded()
+    {
+        var dialogs = new FakeDialogService { PromptResult = "Saved" };
+        var vm = new LaunchPanelViewModel(new FakeFavoriteRepository(), new FakeSettingsService(), dialogs, new FakeShell(),
+            new FakeServerLinkResolver(), new FakeGamesService());
+        vm.TargetInput = "123";
+
+        await vm.AddFavoriteCommand.ExecuteAsync(null);
+
+        Assert.Equal("Game 123", dialogs.LastPromptInitialValue);
+    }
+
+    [Fact]
+    public async Task AddFavorite_UsesTheNameOfAGamePickedOnTheGamesTab_WithoutALookup()
+    {
+        var dialogs = new FakeDialogService { PromptResult = "Saved" };
+        var games = new FakeGamesService { Name = "Other" };
+        var vm = new LaunchPanelViewModel(new FakeFavoriteRepository(), new FakeSettingsService(), dialogs, new FakeShell(),
+            new FakeServerLinkResolver(), games);
+        vm.ApplyGameTargetFromGames(555);
+        vm.RememberGameName(555, "  Blox Fruits ");
+
+        await vm.AddFavoriteCommand.ExecuteAsync(null);
+
+        Assert.Equal("Blox Fruits", dialogs.LastPromptInitialValue);
+        Assert.Null(games.LastPlaceId);
+    }
+
+    [Fact]
+    public async Task AddFavorite_InServerMode_SavesTheLinkedGameAndServer()
+    {
+        const string jobId = "ec1c8e3d-1c2b-4c3d-9e2a-1234567890ab";
+        var resolver = new FakeServerLinkResolver { Result = ServerTargetResolution.Success(ServerTarget.ByJob(77, jobId)) };
+        var dialogs = new FakeDialogService { PromptResult = "Server fav" };
+        var games = new FakeGamesService { Name = "Pet Sim" };
+        var vm = new LaunchPanelViewModel(new FakeFavoriteRepository(), new FakeSettingsService(), dialogs, new FakeShell(),
+            resolver, games);
+        vm.SelectedMode = JoinMode.PrivateByJobId;
+        vm.TargetInput = "999";
+        vm.JobIdInput = $"https://www.roblox.com/games/start?placeId=77&gameInstanceId={jobId}";
+
+        await vm.AddFavoriteCommand.ExecuteAsync(null);
+
+        FavoriteGame saved = Assert.Single(vm.Favorites);
+        Assert.Equal(77, saved.PlaceId);
+        Assert.Equal(jobId, saved.DefaultJobId);
+        Assert.Equal("Pet Sim", dialogs.LastPromptInitialValue);
+    }
+
+    [Fact]
+    public async Task AddFavorite_ForAPrivateServer_KeepsItsLinkCode_AndOpensTheSameServerAgain()
+    {
+        const string linkCode = "12345678901234567890123456789012";
+        var resolver = new FakeServerLinkResolver
+        {
+            Result = ServerTargetResolution.Success(ServerTarget.PrivateServer(920587237, linkCode))
+        };
+        var dialogs = new FakeDialogService { PromptResult = "My server" };
+        var vm = new LaunchPanelViewModel(new FakeFavoriteRepository(), new FakeSettingsService(), dialogs, new FakeShell(),
+            resolver, new FakeGamesService { Name = "Adopt Me!" });
+        vm.SelectedMode = JoinMode.PrivateByJobId;
+        vm.JobIdInput = "https://www.roblox.com/share?code=0123456789abcdef0123456789abcdef&type=Server";
+
+        await vm.AddFavoriteCommand.ExecuteAsync(null);
+
+        FavoriteGame saved = Assert.Single(vm.Favorites);
+        Assert.Equal(920587237, saved.PlaceId);
+        Assert.Equal(linkCode, saved.PrivateServerLinkCode);
+        Assert.Null(saved.DefaultJobId);
+
+        vm.JobIdInput = string.Empty;
+        vm.SelectedMode = JoinMode.PublicByLink;
+        vm.SelectedFavorite = saved;
+
+        Assert.Equal(JoinMode.PrivateByJobId, vm.SelectedMode);
+        Assert.Equal($"https://www.roblox.com/games/920587237?privateServerLinkCode={linkCode}", vm.JobIdInput);
+    }
+
+    [Fact]
+    public async Task ResolveTargetAsync_PassesTheLaunchingAccountsToTheResolver()
+    {
+        var resolver = new FakeServerLinkResolver
+        {
+            Result = ServerTargetResolution.Success(ServerTarget.PrivateServer(77, "123"))
+        };
+        var vm = Create(new FakeFavoriteRepository(), new FakeSettingsService(), resolver);
+        vm.SelectedMode = JoinMode.PrivateByJobId;
+        vm.JobIdInput = "https://www.roblox.com/share?code=abc&type=Server";
+        var launching = new[] { new Account { Username = "launching" } };
+
+        ServerTargetResolution result = await vm.ResolveTargetAsync(launching);
+
+        Assert.True(result.IsSuccess);
+        Assert.Same(launching, resolver.LastAccounts);
+    }
+
+    [Fact]
+    public async Task AddFavorite_WithEmptyInput_DoesNotPrompt()
+    {
+        var dialogs = new FakeDialogService { PromptResult = "Never" };
+        var vm = new LaunchPanelViewModel(new FakeFavoriteRepository(), new FakeSettingsService(), dialogs, new FakeShell(),
+            new FakeServerLinkResolver(), new FakeGamesService { Name = "X" });
+        vm.TargetInput = string.Empty;
+
+        await vm.AddFavoriteCommand.ExecuteAsync(null);
+
+        Assert.Null(dialogs.LastPromptInitialValue);
+        Assert.Empty(vm.Favorites);
+    }
+
+    [Fact]
     public async Task ResolveTargetAsync_JobModeUsesOnlyServerLinkField()
     {
         var resolver = new FakeServerLinkResolver
@@ -299,22 +441,52 @@ public sealed class LaunchPanelPrimaryFavoriteTests
     private sealed class FakeServerLinkResolver : IServerLinkResolver
     {
         public string? LastInput { get; private set; }
+        public IReadOnlyList<Account>? LastAccounts { get; private set; }
         public ServerTargetResolution Result { get; set; } = ServerTargetResolution.Failure("Missing target");
         public Task<ServerTargetResolution> ResolveAsync(string input, CancellationToken cancellationToken = default)
         {
             LastInput = input;
             return Task.FromResult(Result);
         }
+
+        public Task<ServerTargetResolution> ResolveAsync(
+            string input, IReadOnlyList<Account> accounts, CancellationToken cancellationToken = default)
+        {
+            LastAccounts = accounts;
+            return ResolveAsync(input, cancellationToken);
+        }
     }
 
     private sealed class FakeDialogService : IDialogService
     {
         public string? PromptResult { get; init; }
+        public string? LastPromptInitialValue { get; private set; }
         public Task<Account?> ShowAddAccountAsync() => Task.FromResult<Account?>(null);
-        public string? Prompt(string title, string initialValue) => PromptResult;
+        public string? Prompt(string title, string initialValue)
+        {
+            LastPromptInitialValue = initialValue;
+            return PromptResult;
+        }
         public FavoriteGame? EditFavorite(FavoriteGame existing) => null;
         public bool Confirm(string message) => true;
         public string? PickFolder(string title) => null;
+    }
+
+    private sealed class FakeGamesService : IRobloxGamesService
+    {
+        public string? Name { get; init; }
+        public long? LastPlaceId { get; private set; }
+        public Task<IReadOnlyList<GameInfo>> GetPopularAsync(CancellationToken cancellationToken = default) =>
+            Task.FromResult<IReadOnlyList<GameInfo>>(new List<GameInfo>());
+        public Task<IReadOnlyList<GameInfo>> SearchAsync(string query, CancellationToken cancellationToken = default) =>
+            Task.FromResult<IReadOnlyList<GameInfo>>(new List<GameInfo>());
+        public Task<byte[]?> GetThumbnailAsync(string? imageUrl, CancellationToken cancellationToken = default) =>
+            Task.FromResult<byte[]?>(null);
+        public Task<string?> GetGameNameAsync(long placeId, CancellationToken cancellationToken = default)
+        {
+            LastPlaceId = placeId;
+            return Task.FromResult(Name);
+        }
     }
 
     private sealed class FakeShell : IShellCoordinator

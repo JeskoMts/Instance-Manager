@@ -15,6 +15,8 @@ public static class AppPaths
     public static string FavoritesFile => Path.Combine(DataDirectory, "favorites.json");
     public static string SettingsFile => Path.Combine(DataDirectory, "settings.json");
     public static string ThemesFile => Path.Combine(DataDirectory, "themes.json");
+    public static string AutomationFile => Path.Combine(DataDirectory, "automations.json");
+    public static string PreviousVersionDirectory => Path.Combine(LocalDataDirectory, "previous-version");
 
     public static string WebViewDirectory => Path.Combine(LocalDataDirectory, "webview");
     public static string AvatarCacheDirectory => Path.Combine(LocalDataDirectory, "avatars");
@@ -24,6 +26,24 @@ public static class AppPaths
         Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "Roblox", "Versions");
 
     public static void EnsureDataDirectory() => Directory.CreateDirectory(DataDirectory);
+
+    private static readonly string[] RemovedFeatureFiles = { "playtime.json", "diagnostics.log", "diagnostics.log.1" };
+
+    public static void CleanupRemovedFeatureFiles() => CleanupRemovedFeatureFiles(DataDirectory);
+
+    internal static void CleanupRemovedFeatureFiles(string directory)
+    {
+        foreach (string name in RemovedFeatureFiles)
+        {
+            try
+            {
+                File.Delete(Path.Combine(directory, name));
+            }
+            catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+            {
+            }
+        }
+    }
 
     public static void CleanupLegacyWebViewData()
     {

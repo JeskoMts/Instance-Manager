@@ -8,7 +8,7 @@
         WindowStartupLocation="CenterOwner" WindowStyle="None"
         Background="{DynamicResource Brush.Window}"
         TextElement.Foreground="{DynamicResource Brush.TextPrimary}"
-        TextElement.FontFamily="Segoe UI" TextElement.FontSize="13">
+        TextElement.FontFamily="{StaticResource UiFont}" TextElement.FontSize="13">
 
     <shell:WindowChrome.WindowChrome>
         <shell:WindowChrome CaptionHeight="42" ResizeBorderThickness="6" CornerRadius="0" GlassFrameThickness="0" />
@@ -48,7 +48,6 @@
                 <RowDefinition Height="42" />
                 <RowDefinition Height="Auto" />
                 <RowDefinition Height="*" />
-                <RowDefinition Height="Auto" />
             </Grid.RowDefinitions>
 
             <Grid Grid.Row="0" Background="{DynamicResource Brush.Window}">
@@ -61,8 +60,8 @@
             </Grid>
 
             <Border Grid.Row="1" Background="{DynamicResource Brush.Surface}" Padding="14,8" Margin="0">
-                <TextBlock TextWrapping="Wrap" Foreground="{DynamicResource Brush.TextSecondary}" FontSize="12"
-                           Text="Sign in to Roblox below like you normally would. Instance Manager picks up the login by itself and stores it encrypted on this PC. Your password is never saved." />
+                <TextBlock x:Name="StatusText" TextWrapping="Wrap" Foreground="{DynamicResource Brush.TextSecondary}" FontSize="12"
+                           Text="Sign in below as usual. The window closes on its own once you're signed in, and only an encrypted login token is kept. Your password is never stored." />
             </Border>
 
             <Grid Grid.Row="2">
@@ -78,17 +77,6 @@
                 </Border>
             </Grid>
 
-            <Border Grid.Row="3" Background="{DynamicResource Brush.Surface}" BorderBrush="{DynamicResource Brush.Border}"
-                    BorderThickness="0,1,0,0" Padding="14,10">
-                <Grid>
-                    <TextBlock x:Name="StatusText" VerticalAlignment="Center" FontSize="12"
-                               Foreground="{DynamicResource Brush.TextMuted}" Text="Loading Roblox login…" />
-                    <StackPanel Orientation="Horizontal" HorizontalAlignment="Right">
-                        <Button Style="{StaticResource GhostButton}" Content="Cancel" Click="Cancel_Click" Margin="0,0,8,0" />
-                        <Button Style="{StaticResource PrimaryButton}" Content="Use this account" Click="Capture_Click" />
-                    </StackPanel>
-                </Grid>
-            </Border>
         </Grid>
     </Border>
 </Window>

@@ -66,6 +66,70 @@ public sealed class JsonFileStoreResilienceTests
         finally { Directory.Delete(directory, recursive: true); }
     }
 
+    [Fact]
+    public void Save_AfterLoadWithUnchangedContent_LeavesFileUntouched()
+    {
+        string directory = NewDirectory();
+        try
+        {
+            string path = Path.Combine(directory, "data.json");
+            var value = new Sample { Name = "Jürgen 🎮", Items = new() { 1, 2, 3 } };
+            new JsonFileStore(path).Save(value);
+            var written = new DateTime(2020, 1, 1, 0, 0, 0, DateTimeKind.Utc);
+            File.SetLastWriteTimeUtc(path, written);
+
+            var store = new JsonFileStore(path);
+            Sample loaded = store.Load(() => new Sample());
+            store.Save(loaded);
+
+            Assert.Equal(written, File.GetLastWriteTimeUtc(path));
+            loaded.Items.Add(4);
+            store.Save(loaded);
+            Assert.NotEqual(written, File.GetLastWriteTimeUtc(path));
+        }
+        finally { Directory.Delete(directory, recursive: true); }
+    }
+
+    [Fact]
+    public void Load_ReadsFilesWithUtf8ByteOrderMarkAndRoundTripsText()
+    {
+        string directory = NewDirectory();
+        try
+        {
+            string path = Path.Combine(directory, "data.json");
+            File.WriteAllText(path, "{\"Name\":\"Jürgen 🎮\",\"Items\":[5]}", new System.Text.UTF8Encoding(true));
+
+            Sample loaded = new JsonFileStore(path).Load(() => new Sample());
+
+            Assert.Equal("Jürgen 🎮", loaded.Name);
+            Assert.Equal(new[] { 5 }, loaded.Items);
+            new JsonFileStore(path).Save(loaded);
+            Assert.Equal("Jürgen 🎮", new JsonFileStore(path).Load(() => new Sample()).Name);
+            Assert.NotEqual(0xEF, File.ReadAllBytes(path)[0]);
+        }
+        finally { Directory.Delete(directory, recursive: true); }
+    }
+
+    [Fact]
+    public void Load_WhenFileIsNotJson_ReturnsFallback()
+    {
+        string directory = NewDirectory();
+        try
+        {
+            string path = Path.Combine(directory, "data.json");
+            File.WriteAllText(path, "not json");
+
+            Assert.Equal("fallback", new JsonFileStore(path).Load(() => new Sample { Name = "fallback" }).Name);
+        }
+        finally { Directory.Delete(directory, recursive: true); }
+    }
+
+    private sealed class Sample
+    {
+        public string Name { get; set; } = string.Empty;
+        public System.Collections.Generic.List<int> Items { get; set; } = new();
+    }
+
     private static string NewDirectory()
     {
         string path = Path.Combine(Path.GetTempPath(), "InstanceManager.Tests", Guid.NewGuid().ToString("N"));

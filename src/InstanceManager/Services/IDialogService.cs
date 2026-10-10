@@ -12,8 +12,6 @@ public interface IDialogService
 
     FavoriteGame? EditFavorite(FavoriteGame existing);
 
-    ThemeDefinition? EditTheme(string? id, string name, ThemePalette palette, string title) => null;
-
     AccountGroup? EditGroup(AccountGroup? existing, string suggestedColor) => null;
 
     GroupDropChoice AskGroupDrop(string accountLabel, string groupName) => GroupDropChoice.Cancel;

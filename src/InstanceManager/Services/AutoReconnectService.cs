@@ -62,6 +62,12 @@ public sealed class AutoReconnectService : IDisposable
             if (_disposed)
                 return;
 
+            if (target.Mode == JoinMode.Home)
+            {
+                Remove(account.Id);
+                return;
+            }
+
             if (_sessions.TryGetValue(account.Id, out Session? existing))
                 existing.DisposeWatcher();
 
@@ -139,29 +145,21 @@ public sealed class AutoReconnectService : IDisposable
             {
                 case RobloxSessionSignal.InGame:
                     session.InGame = true;
+                    session.GracefulLeave = false;
                     session.Joined.TrySetResult(true);
                     break;
                 case RobloxSessionSignal.GracefulLeave:
                     session.Joined.TrySetResult(false);
-                    if (session.InGame && !session.ActionTaken)
-                    {
-                        session.ActionTaken = true;
-                        session.PendingTrigger = AutoReconnectTrigger.Error;
-                        if (_settings.Settings.IsAutoReconnectEnabledFor(AutoReconnectTrigger.Error))
-                        {
-                            killStuckClient = true;
-                            processToKill = session.Process;
-                            runIdToHandle = session.RunId;
-                        }
-                    }
-                    else
-                    {
+                    if (!session.ActionTaken)
                         session.GracefulLeave = true;
-                    }
                     break;
                 case RobloxSessionSignal.Kicked:
                 case RobloxSessionSignal.Error:
                     session.Joined.TrySetResult(false);
+                    if (!session.InGame)
+                        return;
+                    if (signal == RobloxSessionSignal.Error && session.GracefulLeave)
+                        return;
                     if (session.ActionTaken)
                     {
                         if (signal == RobloxSessionSignal.Kicked)
@@ -257,12 +255,6 @@ public sealed class AutoReconnectService : IDisposable
             }
 
             AutoReconnectTrigger? resolved = session.PendingTrigger;
-            if (resolved is null && session.GracefulLeave)
-            {
-                Remove(accountId);
-                return;
-            }
-
             resolved ??= session.InGame ? AutoReconnectTrigger.Crash : null;
             if (resolved is null)
             {

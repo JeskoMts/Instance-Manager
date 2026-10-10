@@ -87,6 +87,17 @@ public sealed class LaunchServiceTests
         Assert.Equal(new[] { LaunchStage.Queued, LaunchStage.Starting, LaunchStage.Failed }, reports.Select(r => r.Stage));
     }
 
+    [Theory]
+    [InlineData(1, 0, false)]
+    [InlineData(2, 0, true)]
+    [InlineData(1, 1, true)]
+    [InlineData(1, 5, true)]
+    [InlineData(0, 3, false)]
+    public void MultiInstanceIsNeeded_AsSoonAsALaunchLeavesMoreThanOneClientOpen(int starting, int alreadyRunning, bool expected)
+    {
+        Assert.Equal(expected, ShellViewModel.NeedsOwnWindows(starting, alreadyRunning));
+    }
+
     [Fact]
     public void LaunchSummaryText_ListsOnlyWhatHappened()
     {

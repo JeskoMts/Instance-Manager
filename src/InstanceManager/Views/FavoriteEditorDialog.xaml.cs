@@ -9,16 +9,18 @@ namespace InstanceManager.Views;
 
 public partial class FavoriteEditorDialog : Window
 {
-    private readonly Guid _id;
+    private readonly FavoriteGame _existing;
 
     private FavoriteEditorDialog(FavoriteGame existing, string title)
     {
         InitializeComponent();
         TitleText.Text = title;
-        _id = existing.Id;
+        _existing = existing;
         NameBox.Text = existing.Name;
         TargetBox.Text = existing.PlaceId > 0 ? existing.PlaceId.ToString(CultureInfo.InvariantCulture) : string.Empty;
         JobBox.Text = existing.DefaultJobId ?? string.Empty;
+        if (!string.IsNullOrWhiteSpace(existing.PrivateServerLinkCode))
+            PrivateServerNote.Visibility = Visibility.Visible;
 
         Loaded += (_, _) =>
         {
@@ -34,6 +36,16 @@ public partial class FavoriteEditorDialog : Window
         var dialog = new FavoriteEditorDialog(existing, title) { Owner = owner };
         return dialog.ShowDialog() == true ? dialog.Result : null;
     }
+
+    internal static FavoriteGame Edited(FavoriteGame existing, string name, long placeId, string? jobId) =>
+        new()
+        {
+            Id = existing.Id,
+            Name = name,
+            PlaceId = placeId,
+            DefaultJobId = jobId,
+            PrivateServerLinkCode = jobId == null && placeId == existing.PlaceId ? existing.PrivateServerLinkCode : null
+        };
 
     private void Ok_Click(object sender, RoutedEventArgs e)
     {
@@ -61,7 +73,7 @@ public partial class FavoriteEditorDialog : Window
             jobId = parsed;
         }
 
-        Result = new FavoriteGame { Id = _id, Name = name, PlaceId = placeId, DefaultJobId = jobId };
+        Result = Edited(_existing, name, placeId, jobId);
         DialogResult = true;
         Close();
     }

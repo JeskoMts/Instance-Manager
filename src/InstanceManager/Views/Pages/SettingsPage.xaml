@@ -1,0 +1,90 @@
+<UserControl x:Class="InstanceManager.Views.Pages.SettingsPage"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:behaviors="clr-namespace:InstanceManager.Behaviors"
+             xmlns:settings="clr-namespace:InstanceManager.Views.Settings"
+             xmlns:ui="clr-namespace:InstanceManager.Controls">
+    <Grid>
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="*" />
+        </Grid.RowDefinitions>
+
+        <StackPanel Grid.Row="0" Margin="28,4,28,18">
+            <TextBlock Style="{StaticResource PageTitle}" Text="Settings" />
+            <TextBlock Style="{StaticResource PageSubtitle}" Text="Changes save as soon as you make them." />
+        </StackPanel>
+
+        <Grid Grid.Row="1" Margin="28,0,0,0">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="212" />
+                <ColumnDefinition Width="*" />
+            </Grid.ColumnDefinitions>
+
+            <DockPanel Grid.Column="0" Margin="0,0,0,16">
+                <Grid DockPanel.Dock="Top" Margin="0,0,0,4">
+                    <TextBox x:Name="SearchBox" Style="{StaticResource SearchTextBox}" Height="34" VerticalContentAlignment="Center"
+                             TextChanged="SearchBox_TextChanged" PreviewKeyDown="SearchBox_PreviewKeyDown" />
+                    <ui:Icon Kind="Search" Size="14" HorizontalAlignment="Left" Margin="12,0,0,0"
+                             Foreground="{DynamicResource Brush.TextMuted}" IsHitTestVisible="False" />
+                    <TextBlock Style="{StaticResource WatermarkText}" Margin="34,0,0,0" Text="Search settings">
+                        <TextBlock.Visibility>
+                            <MultiBinding Converter="{StaticResource EmptyUnfocusedToVis}">
+                                <Binding Path="Text" ElementName="SearchBox" />
+                                <Binding Path="IsKeyboardFocused" ElementName="SearchBox" />
+                            </MultiBinding>
+                        </TextBlock.Visibility>
+                    </TextBlock>
+                    <Button x:Name="ClearSearchButton" Style="{StaticResource IconButton}" HorizontalAlignment="Right" VerticalAlignment="Center"
+                            Width="26" Height="26" Padding="0" Margin="0,0,4,0" ToolTip="Clear search"
+                            Visibility="Collapsed" Click="ClearSearch_Click">
+                        <ui:Icon Kind="Close" Size="12" />
+                    </Button>
+                </Grid>
+
+                <TextBlock x:Name="NoMatches" DockPanel.Dock="Top" Margin="12,14,8,0" TextWrapping="Wrap" FontSize="12"
+                           Foreground="{DynamicResource Brush.TextMuted}" Visibility="Collapsed"
+                           Text="Nothing matches. Try another word, like fps, tray or afk." />
+
+                <ListBox x:Name="CategoryList" Background="Transparent" BorderThickness="0" Padding="0"
+                         ItemContainerStyle="{StaticResource SubNavItem}"
+                         ScrollViewer.HorizontalScrollBarVisibility="Disabled"
+                         ScrollViewer.VerticalScrollBarVisibility="Auto"
+                         SelectionChanged="CategoryList_SelectionChanged">
+                    <ListBox.GroupStyle>
+                        <GroupStyle>
+                            <GroupStyle.HeaderTemplate>
+                                <DataTemplate>
+                                    <TextBlock Style="{StaticResource NavCaption}" Text="{Binding Name}" />
+                                </DataTemplate>
+                            </GroupStyle.HeaderTemplate>
+                        </GroupStyle>
+                    </ListBox.GroupStyle>
+                    <ListBox.ItemTemplate>
+                        <DataTemplate>
+                            <StackPanel Orientation="Horizontal">
+                                <ui:Icon Kind="{Binding Icon}" Size="15" Margin="0,0,10,0" />
+                                <TextBlock Text="{Binding Title}" VerticalAlignment="Center" TextTrimming="CharacterEllipsis" />
+                            </StackPanel>
+                        </DataTemplate>
+                    </ListBox.ItemTemplate>
+                </ListBox>
+            </DockPanel>
+
+            <ScrollViewer x:Name="SettingsScroller" Grid.Column="1" VerticalScrollBarVisibility="Auto"
+                          HorizontalScrollBarVisibility="Disabled" behaviors:SmoothScroll.Enabled="True">
+                <Grid Margin="24,0,28,24">
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="*" MaxWidth="760" />
+                        <ColumnDefinition Width="0" />
+                    </Grid.ColumnDefinitions>
+                    <StackPanel>
+                        <TextBlock Style="{StaticResource CategoryTitle}" Text="{Binding Section.Title, ElementName=CategoryHost}" />
+                        <TextBlock Style="{StaticResource CategoryHint}" Text="{Binding Section.Description, ElementName=CategoryHost}" />
+                        <settings:SettingsCategoryHost x:Name="CategoryHost" Category="{Binding SelectedSettingsCategory}" />
+                    </StackPanel>
+                </Grid>
+            </ScrollViewer>
+        </Grid>
+    </Grid>
+</UserControl>

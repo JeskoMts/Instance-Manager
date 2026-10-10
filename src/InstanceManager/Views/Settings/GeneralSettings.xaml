@@ -1,0 +1,105 @@
+<UserControl x:Class="InstanceManager.Views.Settings.GeneralSettings"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+    <StackPanel>
+        <TextBlock Style="{StaticResource GroupTitle}" Text="Startup and tray" />
+        <Border Style="{StaticResource SettingsCard}">
+            <StackPanel>
+                <Grid Style="{StaticResource SettingRow}">
+                    <StackPanel VerticalAlignment="Center" Margin="0,0,70,0">
+                        <TextBlock Style="{StaticResource RowTitle}" Text="Start with Windows" />
+                        <TextBlock Style="{StaticResource RowHint}" Text="Opens Instance Manager when you sign in to Windows." />
+                    </StackPanel>
+                    <CheckBox Style="{StaticResource ToggleSwitch}" HorizontalAlignment="Right"
+                              IsEnabled="{Binding Settings.CanStartWithWindows}"
+                              IsChecked="{Binding Settings.StartWithWindows}" />
+                </Grid>
+                <Border Style="{StaticResource RowDivider}" />
+                <Grid Style="{StaticResource SettingRow}">
+                    <StackPanel VerticalAlignment="Center" Margin="0,0,70,0">
+                        <TextBlock Style="{StaticResource RowTitle}" Text="Start in the tray" />
+                        <TextBlock Style="{StaticResource RowHint}" Text="When started with Windows, stay in the system tray instead of opening the window." />
+                    </StackPanel>
+                    <CheckBox Style="{StaticResource ToggleSwitch}" HorizontalAlignment="Right"
+                              IsChecked="{Binding Settings.StartInTray}" />
+                </Grid>
+                <Border Style="{StaticResource RowDivider}" />
+                <Grid Style="{StaticResource SettingRow}">
+                    <StackPanel VerticalAlignment="Center" Margin="0,0,70,0">
+                        <TextBlock Style="{StaticResource RowTitle}" Text="Close to tray" />
+                        <TextBlock Style="{StaticResource RowHint}" Text="The close button hides the window, so automations and Auto Reconnect keep running. Quit from the tray icon." />
+                    </StackPanel>
+                    <CheckBox Style="{StaticResource ToggleSwitch}" HorizontalAlignment="Right"
+                              IsChecked="{Binding Settings.CloseToTray}" />
+                </Grid>
+            </StackPanel>
+        </Border>
+
+        <TextBlock Style="{StaticResource GroupTitle}" Text="Accounts page" />
+        <Border Style="{StaticResource SettingsCard}">
+            <Grid Style="{StaticResource SettingRow}">
+                <StackPanel VerticalAlignment="Center" Margin="0,0,70,0">
+                    <TextBlock Style="{StaticResource RowTitle}" Text="Avatars" />
+                    <TextBlock Style="{StaticResource RowHint}" Text="Shows each account's Roblox avatar. When off, rows show initials and nothing is downloaded." />
+                </StackPanel>
+                <CheckBox Style="{StaticResource ToggleSwitch}" HorizontalAlignment="Right"
+                          IsChecked="{Binding Operations.LiveAvatars}" />
+            </Grid>
+        </Border>
+
+        <TextBlock Style="{StaticResource GroupTitle}" Text="Games page" />
+        <Border Style="{StaticResource SettingsCard}">
+            <Grid Style="{StaticResource SettingRow}">
+                <StackPanel VerticalAlignment="Center" Margin="0,0,70,0">
+                    <TextBlock Style="{StaticResource RowTitle}" Text="Switch to Accounts after picking a game" />
+                    <TextBlock Style="{StaticResource RowHint}" Text="When off, picking a game only sets the launch target and you stay on the Games page." />
+                </StackPanel>
+                <CheckBox Style="{StaticResource ToggleSwitch}" HorizontalAlignment="Right"
+                          IsChecked="{Binding Settings.SwitchToAccountsOnGameSelect}" />
+            </Grid>
+        </Border>
+
+        <TextBlock Style="{StaticResource GroupTitle}" Text="Confirmations" />
+        <Border Style="{StaticResource SettingsCard}">
+            <StackPanel>
+                <Grid Style="{StaticResource SettingRow}">
+                    <StackPanel VerticalAlignment="Center" Margin="0,0,70,0">
+                        <TextBlock Style="{StaticResource RowTitle}" Text="Skip every confirmation" />
+                        <TextBlock Style="{StaticResource RowHint}" Text="Remove, delete and stop without asking first. When off, the list below decides." />
+                    </StackPanel>
+                    <CheckBox Style="{StaticResource ToggleSwitch}" HorizontalAlignment="Right"
+                              IsChecked="{Binding Settings.ConfirmBypassMaster}" />
+                </Grid>
+                <Border Style="{StaticResource RowDivider}" />
+                <StackPanel Margin="0,8,0,8" IsEnabled="{Binding Settings.ConfirmBypassMaster, Converter={StaticResource InverseBool}}"
+                            Style="{StaticResource DimWhenDisabled}">
+                    <TextBlock Style="{StaticResource RowHint}" Text="Skip the question when:" Margin="0,4,0,6" />
+                    <Grid Style="{StaticResource SubRow}">
+                        <TextBlock Style="{StaticResource SubRowText}" Text="Removing an account" />
+                        <CheckBox Style="{StaticResource ToggleSwitch}" HorizontalAlignment="Right" IsChecked="{Binding Settings.ConfirmBypassRemoveAccount}" />
+                    </Grid>
+                    <Grid Style="{StaticResource SubRow}">
+                        <TextBlock Style="{StaticResource SubRowText}" Text="Deleting a group" />
+                        <CheckBox Style="{StaticResource ToggleSwitch}" HorizontalAlignment="Right" IsChecked="{Binding Settings.ConfirmBypassDeleteGroup}" />
+                    </Grid>
+                    <Grid Style="{StaticResource SubRow}">
+                        <TextBlock Style="{StaticResource SubRowText}" Text="Deleting a favorite" />
+                        <CheckBox Style="{StaticResource ToggleSwitch}" HorizontalAlignment="Right" IsChecked="{Binding Settings.ConfirmBypassDeleteFavorite}" />
+                    </Grid>
+                    <Grid Style="{StaticResource SubRow}">
+                        <TextBlock Style="{StaticResource SubRowText}" Text="Stopping every running account" />
+                        <CheckBox Style="{StaticResource ToggleSwitch}" HorizontalAlignment="Right" IsChecked="{Binding Settings.ConfirmBypassStopAllInstances}" />
+                    </Grid>
+                    <Grid Style="{StaticResource SubRow}">
+                        <TextBlock Style="{StaticResource SubRowText}" Text="Taking an account out of all groups" />
+                        <CheckBox Style="{StaticResource ToggleSwitch}" HorizontalAlignment="Right" IsChecked="{Binding Settings.ConfirmBypassClearAccountGroups}" />
+                    </Grid>
+                    <Grid Style="{StaticResource SubRow}">
+                        <TextBlock Style="{StaticResource SubRowText}" Text="Deleting a theme" />
+                        <CheckBox Style="{StaticResource ToggleSwitch}" HorizontalAlignment="Right" IsChecked="{Binding Settings.ConfirmBypassDeleteTheme}" />
+                    </Grid>
+                </StackPanel>
+            </StackPanel>
+        </Border>
+    </StackPanel>
+</UserControl>

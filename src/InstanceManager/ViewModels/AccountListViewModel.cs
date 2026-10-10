@@ -27,6 +27,8 @@ public partial class AccountListViewModel : ObservableObject
     private readonly VersionBarViewModel? _versionBar;
     private readonly IRobloxAvatarService? _avatars;
     private readonly AutoReconnectService? _autoReconnect;
+    private readonly ISettingsService? _settings;
+    private readonly ISessionChecker? _sessions;
 
     private readonly Dictionary<Guid, AccountRowViewModel> _allRows = new();
     private readonly Dictionary<Guid, GroupViewModel> _groupRows = new();
@@ -40,7 +42,9 @@ public partial class AccountListViewModel : ObservableObject
         InstanceTracker tracker,
         VersionBarViewModel? versionBar = null,
         IRobloxAvatarService? avatars = null,
-        AutoReconnectService? autoReconnect = null)
+        AutoReconnectService? autoReconnect = null,
+        ISettingsService? settings = null,
+        ISessionChecker? sessions = null)
     {
         _accounts = accounts;
         _groups = groups;
@@ -50,6 +54,9 @@ public partial class AccountListViewModel : ObservableObject
         _versionBar = versionBar;
         _avatars = avatars;
         _autoReconnect = autoReconnect;
+        _settings = settings;
+        _sessions = sessions;
+        isCompact = settings?.Settings.CompactAccountList ?? false;
 
         _tracker.RunningChanged += OnRunningChanged;
 
@@ -88,6 +95,14 @@ public partial class AccountListViewModel : ObservableObject
 
     partial void OnSearchTextChanged(string value) => RebuildGroups();
 
+    partial void OnSelectedCountChanged(int value) => OnPropertyChanged(nameof(SelectionText));
+
+    partial void OnAccountCountChanged(int value) => OnPropertyChanged(nameof(AccountCountText));
+
+    public string AccountCountText => AccountCount == 1 ? "1 account" : $"{AccountCount} accounts";
+
+    public string SelectionText => $"{SelectedCount} selected";
+
 
     public bool IsSearching => !string.IsNullOrWhiteSpace(SearchText);
     public bool ShowList => Groups.Count > 0;
@@ -118,6 +133,99 @@ public partial class AccountListViewModel : ObservableObject
 
     public int RunningCount => _tracker.RunningCount;
     public bool HasRunning => RunningCount > 0;
+    public string RunningText => $"{RunningCount} running";
+
+    public string ClientsRunningText => RunningCount switch
+    {
+        0 => "No clients running",
+        1 => "1 client running",
+        _ => $"{RunningCount} clients running"
+    };
+
+    [ObservableProperty] private bool isCompact;
+
+    [ObservableProperty] private bool isCheckingSessions;
+
+    partial void OnIsCompactChanged(bool value)
+    {
+        if (_settings == null)
+            return;
+        _settings.Settings.CompactAccountList = value;
+        _settings.Save();
+    }
+
+    public bool CanCheckSessions => _sessions != null;
+
+    [RelayCommand]
+    private async Task CheckSessions()
+    {
+        if (_sessions == null || IsCheckingSessions)
+            return;
+
+        List<Account> accounts = _accounts.All.ToList();
+        if (accounts.Count == 0)
+        {
+            _shell.Notify(NotificationId.SessionsChecked, NotificationKind.Info, "No accounts yet", "Add an account first, then check its login.");
+            return;
+        }
+
+        IsCheckingSessions = true;
+        int valid = 0, unknown = 0;
+        var expired = new List<string>();
+        try
+        {
+            foreach (Account account in accounts)
+            {
+                SessionStatus status = await _sessions.CheckAsync(account);
+                if (!_allRows.TryGetValue(account.Id, out AccountRowViewModel? row))
+                    continue;
+
+                switch (status)
+                {
+                    case SessionStatus.Valid:
+                        valid++;
+                        if (row.RequiresSignIn)
+                        {
+                            row.RequiresSignIn = false;
+                            row.LaunchError = null;
+                            row.LaunchStage = null;
+                        }
+                        break;
+                    case SessionStatus.Expired:
+                        expired.Add(account.DisplayLabel);
+                        row.LaunchStage = LaunchStage.Failed;
+                        row.RequiresSignIn = true;
+                        row.LaunchError = RobloxAuthException.LoginExpiredMessage;
+                        break;
+                    default:
+                        unknown++;
+                        break;
+                }
+            }
+        }
+        finally
+        {
+            IsCheckingSessions = false;
+        }
+
+        if (expired.Count == 0 && unknown == 0)
+        {
+            _shell.Notify(NotificationId.SessionsChecked, NotificationKind.Success, "All logins work",
+                valid == 1 ? "The saved login is still valid." : $"All {valid} saved logins are still valid.");
+        }
+        else if (expired.Count > 0)
+        {
+            string names = string.Join(", ", expired.Take(3)) + (expired.Count > 3 ? $" and {expired.Count - 3} more" : string.Empty);
+            _shell.Notify(NotificationId.SessionsChecked, NotificationKind.Error,
+                expired.Count == 1 ? "1 login expired" : $"{expired.Count} logins expired",
+                $"Add {names} again to sign back in." + (unknown > 0 ? $" {unknown} couldn't be checked." : string.Empty));
+        }
+        else
+        {
+            _shell.Notify(NotificationId.SessionsChecked, NotificationKind.Info, "Some logins couldn't be checked",
+                $"{valid} valid, {unknown} couldn't be checked. Roblox may be busy, try again in a minute.");
+        }
+    }
 
     public IReadOnlyList<AccountGroup> GroupModels => _groups.All;
 
@@ -150,7 +258,6 @@ public partial class AccountListViewModel : ObservableObject
         RecountSelection();
     }
 
-    [RelayCommand]
     private void SelectAllVisible() => SetSelection(Groups.SelectMany(g => g.Accounts), true);
 
     [RelayCommand]
@@ -344,7 +451,8 @@ public partial class AccountListViewModel : ObservableObject
             {
                 var row = new AccountRowViewModel(acc, this, _avatars);
                 _allRows[acc.Id] = row;
-                _ = row.LoadAvatarAsync();
+                if (_settings?.Settings.LiveAvatars != false)
+                    _ = row.LoadAvatarAsync();
             }
         }
 
@@ -353,6 +461,15 @@ public partial class AccountListViewModel : ObservableObject
             var stale = _allRows.Keys.Where(id => !liveIds.Contains(id)).ToList();
             foreach (var id in stale)
                 _allRows.Remove(id);
+        }
+    }
+
+    public void RefreshAvatarPreference()
+    {
+        foreach (AccountRowViewModel row in _allRows.Values)
+        {
+            if (_settings?.Settings.LiveAvatars == false) row.AvatarImage = null;
+            else _ = row.LoadAvatarAsync();
         }
     }
 
@@ -612,5 +729,7 @@ public partial class AccountListViewModel : ObservableObject
 
         OnPropertyChanged(nameof(RunningCount));
         OnPropertyChanged(nameof(HasRunning));
+        OnPropertyChanged(nameof(RunningText));
+        OnPropertyChanged(nameof(ClientsRunningText));
     }
 }

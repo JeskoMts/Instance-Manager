@@ -33,6 +33,13 @@ public sealed class RobloxLauncher
                 $"&gameId={Uri.EscapeDataString(target.JobId ?? string.Empty)}" +
                 $"&isPlayTogetherGame=false",
 
+            JoinMode.PrivateServer =>
+                $"{PlaceLauncherBase}?request=RequestPrivateGame" +
+                $"&browserTrackerId={browserTrackerId}" +
+                $"&placeId={target.PlaceId}" +
+                "&accessCode=" +
+                $"&linkCode={Uri.EscapeDataString(target.LinkCode ?? string.Empty)}",
+
             _ => throw new ArgumentOutOfRangeException(nameof(target))
         };
     }

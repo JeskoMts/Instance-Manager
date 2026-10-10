@@ -17,6 +17,8 @@ public sealed class RobloxExecutableValidator : IRobloxExecutableValidator, IDis
 {
     private const string ExpectedFileName = "RobloxPlayerBeta.exe";
     private const string ExpectedSigner = "Roblox Corporation";
+    private const string CommonNameOid = "2.5.4.3";
+    private const string OrganizationOid = "2.5.4.10";
     private readonly Func<string, bool> _isTrustedRobloxBinary;
 
     private readonly ConcurrentDictionary<string, SafeFileHandle> _verified = new(StringComparer.OrdinalIgnoreCase);
@@ -197,14 +199,28 @@ public sealed class RobloxExecutableValidator : IRobloxExecutableValidator, IDis
         {
             using X509Certificate certificate = X509Certificate.CreateFromSignedFile(path);
             using var signer = new X509Certificate2(certificate);
-            string simpleName = signer.GetNameInfo(X509NameType.SimpleName, forIssuer: false);
-            return string.Equals(simpleName, ExpectedSigner, StringComparison.OrdinalIgnoreCase) ||
-                   signer.Subject.Contains($"O={ExpectedSigner}", StringComparison.OrdinalIgnoreCase);
+            return IsExpectedSigner(signer);
         }
         catch (System.Security.Cryptography.CryptographicException)
         {
             return false;
         }
+    }
+
+    internal static bool IsExpectedSigner(X509Certificate2 signer)
+    {
+        foreach (X500RelativeDistinguishedName part in signer.SubjectName.EnumerateRelativeDistinguishedNames())
+        {
+            if (part.HasMultipleElements)
+                continue;
+            string? oid = part.GetSingleElementType().Value;
+            if ((oid == CommonNameOid || oid == OrganizationOid) &&
+                string.Equals(part.GetSingleElementValue(), ExpectedSigner, StringComparison.OrdinalIgnoreCase))
+            {
+                return true;
+            }
+        }
+        return false;
     }
 
     private static class WinTrust

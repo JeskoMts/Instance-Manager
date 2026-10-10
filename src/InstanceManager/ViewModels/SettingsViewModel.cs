@@ -15,12 +15,14 @@ public partial class SettingsViewModel : ObservableObject
     private readonly ISettingsService _settings;
     private readonly IDialogService _dialogs;
     private readonly MultiInstanceManager _multiInstance;
+    private readonly StartupService? _startup;
 
-    public SettingsViewModel(ISettingsService settings, IDialogService dialogs, MultiInstanceManager multiInstance)
+    public SettingsViewModel(ISettingsService settings, IDialogService dialogs, MultiInstanceManager multiInstance, StartupService? startup = null)
     {
         _settings = settings;
         _dialogs = dialogs;
         _multiInstance = multiInstance;
+        _startup = startup;
 
         AppSettings s = settings.Settings;
         multiInstanceEnabled = s.MultiInstanceEnabled;
@@ -28,6 +30,9 @@ public partial class SettingsViewModel : ObservableObject
         versionsPathOverride = s.VersionsPathOverride ?? string.Empty;
 
         switchToAccountsOnGameSelect = s.SwitchToAccountsOnGameSelect;
+        startWithWindows = startup?.IsEnabled ?? false;
+        startInTray = s.StartInTray;
+        closeToTray = s.CloseToTray;
 
         confirmBypassMaster = s.ConfirmBypassMaster;
         confirmBypassRemoveAccount = s.ConfirmBypassRemoveAccount;
@@ -54,6 +59,13 @@ public partial class SettingsViewModel : ObservableObject
     [ObservableProperty] private int launchDelayMs;
     [ObservableProperty] private string versionsPathOverride;
     [ObservableProperty] private bool switchToAccountsOnGameSelect;
+    [ObservableProperty] private bool startWithWindows;
+    [ObservableProperty] private bool startInTray;
+    [ObservableProperty] private bool closeToTray;
+
+    public bool CanStartWithWindows => _startup != null;
+
+    public event Action? TrayPreferenceChanged;
 
     [ObservableProperty] private bool confirmBypassMaster;
     [ObservableProperty] private bool confirmBypassRemoveAccount;
@@ -77,7 +89,7 @@ public partial class SettingsViewModel : ObservableObject
         MultiInstanceEnabled ? "Multi-instance active" : "Multi-instance off";
 
     public string AppVersion =>
-        Assembly.GetExecutingAssembly().GetName().Version?.ToString(3) ?? "1.1.1";
+        Assembly.GetExecutingAssembly().GetName().Version?.ToString(3) ?? "1.1.2";
 
     public string DataFolder => AppPaths.DataDirectory;
 
@@ -125,6 +137,28 @@ public partial class SettingsViewModel : ObservableObject
 
         _settings.Settings.VersionsPathOverride = normalized;
         _settings.Save();
+    }
+
+    partial void OnStartWithWindowsChanged(bool value)
+    {
+        if (_startup == null || _startup.IsEnabled == value)
+            return;
+        if (!_startup.SetEnabled(value))
+            StartWithWindows = _startup.IsEnabled;
+    }
+
+    partial void OnStartInTrayChanged(bool value)
+    {
+        _settings.Settings.StartInTray = value;
+        _settings.Save();
+        TrayPreferenceChanged?.Invoke();
+    }
+
+    partial void OnCloseToTrayChanged(bool value)
+    {
+        _settings.Settings.CloseToTray = value;
+        _settings.Save();
+        TrayPreferenceChanged?.Invoke();
     }
 
     partial void OnSwitchToAccountsOnGameSelectChanged(bool value)
@@ -257,7 +291,12 @@ public partial class SettingsViewModel : ObservableObject
             (NotificationId.ThemeExported, "Theme exported"),
             (NotificationId.ThemeImported, "Theme imported"),
             (NotificationId.ThemeImportFailed, "Theme import failed"),
-            (NotificationId.AppUpdated, "App updates")
+            (NotificationId.AppUpdated, "App updates"),
+            (NotificationId.SessionsChecked, "Login checks"),
+            (NotificationId.AutomationRun, "Automation runs"),
+            (NotificationId.ServerHop, "Server hops"),
+            (NotificationId.SettingProblem, "Setting problems"),
+            (NotificationId.ToolMessage, "Anti-AFK messages")
         };
 
         foreach ((NotificationId id, string label) in rows)

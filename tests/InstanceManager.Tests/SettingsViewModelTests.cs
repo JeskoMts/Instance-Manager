@@ -143,12 +143,12 @@ public class SettingsViewModelTests
 
 
     [Fact]
-    public void AutoReconnect_DefaultsOn()
+    public void AutoReconnect_MasterDefaultsOff_WithEveryTriggerReady()
     {
         using var manager = new MultiInstanceManager();
         var vm = Create(new FakeSettingsService(), manager);
 
-        Assert.True(vm.AutoReconnectMaster);
+        Assert.False(vm.AutoReconnectMaster);
         Assert.True(vm.AutoReconnectOnKickError);
         Assert.True(vm.AutoReconnectOnCrash);
         Assert.Equal(3, vm.AutoReconnectMaxAttempts);
@@ -161,10 +161,10 @@ public class SettingsViewModelTests
         using var manager = new MultiInstanceManager();
         var vm = Create(settings, manager);
 
-        vm.AutoReconnectMaster = false;
+        vm.AutoReconnectMaster = true;
         vm.AutoReconnectOnKickError = false;
 
-        Assert.False(settings.Settings.AutoReconnectMaster);
+        Assert.True(settings.Settings.AutoReconnectMaster);
         Assert.False(settings.Settings.AutoReconnectOnKickError);
         Assert.True(settings.Settings.AutoReconnectOnCrash);
     }

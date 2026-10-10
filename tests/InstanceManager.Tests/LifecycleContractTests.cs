@@ -41,9 +41,23 @@ public sealed class LifecycleContractTests
         string app = Read("src", "InstanceManager", "App.xaml.cs");
 
         Assert.Contains("GetRequiredService<ISettingsService>()", app, StringComparison.Ordinal);
-        Assert.Contains("multiInstance.TryApply(settings.Settings.MultiInstanceEnabled)", app, StringComparison.Ordinal);
-        Assert.DoesNotContain("multiInstance.Apply(settings.Settings.MultiInstanceEnabled)", app, StringComparison.Ordinal);
+        Assert.Contains("multiInstance.TryApply(_settings.Settings.MultiInstanceEnabled)", app, StringComparison.Ordinal);
+        Assert.DoesNotContain("multiInstance.Apply(_settings.Settings.MultiInstanceEnabled)", app, StringComparison.Ordinal);
         Assert.DoesNotContain("GetRequiredService<MultiInstanceManager>().EnsureHeld()", app, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void TrayMenu_OffersOpenCloseAllAndQuitOnly()
+    {
+        string app = Read("src", "InstanceManager", "App.xaml.cs");
+        int start = app.IndexOf("private void ShowTrayMenu()", StringComparison.Ordinal);
+        string menu = app[start..app.IndexOf("private static MenuItem TrayItem", start, StringComparison.Ordinal)];
+
+        Assert.Contains("\"Open Instance Manager\"", menu, StringComparison.Ordinal);
+        Assert.Contains("\"Close every Roblox window\"", menu, StringComparison.Ordinal);
+        Assert.Contains("\"Quit\"", menu, StringComparison.Ordinal);
+        Assert.DoesNotContain("Launch selected accounts", menu, StringComparison.Ordinal);
+        Assert.DoesNotContain("LaunchSelectedCommand", menu, StringComparison.Ordinal);
     }
 
     private static string Read(params string[] parts)
