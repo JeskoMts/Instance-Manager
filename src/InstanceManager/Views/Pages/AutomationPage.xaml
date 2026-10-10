@@ -115,11 +115,11 @@
             <StackPanel VerticalAlignment="Center">
                 <TextBlock Style="{StaticResource PageTitle}" Text="Automation" />
                 <TextBlock Style="{StaticResource PageSubtitle}"
-                           Text="Start a set of accounts with one click, or let them start and close on their own." />
+                           Text="Saved sets of accounts that start with one click or on a schedule." />
             </StackPanel>
             <Button Grid.Column="1" Style="{StaticResource PrimaryButton}" VerticalAlignment="Center"
                     Command="{Binding NewAutomationCommand}"
-                    ToolTip="Starts with the accounts selected on the Accounts page and the game in the launch bar"
+                    ToolTip="Takes the accounts selected on the Accounts page and the game or server in the launch bar"
                     Visibility="{Binding IsEmpty, Converter={StaticResource InverseBoolToVis}}">
                 <StackPanel Orientation="Horizontal">
                     <ui:Icon Kind="Plus" Size="14" Margin="0,0,8,0" />
@@ -128,160 +128,147 @@
             </Button>
         </Grid>
 
-        <Border Grid.Row="1" Margin="28,0,28,28" CornerRadius="12" BorderThickness="1"
-                Background="{DynamicResource Brush.Surface}" BorderBrush="{DynamicResource Brush.Border}"
-                Visibility="{Binding IsEmpty, Converter={StaticResource BoolToVis}}">
-            <StackPanel MaxWidth="460" HorizontalAlignment="Center" VerticalAlignment="Center" Margin="24">
-                <Grid Width="56" Height="56" HorizontalAlignment="Center">
-                    <Ellipse Fill="{DynamicResource Brush.Accent}" Opacity="0.14" />
-                    <ui:Icon Kind="Zap" Size="24" Foreground="{DynamicResource Brush.Accent}" />
-                </Grid>
-                <TextBlock Text="No automations yet" FontSize="18" FontWeight="SemiBold" HorizontalAlignment="Center" Margin="0,16,0,0" />
-                <TextBlock TextWrapping="Wrap" TextAlignment="Center" Margin="0,8,0,0" Foreground="{DynamicResource Brush.TextSecondary}"
-                           Text="An automation remembers a set of accounts and where they go. Start them all with one click, or let them start and close on their own at the times you pick." />
-                <Button Style="{StaticResource PrimaryButton}" HorizontalAlignment="Center" Margin="0,20,0,0"
-                        Command="{Binding NewAutomationCommand}">
-                    <StackPanel Orientation="Horizontal">
-                        <ui:Icon Kind="Plus" Size="14" Margin="0,0,8,0" />
-                        <TextBlock Text="Create an automation" VerticalAlignment="Center" />
-                    </StackPanel>
-                </Button>
-                <TextBlock TextWrapping="Wrap" TextAlignment="Center" Margin="0,14,0,0" FontSize="12" Foreground="{DynamicResource Brush.TextMuted}"
-                           Text="Tip: select accounts on the Accounts page and set a game in the launch bar first. The new automation takes both." />
-            </StackPanel>
-        </Border>
+        <StackPanel Grid.Row="1" MaxWidth="420" HorizontalAlignment="Center" VerticalAlignment="Center" Margin="28,0,28,80"
+                    Visibility="{Binding IsEmpty, Converter={StaticResource BoolToVis}}">
+            <TextBlock Text="No automations yet" FontSize="16" FontWeight="SemiBold" HorizontalAlignment="Center" />
+            <TextBlock TextWrapping="Wrap" TextAlignment="Center" Margin="0,6,0,0" Foreground="{DynamicResource Brush.TextSecondary}"
+                       Text="An automation remembers a set of accounts and where they go, so you can start them all at once." />
+            <Button Style="{StaticResource PrimaryButton}" HorizontalAlignment="Center" Margin="0,18,0,0"
+                    Command="{Binding NewAutomationCommand}"
+                    ToolTip="Takes the accounts selected on the Accounts page and the game or server in the launch bar">
+                <StackPanel Orientation="Horizontal">
+                    <ui:Icon Kind="Plus" Size="14" Margin="0,0,8,0" />
+                    <TextBlock Text="New automation" VerticalAlignment="Center" />
+                </StackPanel>
+            </Button>
+        </StackPanel>
 
         <Grid Grid.Row="1" Margin="28,0,28,20" Visibility="{Binding IsEmpty, Converter={StaticResource InverseBoolToVis}}">
             <Grid.ColumnDefinitions>
-                <ColumnDefinition Width="300" />
-                <ColumnDefinition Width="16" />
+                <ColumnDefinition Width="260" />
+                <ColumnDefinition Width="24" />
                 <ColumnDefinition Width="*" />
             </Grid.ColumnDefinitions>
 
-            <Border Grid.Column="0" CornerRadius="12" Padding="6" Background="{DynamicResource Brush.Surface}"
-                    BorderBrush="{DynamicResource Brush.Border}" BorderThickness="1">
-                <ListBox x:Name="AutomationList" ItemsSource="{Binding Items}" SelectedItem="{Binding Selected}"
-                         ItemContainerStyle="{StaticResource ListCardItem}"
-                         Background="Transparent" BorderThickness="0" Padding="0"
-                         ScrollViewer.HorizontalScrollBarVisibility="Disabled" behaviors:SmoothScroll.Enabled="True"
-                         VirtualizingPanel.IsVirtualizing="True" VirtualizingPanel.VirtualizationMode="Recycling">
-                    <ListBox.ItemTemplate>
-                        <DataTemplate>
-                            <Grid>
-                                <Grid.ColumnDefinitions>
-                                    <ColumnDefinition Width="*" />
-                                    <ColumnDefinition Width="Auto" />
-                                </Grid.ColumnDefinitions>
-                                <StackPanel Margin="0,0,8,0">
-                                    <DockPanel>
-                                        <Ellipse DockPanel.Dock="Left" Width="7" Height="7" Margin="0,0,7,0" VerticalAlignment="Center"
-                                                 Fill="{DynamicResource Brush.Success}" ToolTip="{Binding RunningText}"
-                                                 Visibility="{Binding IsRunning, Converter={StaticResource BoolToVis}}" />
-                                        <TextBlock Text="{Binding Name}" FontWeight="SemiBold" TextTrimming="CharacterEllipsis" />
-                                    </DockPanel>
-                                    <TextBlock Text="{Binding ListSubtitle}" FontSize="12" Margin="0,3,0,0" TextTrimming="CharacterEllipsis"
-                                               Foreground="{DynamicResource Brush.TextMuted}" />
-                                    <DockPanel Margin="0,5,0,0">
-                                        <ui:Icon x:Name="ClockIcon" DockPanel.Dock="Left" Kind="Clock" Size="12" Margin="0,0,6,0"
-                                                 Foreground="{DynamicResource Brush.TextMuted}" />
-                                        <TextBlock Text="{Binding ScheduleText}" FontSize="12" TextTrimming="CharacterEllipsis"
-                                                   Foreground="{DynamicResource Brush.TextSecondary}" />
-                                    </DockPanel>
-                                </StackPanel>
-                                <Grid Grid.Column="1" VerticalAlignment="Center">
-                                    <Button Style="{StaticResource IconButton}" Width="34" Height="34" Padding="0"
-                                            Command="{Binding RunCommand}" ToolTip="Run now"
-                                            Visibility="{Binding IsRunning, Converter={StaticResource InverseBoolToVis}}">
-                                        <ui:Icon Kind="Play" Size="15" />
-                                    </Button>
-                                    <Button Style="{StaticResource IconButton}" Width="34" Height="34" Padding="0"
-                                            Command="{Binding StopNowCommand}" ToolTip="Close its Roblox windows"
-                                            Visibility="{Binding IsRunning, Converter={StaticResource BoolToVis}}">
-                                        <ui:Icon Kind="Stop" Size="14" Foreground="{DynamicResource Brush.Danger}" />
-                                    </Button>
-                                </Grid>
+            <ListBox x:Name="AutomationList" Grid.Column="0" ItemsSource="{Binding Items}" SelectedItem="{Binding Selected}"
+                     ItemContainerStyle="{StaticResource ListCardItem}"
+                     Background="Transparent" BorderThickness="0" Padding="0"
+                     ScrollViewer.HorizontalScrollBarVisibility="Disabled" behaviors:SmoothScroll.Enabled="True"
+                     VirtualizingPanel.IsVirtualizing="True" VirtualizingPanel.VirtualizationMode="Recycling">
+                <ListBox.ItemTemplate>
+                    <DataTemplate>
+                        <Grid>
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="*" />
+                                <ColumnDefinition Width="Auto" />
+                            </Grid.ColumnDefinitions>
+                            <StackPanel Margin="0,0,8,0" VerticalAlignment="Center">
+                                <DockPanel>
+                                    <Ellipse DockPanel.Dock="Left" Width="7" Height="7" Margin="0,0,7,0" VerticalAlignment="Center"
+                                             Fill="{DynamicResource Brush.Success}" ToolTip="{Binding RunningText}"
+                                             Visibility="{Binding IsRunning, Converter={StaticResource BoolToVis}}" />
+                                    <TextBlock Text="{Binding Name}" FontWeight="SemiBold" TextTrimming="CharacterEllipsis" />
+                                </DockPanel>
+                                <TextBlock Text="{Binding ListSubtitle}" FontSize="12" Margin="0,3,0,0" TextTrimming="CharacterEllipsis"
+                                           Foreground="{DynamicResource Brush.TextMuted}" />
+                                <TextBlock Text="{Binding ScheduleText}" FontSize="12" Margin="0,2,0,0" TextTrimming="CharacterEllipsis"
+                                           Foreground="{DynamicResource Brush.TextMuted}"
+                                           Visibility="{Binding ScheduleEnabled, Converter={StaticResource BoolToVis}}" />
+                            </StackPanel>
+                            <Grid Grid.Column="1" VerticalAlignment="Center">
+                                <Button Style="{StaticResource IconButton}" Width="32" Height="32" Padding="0"
+                                        Command="{Binding RunCommand}" ToolTip="Run this automation now"
+                                        Visibility="{Binding IsRunning, Converter={StaticResource InverseBoolToVis}}">
+                                    <ui:Icon Kind="Play" Size="14" />
+                                </Button>
+                                <Button Style="{StaticResource IconButton}" Width="32" Height="32" Padding="0"
+                                        Command="{Binding StopNowCommand}" ToolTip="Close the Roblox windows of its accounts"
+                                        Visibility="{Binding IsRunning, Converter={StaticResource BoolToVis}}">
+                                    <ui:Icon Kind="Stop" Size="13" />
+                                </Button>
                             </Grid>
-                            <DataTemplate.Triggers>
-                                <DataTrigger Binding="{Binding ScheduleEnabled}" Value="True">
-                                    <Setter TargetName="ClockIcon" Property="Foreground" Value="{DynamicResource Brush.Accent}" />
-                                </DataTrigger>
-                            </DataTemplate.Triggers>
-                        </DataTemplate>
-                    </ListBox.ItemTemplate>
-                </ListBox>
-            </Border>
+                        </Grid>
+                    </DataTemplate>
+                </ListBox.ItemTemplate>
+            </ListBox>
 
             <ScrollViewer x:Name="EditorScroller" Grid.Column="2" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled"
                           behaviors:SmoothScroll.Enabled="True" DataContext="{Binding Selected}"
                           Visibility="{Binding DataContext.HasSelection, ElementName=Root, Converter={StaticResource BoolToVis}}">
                 <Grid>
                     <Grid.ColumnDefinitions>
-                        <ColumnDefinition Width="*" MaxWidth="780" />
+                        <ColumnDefinition Width="*" MaxWidth="720" />
                         <ColumnDefinition Width="0" />
                     </Grid.ColumnDefinitions>
                     <StackPanel Margin="0,0,10,0">
-                        <Grid Margin="0,0,0,6">
+                        <Grid>
                             <Grid.ColumnDefinitions>
                                 <ColumnDefinition Width="*" />
                                 <ColumnDefinition Width="Auto" />
                                 <ColumnDefinition Width="Auto" />
                                 <ColumnDefinition Width="Auto" />
-                                <ColumnDefinition Width="Auto" />
                             </Grid.ColumnDefinitions>
-                            <TextBox x:Name="NameBox" Style="{StaticResource EditorName}" ToolTip="Name"
+                            <TextBox x:Name="NameBox" Style="{StaticResource EditorName}" ToolTip="Name of this automation"
                                      Text="{Binding Name, UpdateSourceTrigger=PropertyChanged, Delay=300}" />
-                            <Button Grid.Column="1" Style="{StaticResource PrimaryButton}" Margin="10,0,0,0" Command="{Binding RunCommand}"
+                            <Button Grid.Column="1" Style="{StaticResource GhostButton}" Margin="10,0,0,0" Height="40" Content="Stop"
+                                    Command="{Binding StopNowCommand}"
+                                    ToolTip="Close the Roblox windows of these accounts"
+                                    Visibility="{Binding IsRunning, Converter={StaticResource BoolToVis}}" />
+                            <Button Grid.Column="2" Style="{StaticResource PrimaryButton}" Margin="8,0,0,0" Height="40" MinWidth="84" Command="{Binding RunCommand}"
                                     ToolTip="Start these accounts now, one after another">
                                 <StackPanel Orientation="Horizontal">
                                     <ui:Icon Kind="Play" Size="14" Margin="0,0,8,0" />
                                     <TextBlock Text="Run" VerticalAlignment="Center" />
                                 </StackPanel>
                             </Button>
-                            <Button Grid.Column="2" Style="{StaticResource GhostButton}" Margin="8,0,0,0" Command="{Binding StopNowCommand}"
-                                    ToolTip="Close the Roblox windows of these accounts">
-                                <StackPanel Orientation="Horizontal">
-                                    <ui:Icon Kind="Stop" Size="13" Margin="0,0,8,0" Foreground="{DynamicResource Brush.Danger}" />
-                                    <TextBlock Text="Close" VerticalAlignment="Center" />
-                                </StackPanel>
-                            </Button>
-                            <Button Grid.Column="3" Style="{StaticResource IconButton}" Width="36" Height="36" Padding="0" Margin="6,0,0,0"
-                                    Command="{Binding DuplicateCommand}" ToolTip="Duplicate. The copy starts with its schedule off.">
-                                <ui:Icon Kind="Copy" Size="15" />
-                            </Button>
-                            <Button Grid.Column="4" Style="{StaticResource IconButton}" Width="36" Height="36" Padding="0" Margin="2,0,0,0"
-                                    Command="{Binding DeleteCommand}" ToolTip="Delete. You can undo it from the notification.">
-                                <ui:Icon Kind="Trash" Size="15" Foreground="{DynamicResource Brush.Danger}" />
+                            <Button Grid.Column="3" Style="{StaticResource IconButton}" Width="36" Height="36" Padding="0" Margin="4,0,0,0"
+                                    ToolTip="More: duplicate or delete" Click="More_Click">
+                                <ui:Icon Kind="More" />
+                                <Button.ContextMenu>
+                                    <ContextMenu>
+                                        <MenuItem Header="Duplicate" Command="{Binding DuplicateCommand}"
+                                                  ToolTip="The copy starts with its schedule off">
+                                            <MenuItem.Icon>
+                                                <ui:Icon Kind="Copy" Size="15" />
+                                            </MenuItem.Icon>
+                                        </MenuItem>
+                                        <MenuItem Header="Delete" Command="{Binding DeleteCommand}" Foreground="{DynamicResource Brush.Danger}"
+                                                  ToolTip="You can undo it from the notification">
+                                            <MenuItem.Icon>
+                                                <ui:Icon Kind="Trash" Size="15" />
+                                            </MenuItem.Icon>
+                                        </MenuItem>
+                                    </ContextMenu>
+                                </Button.ContextMenu>
                             </Button>
                         </Grid>
-                        <DockPanel Margin="2,0,0,18">
-                            <ui:Icon DockPanel.Dock="Left" Kind="Clock" Size="13" Margin="0,0,7,0" Foreground="{DynamicResource Brush.TextMuted}" />
+                        <DockPanel Margin="2,8,0,20">
                             <TextBlock DockPanel.Dock="Right" FontSize="12" Margin="12,0,0,0" Foreground="{DynamicResource Brush.Success}"
                                        Text="{Binding RunningText}" Visibility="{Binding IsRunning, Converter={StaticResource BoolToVis}}" />
                             <TextBlock Text="{Binding NextText}" FontSize="12" TextTrimming="CharacterEllipsis"
-                                       Foreground="{DynamicResource Brush.TextSecondary}" />
+                                       Foreground="{DynamicResource Brush.TextMuted}" />
                         </DockPanel>
 
-                        <Border Style="{StaticResource SettingsCard}" Padding="18,14" Margin="0,0,0,16">
+                        <Border Style="{StaticResource SettingsCard}" Padding="18,16" Margin="0,0,0,14">
                             <StackPanel>
                                 <Grid>
-                                    <Grid.ColumnDefinitions>
-                                        <ColumnDefinition Width="*" />
-                                        <ColumnDefinition Width="Auto" />
-                                    </Grid.ColumnDefinitions>
-                                    <StackPanel VerticalAlignment="Center">
+                                    <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
                                         <TextBlock Style="{StaticResource RowTitle}" Text="Accounts" />
-                                        <TextBlock Style="{StaticResource RowHint}" Text="{Binding DataContext.PickSummary, ElementName=Root}" />
+                                        <TextBlock Text="{Binding DataContext.PickSummary, ElementName=Root}" FontSize="12" Margin="10,0,0,0"
+                                                   VerticalAlignment="Center" Foreground="{DynamicResource Brush.TextMuted}" />
                                     </StackPanel>
-                                    <StackPanel Grid.Column="1" Orientation="Horizontal" VerticalAlignment="Center">
+                                    <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" VerticalAlignment="Center" Margin="0,-4,-8,-4"
+                                                Visibility="{Binding DataContext.HasAccounts, ElementName=Root, Converter={StaticResource BoolToVis}}">
                                         <Button Style="{StaticResource LinkButton}" Content="All" FontSize="12"
                                                 Command="{Binding DataContext.SelectAllAccountsCommand, ElementName=Root}"
                                                 ToolTip="Select every account in the list" />
                                         <Button Style="{StaticResource LinkButton}" Content="None" FontSize="12"
-                                                Command="{Binding DataContext.SelectNoAccountsCommand, ElementName=Root}" />
+                                                Command="{Binding DataContext.SelectNoAccountsCommand, ElementName=Root}"
+                                                ToolTip="Clear every account" />
                                     </StackPanel>
                                 </Grid>
 
-                                <Grid Margin="0,12,0,10" Visibility="{Binding DataContext.HasAccounts, ElementName=Root, Converter={StaticResource BoolToVis}}">
+                                <Grid Margin="0,12,0,0" Visibility="{Binding DataContext.ShowAccountSearch, ElementName=Root, Converter={StaticResource BoolToVis}}">
                                     <TextBox x:Name="AccountSearchBox" Style="{StaticResource SearchTextBox}" Height="32" VerticalContentAlignment="Center"
                                              Text="{Binding DataContext.AccountSearch, ElementName=Root, UpdateSourceTrigger=PropertyChanged, Delay=150}" />
                                     <ui:Icon Kind="Search" Size="13" HorizontalAlignment="Left" Margin="12,0,0,0"
@@ -296,7 +283,7 @@
                                     </TextBlock>
                                 </Grid>
 
-                                <ItemsControl ItemsSource="{Binding DataContext.GroupPicks, ElementName=Root}" Margin="0,0,0,6"
+                                <ItemsControl ItemsSource="{Binding DataContext.GroupPicks, ElementName=Root}" Margin="0,12,0,-6"
                                               Visibility="{Binding DataContext.HasGroups, ElementName=Root, Converter={StaticResource BoolToVis}}">
                                     <ItemsControl.ItemsPanel>
                                         <ItemsPanelTemplate>
@@ -320,7 +307,8 @@
                                     </ItemsControl.ItemTemplate>
                                 </ItemsControl>
 
-                                <ItemsControl x:Name="PickList" ItemsSource="{Binding DataContext.AccountPicks, ElementName=Root}" Focusable="False">
+                                <ItemsControl x:Name="PickList" ItemsSource="{Binding DataContext.AccountPicks, ElementName=Root}" Focusable="False"
+                                              Margin="0,12,-8,-8">
                                     <ItemsControl.ItemsPanel>
                                         <ItemsPanelTemplate>
                                             <UniformGrid VerticalAlignment="Top"
@@ -350,25 +338,18 @@
                                     </ItemsControl.ItemTemplate>
                                 </ItemsControl>
 
-                                <TextBlock Text="No account matches." FontSize="12" Margin="0,0,0,8" Foreground="{DynamicResource Brush.TextMuted}"
+                                <TextBlock Text="No account matches your search." FontSize="12" Margin="0,12,0,0" Foreground="{DynamicResource Brush.TextMuted}"
                                            Visibility="{Binding DataContext.NoAccountMatches, ElementName=Root, Converter={StaticResource BoolToVis}}" />
-                                <TextBlock Text="Add accounts on the Accounts page first." FontSize="12" Margin="0,10,0,4" Foreground="{DynamicResource Brush.TextMuted}"
+                                <TextBlock Text="Add accounts on the Accounts page first." FontSize="12" Foreground="{DynamicResource Brush.TextMuted}"
                                            Visibility="{Binding DataContext.HasAccounts, ElementName=Root, Converter={StaticResource InverseBoolToVis}}" />
                             </StackPanel>
                         </Border>
 
-                        <Border Style="{StaticResource SettingsCard}" Padding="18,14" Margin="0,0,0,16">
+                        <Border Style="{StaticResource SettingsCard}" Padding="18,16" Margin="0,0,0,14">
                             <StackPanel>
                                 <Grid>
-                                    <Grid.ColumnDefinitions>
-                                        <ColumnDefinition Width="*" />
-                                        <ColumnDefinition Width="Auto" />
-                                    </Grid.ColumnDefinitions>
-                                    <StackPanel VerticalAlignment="Center" Margin="0,0,16,0">
-                                        <TextBlock Style="{StaticResource RowTitle}" Text="Destination" />
-                                        <TextBlock Style="{StaticResource RowHint}" Text="Where the accounts go when this automation starts them." />
-                                    </StackPanel>
-                                    <Border Grid.Column="1" Style="{StaticResource SegmentHost}">
+                                    <TextBlock Style="{StaticResource RowTitle}" Text="Destination" VerticalAlignment="Center" />
+                                    <Border Style="{StaticResource SegmentHost}" HorizontalAlignment="Right">
                                         <StackPanel Orientation="Horizontal">
                                             <RadioButton Style="{StaticResource SegmentRadio}" Content="Game" GroupName="automationMode"
                                                          IsChecked="{Binding Mode, Converter={StaticResource EnumBool}, ConverterParameter=PublicByLink}" />
@@ -380,33 +361,31 @@
                                     </Border>
                                 </Grid>
 
-                                <Grid Margin="0,12,0,0" Visibility="{Binding NeedsTarget, Converter={StaticResource BoolToVis}}">
-                                    <TextBox x:Name="TargetBox" Style="{StaticResource ModernTextBox}" Height="34" Padding="10,0"
-                                             Text="{Binding Target, UpdateSourceTrigger=PropertyChanged, Delay=300}" />
-                                    <TextBlock Style="{StaticResource WatermarkText}" Margin="11,0" Text="{Binding TargetHint}">
-                                        <TextBlock.Visibility>
-                                            <MultiBinding Converter="{StaticResource EmptyUnfocusedToVis}">
-                                                <Binding Path="Text" ElementName="TargetBox" />
-                                                <Binding Path="IsKeyboardFocused" ElementName="TargetBox" />
-                                            </MultiBinding>
-                                        </TextBlock.Visibility>
-                                    </TextBlock>
-                                </Grid>
+                                <StackPanel Visibility="{Binding NeedsTarget, Converter={StaticResource BoolToVis}}">
+                                    <Grid Margin="0,12,0,0">
+                                        <TextBox x:Name="TargetBox" Style="{StaticResource ModernTextBox}" Height="34" Padding="10,0"
+                                                 Text="{Binding Target, UpdateSourceTrigger=PropertyChanged, Delay=300}" />
+                                        <TextBlock Style="{StaticResource WatermarkText}" Margin="11,0" Text="{Binding TargetHint}">
+                                            <TextBlock.Visibility>
+                                                <MultiBinding Converter="{StaticResource EmptyUnfocusedToVis}">
+                                                    <Binding Path="Text" ElementName="TargetBox" />
+                                                    <Binding Path="IsKeyboardFocused" ElementName="TargetBox" />
+                                                </MultiBinding>
+                                            </TextBlock.Visibility>
+                                        </TextBlock>
+                                    </Grid>
 
-                                <DockPanel Margin="0,10,0,0">
-                                    <Button DockPanel.Dock="Right" Style="{StaticResource LinkButton}" FontSize="12" Padding="6,2"
-                                            Command="{Binding DataContext.UseLaunchBarTargetCommand, ElementName=Root}"
-                                            Content="Use launch bar target"
-                                            ToolTip="Copy the game or server from the launch bar on the Accounts page" />
-                                    <ui:Icon x:Name="DestinationIcon" DockPanel.Dock="Left" Kind="Gamepad" Size="14" Margin="0,0,8,0"
-                                             Foreground="{DynamicResource Brush.TextMuted}" VerticalAlignment="Center" />
-                                    <TextBlock x:Name="DestinationLine" Text="{Binding DestinationText}" FontSize="12" VerticalAlignment="Center"
-                                               TextTrimming="CharacterEllipsis" Foreground="{DynamicResource Brush.TextSecondary}" />
-                                </DockPanel>
+                                    <DockPanel Margin="1,8,0,0">
+                                        <Button DockPanel.Dock="Right" Style="{StaticResource LinkButton}" FontSize="12" Padding="0" Margin="12,0,0,0"
+                                                Command="{Binding DataContext.UseLaunchBarTargetCommand, ElementName=Root}"
+                                                Content="Use launch bar target"
+                                                ToolTip="Copy the game or server from the launch bar on the Accounts page" />
+                                        <TextBlock Text="{Binding DestinationName}" FontSize="12" VerticalAlignment="Center"
+                                                   TextTrimming="CharacterEllipsis" Foreground="{DynamicResource Brush.TextMuted}" />
+                                    </DockPanel>
 
-                                <StackPanel Margin="0,12,0,0" Visibility="{Binding DataContext.HasFavorites, ElementName=Root, Converter={StaticResource BoolToVis}}">
-                                    <TextBlock Style="{StaticResource RowHint}" Text="Favorites" Margin="0,0,0,6" />
-                                    <ItemsControl ItemsSource="{Binding DataContext.Favorites, ElementName=Root}">
+                                    <ItemsControl ItemsSource="{Binding DataContext.Favorites, ElementName=Root}" Margin="0,12,0,-6"
+                                                  Visibility="{Binding DataContext.HasFavorites, ElementName=Root, Converter={StaticResource BoolToVis}}">
                                         <ItemsControl.ItemsPanel>
                                             <ItemsPanelTemplate>
                                                 <WrapPanel />
@@ -416,10 +395,7 @@
                                             <DataTemplate>
                                                 <Button Style="{StaticResource ChipButton}" ToolTip="Use this favorite as the destination"
                                                         Command="{Binding DataContext.UseFavoriteCommand, ElementName=Root}" CommandParameter="{Binding}">
-                                                    <StackPanel Orientation="Horizontal">
-                                                        <ui:Icon Kind="Star" Size="12" Margin="0,0,6,0" />
-                                                        <TextBlock Text="{Binding Name}" VerticalAlignment="Center" MaxWidth="180" TextTrimming="CharacterEllipsis" />
-                                                    </StackPanel>
+                                                    <TextBlock Text="{Binding Name}" VerticalAlignment="Center" MaxWidth="180" TextTrimming="CharacterEllipsis" />
                                                 </Button>
                                             </DataTemplate>
                                         </ItemsControl.ItemTemplate>
@@ -428,28 +404,24 @@
                             </StackPanel>
                         </Border>
 
-                        <Border Style="{StaticResource SettingsCard}" Padding="18,6" Margin="0,0,0,12">
+                        <Border Style="{StaticResource SettingsCard}" Padding="18,16" Margin="0,0,0,12">
                             <StackPanel>
-                                <Grid Style="{StaticResource SettingRow}">
+                                <Grid>
                                     <StackPanel VerticalAlignment="Center" Margin="0,0,70,0">
                                         <TextBlock Style="{StaticResource RowTitle}" Text="Schedule" />
-                                        <TextBlock Style="{StaticResource RowHint}" Text="Start and close these accounts on their own at set times." />
+                                        <TextBlock Style="{StaticResource RowHint}" Text="Start and close these accounts at set times." />
                                     </StackPanel>
-                                    <CheckBox Style="{StaticResource ToggleSwitch}" HorizontalAlignment="Right" IsChecked="{Binding ScheduleEnabled}" />
+                                    <CheckBox Style="{StaticResource ToggleSwitch}" HorizontalAlignment="Right" VerticalAlignment="Center"
+                                              IsChecked="{Binding ScheduleEnabled}" />
                                 </Grid>
 
                                 <StackPanel Visibility="{Binding ScheduleEnabled, Converter={StaticResource BoolToVis}}">
-                                    <Border Style="{StaticResource RowDivider}" />
-                                    <StackPanel Margin="0,14,0,12">
-                                        <Grid>
-                                            <TextBlock Style="{StaticResource RowTitle}" Text="Days" VerticalAlignment="Center" />
-                                            <StackPanel Orientation="Horizontal" HorizontalAlignment="Right">
-                                                <Button Style="{StaticResource LinkButton}" Content="Every day" FontSize="12" Command="{Binding PickEveryDayCommand}" />
-                                                <Button Style="{StaticResource LinkButton}" Content="Weekdays" FontSize="12" Command="{Binding PickWeekdaysCommand}" />
-                                                <Button Style="{StaticResource LinkButton}" Content="Weekends" FontSize="12" Command="{Binding PickWeekendsCommand}" />
-                                            </StackPanel>
-                                        </Grid>
-                                        <ItemsControl ItemsSource="{Binding Days}" Margin="0,10,0,0" Focusable="False">
+                                    <Border Style="{StaticResource RowDivider}" Margin="0,16,0,0" />
+
+                                    <StackPanel Margin="0,14,0,0">
+                                        <TextBlock Style="{StaticResource RowTitle}" Text="Days" />
+                                        <ItemsControl ItemsSource="{Binding Days}" Focusable="False" Margin="0,10,-6,-6"
+                                                      ToolTip="With no day picked, the schedule runs every day">
                                             <ItemsControl.ItemsPanel>
                                                 <ItemsPanelTemplate>
                                                     <WrapPanel />
@@ -461,36 +433,43 @@
                                                 </DataTemplate>
                                             </ItemsControl.ItemTemplate>
                                         </ItemsControl>
-                                        <TextBlock Style="{StaticResource RowHint}" Text="No day picked means every day." />
                                     </StackPanel>
 
-                                    <Border Style="{StaticResource RowDivider}" />
-                                    <Grid Style="{StaticResource SettingRow}">
-                                        <Grid.ColumnDefinitions>
-                                            <ColumnDefinition Width="*" />
-                                            <ColumnDefinition Width="Auto" />
-                                            <ColumnDefinition Width="Auto" />
-                                        </Grid.ColumnDefinitions>
-                                        <StackPanel VerticalAlignment="Center" Margin="0,0,16,0">
-                                            <TextBlock Style="{StaticResource RowTitle}" Text="Start at" />
-                                            <TextBlock Style="{StaticResource RowHint}" Text="Starts the accounts one after another, like Run." />
+                                    <Grid Margin="0,18,0,0">
+                                        <TextBlock Style="{StaticResource RowTitle}" Text="Start at" VerticalAlignment="Center" />
+                                        <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" VerticalAlignment="Center">
+                                            <TextBox Style="{StaticResource TimeBox}" Margin="0,0,12,0" VerticalAlignment="Center"
+                                                     Tag="{Binding StartTimeIsValid}" IsEnabled="{Binding StartOnSchedule}"
+                                                     PreviewKeyDown="TimeBox_PreviewKeyDown"
+                                                     Text="{Binding StartTime, UpdateSourceTrigger=PropertyChanged, Delay=400}" />
+                                            <CheckBox Style="{StaticResource ToggleSwitch}" VerticalAlignment="Center"
+                                                      IsChecked="{Binding StartOnSchedule}" ToolTip="Turn off to only close the accounts on a schedule" />
                                         </StackPanel>
-                                        <TextBox Grid.Column="1" Style="{StaticResource TimeBox}" Margin="0,0,14,0" VerticalAlignment="Center"
-                                                 Tag="{Binding StartTimeIsValid}" IsEnabled="{Binding StartOnSchedule}"
-                                                 PreviewKeyDown="TimeBox_PreviewKeyDown"
-                                                 Text="{Binding StartTime, UpdateSourceTrigger=PropertyChanged, Delay=400}" />
-                                        <CheckBox Grid.Column="2" Style="{StaticResource ToggleSwitch}" VerticalAlignment="Center"
-                                                  IsChecked="{Binding StartOnSchedule}" ToolTip="Turn off to only close the accounts on a schedule" />
                                     </Grid>
 
-                                    <Border Style="{StaticResource RowDivider}" />
-                                    <StackPanel Margin="0,14,0,14">
-                                        <TextBlock Style="{StaticResource RowTitle}" Text="Close again" />
-                                        <TextBlock Style="{StaticResource RowHint}" Text="Closes the Roblox windows of these accounts. A close time before the start time means the next day." />
-                                        <WrapPanel Margin="0,10,0,0">
-                                            <Border Style="{StaticResource SegmentHost}" Margin="0,0,10,0">
+                                    <Grid Margin="0,14,0,0">
+                                        <Grid.ColumnDefinitions>
+                                            <ColumnDefinition Width="Auto" />
+                                            <ColumnDefinition Width="*" />
+                                        </Grid.ColumnDefinitions>
+                                        <TextBlock Style="{StaticResource RowTitle}" Text="Close" VerticalAlignment="Center" Margin="0,0,12,0" />
+                                        <WrapPanel Grid.Column="1" HorizontalAlignment="Right" VerticalAlignment="Center">
+                                            <StackPanel Orientation="Horizontal" VerticalAlignment="Center" Margin="0,0,10,0"
+                                                        Visibility="{Binding IsStopAfter, Converter={StaticResource BoolToVis}}">
+                                                <TextBox Style="{StaticResource ModernTextBox}" Width="64" Height="34" Padding="10,0" TextAlignment="Right"
+                                                         ToolTip="Minutes after the start, from 1 to 1440 (24 hours)"
+                                                         Text="{Binding StopAfterMinutes, UpdateSourceTrigger=PropertyChanged, Delay=400}" />
+                                                <TextBlock Style="{StaticResource SuffixText}" Text="min" />
+                                            </StackPanel>
+                                            <TextBox Style="{StaticResource TimeBox}" VerticalAlignment="Center" Margin="0,0,10,0"
+                                                     Tag="{Binding StopTimeIsValid}" PreviewKeyDown="TimeBox_PreviewKeyDown"
+                                                     ToolTip="24-hour time. A time earlier than the start means the next day."
+                                                     Visibility="{Binding IsStopAt, Converter={StaticResource BoolToVis}}"
+                                                     Text="{Binding StopTime, UpdateSourceTrigger=PropertyChanged, Delay=400}" />
+                                            <Border Style="{StaticResource SegmentHost}">
                                                 <StackPanel Orientation="Horizontal">
-                                                    <RadioButton Style="{StaticResource SegmentRadio}" Content="Keep open" GroupName="automationStop"
+                                                    <RadioButton Style="{StaticResource SegmentRadio}" Content="Never" GroupName="automationStop"
+                                                                 ToolTip="The Roblox windows stay open"
                                                                  IsChecked="{Binding StopMode, Converter={StaticResource EnumBool}, ConverterParameter=Never}" />
                                                     <RadioButton Style="{StaticResource SegmentRadio}" Content="After" GroupName="automationStop"
                                                                  IsChecked="{Binding StopMode, Converter={StaticResource EnumBool}, ConverterParameter=AfterMinutes}" />
@@ -498,25 +477,14 @@
                                                                  IsChecked="{Binding StopMode, Converter={StaticResource EnumBool}, ConverterParameter=AtTime}" />
                                                 </StackPanel>
                                             </Border>
-                                            <StackPanel Orientation="Horizontal" VerticalAlignment="Center"
-                                                        Visibility="{Binding IsStopAfter, Converter={StaticResource BoolToVis}}">
-                                                <TextBox Style="{StaticResource ModernTextBox}" Width="70" Height="34" Padding="10,0" TextAlignment="Right"
-                                                         ToolTip="1 to 1440 minutes"
-                                                         Text="{Binding StopAfterMinutes, UpdateSourceTrigger=PropertyChanged, Delay=400}" />
-                                                <TextBlock Style="{StaticResource SuffixText}" Text="minutes" />
-                                            </StackPanel>
-                                            <TextBox Style="{StaticResource TimeBox}" VerticalAlignment="Center"
-                                                     Tag="{Binding StopTimeIsValid}" PreviewKeyDown="TimeBox_PreviewKeyDown"
-                                                     Visibility="{Binding IsStopAt, Converter={StaticResource BoolToVis}}"
-                                                     Text="{Binding StopTime, UpdateSourceTrigger=PropertyChanged, Delay=400}" />
                                         </WrapPanel>
-                                    </StackPanel>
+                                    </Grid>
+
+                                    <TextBlock Style="{StaticResource RowHint}" Margin="0,16,0,0"
+                                               Text="Schedules only run while Instance Manager is open or in the tray." />
                                 </StackPanel>
                             </StackPanel>
                         </Border>
-
-                        <TextBlock Style="{StaticResource RowHint}" Margin="2,0,0,8"
-                                   Text="Schedules run while Instance Manager is open, also from the tray. A start or close that was missed by up to 10 minutes still happens." />
                     </StackPanel>
                 </Grid>
             </ScrollViewer>

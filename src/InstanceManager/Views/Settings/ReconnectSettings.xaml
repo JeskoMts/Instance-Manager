@@ -8,7 +8,7 @@
                 <Grid Style="{StaticResource SettingRow}">
                     <StackPanel VerticalAlignment="Center" Margin="0,0,70,0">
                         <TextBlock Style="{StaticResource RowTitle}" Text="Auto Reconnect" />
-                        <TextBlock Style="{StaticResource RowHint}" Text="Starts an account again when it drops out of its game. Leaving a game yourself or stopping an account here never counts." />
+                        <TextBlock Style="{StaticResource RowHint}" Text="Launches an account again into the same game or server when it drops out. Leaving a game yourself or stopping an account here never counts." />
                     </StackPanel>
                     <CheckBox Style="{StaticResource ToggleSwitch}" HorizontalAlignment="Right"
                               IsChecked="{Binding Settings.AutoReconnectMaster}" />
@@ -33,7 +33,7 @@
                             <TextBlock Style="{StaticResource RowTitle}" Text="Retry limit" VerticalAlignment="Center" />
                             <TextBlock Style="{StaticResource SettingValue}" Text="{Binding Value, ElementName=RetrySlider, Converter={StaticResource AttemptsLabel}}" />
                         </Grid>
-                        <TextBlock Style="{StaticResource RowHint}" Text="How often one account may reconnect before Auto Reconnect gives up. Slide all the way right for no limit." />
+                        <TextBlock Style="{StaticResource RowHint}" Text="How many times one account may reconnect before Auto Reconnect gives up on it. Slide all the way right for no limit." />
                         <Slider x:Name="RetrySlider" Style="{StaticResource ModernSlider}" Margin="0,10,0,0"
                                 Minimum="1" Maximum="31" SmallChange="1" LargeChange="1" TickFrequency="1"
                                 IsSnapToTickEnabled="True"
@@ -61,8 +61,8 @@
                             <ColumnDefinition Width="Auto" />
                         </Grid.ColumnDefinitions>
                         <StackPanel VerticalAlignment="Center" Margin="0,0,16,0">
-                            <TextBlock Style="{StaticResource RowTitle}" Text="Every" />
-                            <TextBlock Style="{StaticResource RowHint}" Text="Minutes between key presses, from 1 to 60. Stay below 20." />
+                            <TextBlock Style="{StaticResource RowTitle}" Text="Interval" />
+                            <TextBlock Style="{StaticResource RowHint}" Text="Minutes between key presses, from 1 to 60. Keep it below 20, or Roblox kicks the account before the next press." />
                         </StackPanel>
                         <StackPanel Grid.Column="1" Orientation="Horizontal" VerticalAlignment="Center">
                             <TextBox Style="{StaticResource ModernTextBox}" Width="70" Height="34" TextAlignment="Right" Padding="10,0"
@@ -90,7 +90,7 @@
                     <Grid Style="{StaticResource SettingRow}">
                         <StackPanel VerticalAlignment="Center" Margin="0,0,70,0">
                             <TextBlock Style="{StaticResource RowTitle}" Text="Switch back afterwards" />
-                            <TextBlock Style="{StaticResource RowHint}" Text="Returns to the window you were using after each round." />
+                            <TextBlock Style="{StaticResource RowHint}" Text="After each round, brings back the window you were using before." />
                         </StackPanel>
                         <CheckBox Style="{StaticResource ToggleSwitch}" HorizontalAlignment="Right" IsChecked="{Binding Operations.AntiAfkReturnFocus}" />
                     </Grid>
@@ -103,7 +103,7 @@
                     </Grid.ColumnDefinitions>
                     <StackPanel VerticalAlignment="Center" Margin="0,0,16,0">
                         <TextBlock Style="{StaticResource RowTitle}" Text="Try it" />
-                        <TextBlock Style="{StaticResource RowHint}" Text="Sends one round to every running Roblox window now." />
+                        <TextBlock Style="{StaticResource RowHint}" Text="Presses the key once in every running Roblox window right now, so you can see that it works." />
                     </StackPanel>
                     <Button Grid.Column="1" Style="{StaticResource GhostButton}" VerticalAlignment="Center"
                             Content="Send now" Command="{Binding Operations.SendAntiAfkNowCommand}" />

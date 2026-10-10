@@ -18,6 +18,7 @@ Two folders come up often. You can paste either one into the File Explorer addre
 | The app doesn't update, or an update failed | [Updates](#updates) |
 | The login window is blank, or the account isn't added | [Adding accounts](#adding-accounts) |
 | An account fails as soon as you launch it | [Launching](#launching) |
+| Roblox closes after minimizing or about 20 seconds after launch | [Launching](#launching) |
 | Accounts worked on your old PC but fail on the new one | [Launching](#launching) |
 | The launch bar rejects your link or ID | [Launching](#launching) |
 | A second account closes the first one | [Several clients at once](#several-clients-at-once) |
@@ -65,13 +66,13 @@ A 1.1.1 that came as a folder with several DLL files expects an update package w
 
 ### The app never updates
 
-Look at Settings > Updates first. Check now also offers a version you skipped earlier, and Offer it again under Skipped version clears the skip. If Check at startup and Check while running are both off, the app checks only when you click Check now.
+Look at Settings > Updates first. If Update automatically is off, the app checks only when you click Check now. Rolling back turns it off, so turn it on again when you want updates back. The line under the version number says what the last check found.
 
 The check needs access to `api.github.com` and `github.com`. When a firewall or proxy blocks GitHub, the Updates page says "Couldn't reach GitHub". GitHub also limits how often one internet connection may ask for release information (60 times per hour), so on a shared network a check can fail now and then; the next one usually works. Builds you compile yourself never update.
 
 ### A new version causes problems
 
-Open Settings > Updates and click Roll back under Previous version. The app goes back to the version it had before the last update and skips the newer one until you clear the skip. This only works if Keep the previous version was on when the update was installed. Any older release is also on the [releases page](https://github.com/JeskoMts/Instance-Manager/releases).
+Open Settings > Updates and click Roll back under Previous version. The app goes back to the version it had before the last update and turns Update automatically off, so the newer one isn't installed again. Turn the switch back on, or click Check now, when a fixed version is out. Any older release is also on the [releases page](https://github.com/JeskoMts/Instance-Manager/releases).
 
 ### Leftover `.im-old` files or an `.im-update` folder
 
@@ -100,6 +101,12 @@ It shouldn't, because the login profile is InPrivate and wiped every time the wi
 The login window is a full Edge browser and can use a few hundred megabytes. It shuts down completely when the window closes.
 
 ## Launching
+
+### Roblox closes after minimizing or shortly after launch
+
+In older versions, Auto Reconnect could close a healthy Roblox window about 22 seconds after launch. It mistook harmless network diagnostics for a lost game connection. Minimizing could make the timing look connected to the window state.
+
+Version 1.1.3 includes the fix: network diagnostics are ignored, a kick or error cannot close a client before it starts joining a game, and clients opened on the home screen are left alone. Replace the older executable with the 1.1.3 download. If it still happens on 1.1.3, check `%APPDATA%\Instance Manager\auto-reconnect.log` at the time Roblox closed and Windows Logs > Application for a Roblox crash entry; those distinguish a reconnect action from Roblox exiting by itself.
 
 ### An account fails right away
 
@@ -201,7 +208,7 @@ Run on the automation tries it right away, which is the quickest way to test its
 
 ### Accounts from an automation closed by themselves
 
-Its schedule has Close again set to After or At, so the accounts close that many minutes after the last start, or at that time. Choose Keep open to leave them running, or turn the schedule off. "Close after" also counts from a start with Run while the schedule is on; Close on the automation cancels it.
+Its schedule has Close set to After or At, so the accounts close that many minutes after the last start, or at that time. Choose Never to leave them running, or turn the schedule off. "Close after" also counts from a start with Run while the schedule is on; Close on the automation cancels it.
 
 ## Graphics
 

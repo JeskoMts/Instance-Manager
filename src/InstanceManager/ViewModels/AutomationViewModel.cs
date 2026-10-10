@@ -83,6 +83,8 @@ public partial class AutomationViewModel : ObservableObject
 
     public bool HasAccounts => AccountPicks.Count > 0;
 
+    public bool ShowAccountSearch => AccountPicks.Count > 8;
+
     public bool HasGroups => GroupPicks.Count > 0;
 
     public bool HasFavorites => Favorites.Count > 0;
@@ -294,6 +296,7 @@ public partial class AutomationViewModel : ObservableObject
         ApplyAccountFilter();
         RefreshGroupStates();
         OnPropertyChanged(nameof(HasAccounts));
+        OnPropertyChanged(nameof(ShowAccountSearch));
         OnPropertyChanged(nameof(PickSummary));
     }
 
@@ -609,10 +612,15 @@ public sealed partial class AutomationItemViewModel : ObservableObject
             if (!string.IsNullOrWhiteSpace(Model.TargetName))
                 return Mode == JoinMode.PrivateByJobId ? Model.TargetName + " (server)" : Model.TargetName;
             if (Mode == JoinMode.PrivateByJobId)
-                return "A specific server";
-            return GameLinkParser.TryParsePlaceId(input, out long id) ? $"Place {id}" : "Unknown game";
+                return "Server";
+            return GameLinkParser.TryParsePlaceId(input, out long id) ? $"Place {id}" : "Game";
         }
     }
+
+    public string? DestinationName =>
+        Mode == JoinMode.Home || string.IsNullOrWhiteSpace(Target) || string.IsNullOrWhiteSpace(Model.TargetName)
+            ? null
+            : Model.TargetName;
 
     public string AccountSummary
     {
@@ -745,15 +753,6 @@ public sealed partial class AutomationItemViewModel : ObservableObject
     [RelayCommand]
     private void Delete() => _owner.Delete(this);
 
-    [RelayCommand]
-    private void PickEveryDay() => SetDays(Array.Empty<DayOfWeek>());
-
-    [RelayCommand]
-    private void PickWeekdays() => SetDays(Weekdays);
-
-    [RelayCommand]
-    private void PickWeekends() => SetDays(Weekend);
-
     internal void SetDay(DayOfWeek day, bool on)
     {
         if (_loading)
@@ -762,16 +761,6 @@ public sealed partial class AutomationItemViewModel : ObservableObject
             Model.Days.Add(day);
         else if (!on)
             Model.Days.Remove(day);
-        Save();
-    }
-
-    private void SetDays(IReadOnlyCollection<DayOfWeek> days)
-    {
-        _loading = true;
-        foreach (DayToggleViewModel toggle in Days)
-            toggle.IsChecked = days.Contains(toggle.Day);
-        _loading = false;
-        Model.Days = days.ToList();
         Save();
     }
 
@@ -809,6 +798,7 @@ public sealed partial class AutomationItemViewModel : ObservableObject
     {
         OnPropertyChanged(nameof(AccountSummary));
         OnPropertyChanged(nameof(DestinationText));
+        OnPropertyChanged(nameof(DestinationName));
         OnPropertyChanged(nameof(ListSubtitle));
         OnPropertyChanged(nameof(ScheduleText));
         OnPropertyChanged(nameof(HasScheduleProblem));
@@ -847,6 +837,7 @@ public sealed partial class AutomationItemViewModel : ObservableObject
         OnPropertyChanged(nameof(TargetProblem));
         OnPropertyChanged(nameof(HasTargetProblem));
         OnPropertyChanged(nameof(DestinationText));
+        OnPropertyChanged(nameof(DestinationName));
         OnPropertyChanged(nameof(ListSubtitle));
     }
 

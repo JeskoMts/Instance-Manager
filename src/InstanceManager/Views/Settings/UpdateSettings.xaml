@@ -14,17 +14,16 @@
                     <TextBlock Style="{StaticResource RowHint}" Text="{Binding Updates.StatusText}" />
                 </StackPanel>
                 <StackPanel Grid.Column="1" Orientation="Horizontal" VerticalAlignment="Center">
-                    <Button Style="{StaticResource LinkButton}" Margin="0,0,8,0" Command="{Binding Updates.WhatsNewCommand}">
+                    <Button Style="{StaticResource LinkButton}" Margin="0,0,8,0" Command="{Binding Updates.WhatsNewCommand}"
+                            ToolTip="Open the release notes on GitHub">
                         <StackPanel Orientation="Horizontal">
                             <TextBlock Text="What's new" VerticalAlignment="Center" />
                             <ui:Icon Kind="ExternalLink" Size="13" Margin="6,0,0,0" />
                         </StackPanel>
                     </Button>
-                    <Button Style="{StaticResource GhostButton}" Content="Skip this version" Margin="0,0,8,0"
-                            Command="{Binding Updates.SkipVersionCommand}"
-                            Visibility="{Binding Updates.IsUpdateReady, Converter={StaticResource BoolToVis}}" />
                     <Button Style="{StaticResource PrimaryButton}" Command="{Binding Updates.CheckNowCommand}"
                             IsEnabled="{Binding Updates.CanUpdate}"
+                            ToolTip="Ask GitHub for the latest version and install it if it is newer"
                             Visibility="{Binding Updates.IsUpdateReady, Converter={StaticResource InverseBoolToVis}}">
                         <StackPanel Orientation="Horizontal">
                             <Grid Width="14" Height="14" Margin="0,0,8,0">
@@ -50,62 +49,16 @@
             </Grid>
         </Border>
 
-        <TextBlock Style="{StaticResource GroupTitle}" Text="Checking" />
         <Border Style="{StaticResource SettingsCard}">
             <StackPanel>
                 <Grid Style="{StaticResource SettingRow}">
                     <StackPanel VerticalAlignment="Center" Margin="0,0,70,0">
-                        <TextBlock Style="{StaticResource RowTitle}" Text="Check at startup" />
-                        <TextBlock Style="{StaticResource RowHint}" Text="Looks for a new version every time Instance Manager starts, and installs it right away if nothing is running." />
+                        <TextBlock Style="{StaticResource RowTitle}" Text="Update automatically" />
+                        <TextBlock Style="{StaticResource RowHint}" Text="Asks GitHub for the latest version when the app starts and once an hour. A newer version installs at startup if no Roblox window is open, otherwise when you close the app." />
                     </StackPanel>
-                    <CheckBox Style="{StaticResource ToggleSwitch}" HorizontalAlignment="Right" IsChecked="{Binding Updates.CheckOnStartup}" />
+                    <CheckBox Style="{StaticResource ToggleSwitch}" HorizontalAlignment="Right" IsChecked="{Binding Updates.UpdateAutomatically}" />
                 </Grid>
                 <Border Style="{StaticResource RowDivider}" />
-                <Grid Style="{StaticResource SettingRow}">
-                    <Grid.ColumnDefinitions>
-                        <ColumnDefinition Width="*" />
-                        <ColumnDefinition Width="Auto" />
-                        <ColumnDefinition Width="Auto" />
-                        <ColumnDefinition Width="Auto" />
-                    </Grid.ColumnDefinitions>
-                    <StackPanel VerticalAlignment="Center" Margin="0,0,16,0">
-                        <TextBlock Style="{StaticResource RowTitle}" Text="Check while running" />
-                        <TextBlock Style="{StaticResource RowHint}" Text="Looks for updates in the background at this interval, from 15 to 1440 minutes." />
-                    </StackPanel>
-                    <TextBox Grid.Column="1" Style="{StaticResource ModernTextBox}" Width="70" Height="34" TextAlignment="Right" Padding="10,0"
-                             Text="{Binding Updates.IntervalMinutes, UpdateSourceTrigger=LostFocus}"
-                             IsEnabled="{Binding Updates.CheckAutomatically}" />
-                    <TextBlock Grid.Column="2" Style="{StaticResource SuffixText}" Text="min" Margin="8,0,16,0" />
-                    <CheckBox Grid.Column="3" Style="{StaticResource ToggleSwitch}" IsChecked="{Binding Updates.CheckAutomatically}" />
-                </Grid>
-                <Border Style="{StaticResource RowDivider}" />
-                <Grid Style="{StaticResource SettingRow}">
-                    <StackPanel VerticalAlignment="Center" Margin="0,0,70,0">
-                        <TextBlock Style="{StaticResource RowTitle}" Text="Include pre-releases" />
-                        <TextBlock Style="{StaticResource RowHint}" Text="Also offers test versions before they're final." />
-                    </StackPanel>
-                    <CheckBox Style="{StaticResource ToggleSwitch}" HorizontalAlignment="Right" IsChecked="{Binding Updates.IncludePrereleases}" />
-                </Grid>
-                <Border Style="{StaticResource RowDivider}" />
-                <Grid Style="{StaticResource SettingRow}">
-                    <Grid.ColumnDefinitions>
-                        <ColumnDefinition Width="*" />
-                        <ColumnDefinition Width="Auto" />
-                    </Grid.ColumnDefinitions>
-                    <StackPanel VerticalAlignment="Center" Margin="0,0,16,0">
-                        <TextBlock Style="{StaticResource RowTitle}" Text="Skipped version" />
-                        <TextBlock Style="{StaticResource RowHint}" Text="{Binding Updates.SkippedText}" />
-                    </StackPanel>
-                    <Button Grid.Column="1" Style="{StaticResource GhostButton}" Content="Offer it again" VerticalAlignment="Center"
-                            Command="{Binding Updates.ClearSkippedCommand}"
-                            Visibility="{Binding Updates.HasSkipped, Converter={StaticResource BoolToVis}}" />
-                </Grid>
-            </StackPanel>
-        </Border>
-
-        <TextBlock Style="{StaticResource GroupTitle}" Text="Safety" />
-        <Border Style="{StaticResource SettingsCard}">
-            <StackPanel>
                 <Grid Style="{StaticResource SettingRow}">
                     <Grid.ColumnDefinitions>
                         <ColumnDefinition Width="*" />
@@ -122,14 +75,6 @@
                             <TextBlock Text="Always on" FontSize="12" Foreground="{DynamicResource Brush.TextSecondary}" />
                         </StackPanel>
                     </Border>
-                </Grid>
-                <Border Style="{StaticResource RowDivider}" />
-                <Grid Style="{StaticResource SettingRow}">
-                    <StackPanel VerticalAlignment="Center" Margin="0,0,70,0">
-                        <TextBlock Style="{StaticResource RowTitle}" Text="Keep the previous version" />
-                        <TextBlock Style="{StaticResource RowHint}" Text="Lets you go back from here if an update causes problems." />
-                    </StackPanel>
-                    <CheckBox Style="{StaticResource ToggleSwitch}" HorizontalAlignment="Right" IsChecked="{Binding Updates.KeepPreviousVersion}" />
                 </Grid>
                 <Border Style="{StaticResource RowDivider}" />
                 <Grid Style="{StaticResource SettingRow}">

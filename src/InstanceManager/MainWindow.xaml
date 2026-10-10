@@ -196,7 +196,7 @@
 
             <Button Grid.Row="0" Style="{StaticResource SidebarToggleButton}" HorizontalAlignment="Left" VerticalAlignment="Center"
                     Width="34" Height="34" Padding="0" Margin="20,0,0,0"
-                    Command="{Binding ToggleSidebarCommand}" ToolTip="Open or close the sidebar"
+                    Command="{Binding ToggleSidebarCommand}" ToolTip="Show or hide the sidebar"
                     shell:WindowChrome.IsHitTestVisibleInChrome="True">
                 <ui:Icon Kind="PanelLeft" Size="17" />
             </Button>
@@ -215,7 +215,7 @@
                     <Button.ToolTip>
                         <StackPanel>
                             <TextBlock Text="Join the Discord" FontWeight="SemiBold" />
-                            <TextBlock Text="Ideas, questions and bug reports." Margin="0,2,0,0"
+                            <TextBlock Text="Ask questions, report bugs and suggest features." Margin="0,2,0,0"
                                        Foreground="{DynamicResource Brush.TextSecondary}" />
                         </StackPanel>
                     </Button.ToolTip>
@@ -223,7 +223,7 @@
                 </Button>
                 <Grid shell:WindowChrome.IsHitTestVisibleInChrome="True" Margin="0,0,8,0">
                     <Button x:Name="BellButton" Style="{StaticResource CaptionButton}"
-                            Command="{Binding Notifications.ToggleCenterCommand}" ToolTip="Notifications">
+                            Command="{Binding Notifications.ToggleCenterCommand}" ToolTip="Show earlier notifications">
                         <ui:Icon Kind="Bell" />
                     </Button>
                     <Border IsHitTestVisible="False" MinWidth="15" Height="15" CornerRadius="7.5" Padding="3,0"
@@ -387,7 +387,7 @@
                     <StackPanel VerticalAlignment="Center" HorizontalAlignment="Center" Margin="0,30"
                                 Visibility="{Binding Notifications.HasHistory, Converter={StaticResource InverseBoolToVis}}">
                         <ui:Icon Kind="Bell" Size="28" Foreground="{DynamicResource Brush.TextMuted}" />
-                        <TextBlock Text="Nothing new" Foreground="{DynamicResource Brush.TextSecondary}"
+                        <TextBlock Text="No notifications yet" Foreground="{DynamicResource Brush.TextSecondary}"
                                    HorizontalAlignment="Center" Margin="0,10,0,0" />
                     </StackPanel>
                     <ScrollViewer VerticalScrollBarVisibility="Auto" behaviors:SmoothScroll.Enabled="True"
@@ -419,7 +419,7 @@
                                                         shell:WindowChrome.IsHitTestVisibleInChrome="True" />
                                             </StackPanel>
                                             <Button Grid.Column="2" Style="{StaticResource IconButton}" Width="24" Height="24" Padding="0"
-                                                    VerticalAlignment="Top" Margin="6,0,0,0" ToolTip="Remove"
+                                                    VerticalAlignment="Top" Margin="6,0,0,0" ToolTip="Remove from the list"
                                                     Command="{Binding DataContext.Notifications.RemoveFromHistoryCommand, RelativeSource={RelativeSource AncestorType=Window}}"
                                                     CommandParameter="{Binding}">
                                                 <ui:Icon Kind="Close" Size="12" />

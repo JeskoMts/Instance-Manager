@@ -98,7 +98,6 @@ public class SettingsViewModelTests
     }
 
     [Theory]
-    [InlineData("StopAllInstances")]
     [InlineData("ClearAccountGroups")]
     [InlineData("DeleteTheme")]
     public void NewConfirmationBypassActions_AreControlledByMaster(string actionName)

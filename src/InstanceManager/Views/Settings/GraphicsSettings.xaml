@@ -12,7 +12,7 @@
                     </Grid.ColumnDefinitions>
                     <StackPanel VerticalAlignment="Center" Margin="0,0,16,0">
                         <TextBlock Style="{StaticResource RowTitle}" Text="FPS cap" />
-                        <TextBlock Style="{StaticResource RowHint}" Text="Saved into Roblox's own settings before each launch, the same value as the frame rate option inside Roblox." />
+                        <TextBlock Style="{StaticResource RowHint}" Text="The highest frame rate Roblox may reach. It is written into Roblox's own settings before each launch, the same value as the frame rate option inside Roblox." />
                     </StackPanel>
                     <ComboBox Grid.Column="1" Style="{StaticResource ModernComboBox}" Width="200" VerticalAlignment="Center"
                               ItemsSource="{Binding Graphics.FpsCapChoices}" DisplayMemberPath="Label" SelectedValuePath="Value"
@@ -66,7 +66,7 @@
                         </Grid.ColumnDefinitions>
                         <StackPanel VerticalAlignment="Center" Margin="0,0,16,0">
                             <TextBlock Style="{StaticResource RowTitle}" Text="Graphics quality" />
-                            <TextBlock Style="{StaticResource RowHint}" Text="Locks the quality level. Automatic lets Roblox adjust it." />
+                            <TextBlock Style="{StaticResource RowHint}" Text="Locks the quality level for every client. Automatic lets Roblox adjust it." />
                         </StackPanel>
                         <ComboBox Grid.Column="1" Style="{StaticResource ModernComboBox}" Width="200" VerticalAlignment="Center"
                                   ItemsSource="{Binding Graphics.QualityChoices}" DisplayMemberPath="Label" SelectedValuePath="Value"
@@ -94,7 +94,7 @@
                         </Grid.ColumnDefinitions>
                         <StackPanel VerticalAlignment="Center" Margin="0,0,16,0">
                             <TextBlock Style="{StaticResource RowTitle}" Text="Texture quality" />
-                            <TextBlock Style="{StaticResource RowHint}" Text="Lower quality saves video memory when many clients run." />
+                            <TextBlock Style="{StaticResource RowHint}" Text="Lower quality saves video memory, which helps when many clients run at once." />
                         </StackPanel>
                         <ComboBox Grid.Column="1" Style="{StaticResource ModernComboBox}" Width="200" VerticalAlignment="Center"
                                   ItemsSource="{Binding Graphics.TextureChoices}" DisplayMemberPath="Label" SelectedValuePath="Value"
@@ -104,7 +104,7 @@
                     <Grid Style="{StaticResource SettingRow}">
                         <StackPanel VerticalAlignment="Center" Margin="0,0,70,0">
                             <TextBlock Style="{StaticResource RowTitle}" Text="Ignore display scaling" />
-                            <TextBlock Style="{StaticResource RowHint}" Text="Renders at full resolution on high-DPI screens." />
+                            <TextBlock Style="{StaticResource RowHint}" Text="Renders at the screen's full resolution instead of following the Windows scaling setting. Sharper on high-DPI screens." />
                         </StackPanel>
                         <CheckBox Style="{StaticResource ToggleSwitch}" HorizontalAlignment="Right" IsChecked="{Binding Graphics.IgnoreDisplayScaling}" />
                     </Grid>
@@ -143,7 +143,7 @@
                     <Border Style="{StaticResource RowDivider}" />
                     <StackPanel Margin="0,12,0,14">
                         <TextBlock Style="{StaticResource RowTitle}" Text="Custom flags" />
-                        <TextBlock Style="{StaticResource RowHint}" Text="A JSON object with more flags. Flags that aren't on Roblox's allowlist are skipped and listed here." />
+                        <TextBlock Style="{StaticResource RowHint}" Text="A JSON object with more flags, for example { &quot;FFlagName&quot;: &quot;True&quot; }. Flags that aren't on Roblox's allowlist are skipped and listed below." />
                         <TextBox Style="{StaticResource MultilineTextBox}" Height="110" Margin="0,10,0,0"
                                  Text="{Binding Graphics.CustomFastFlags, UpdateSourceTrigger=PropertyChanged, Delay=600}" />
                         <TextBlock Text="{Binding Graphics.CustomFlagsMessage}" FontSize="12" TextWrapping="Wrap" Margin="0,6,0,0">

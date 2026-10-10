@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Controls.Primitives;
@@ -6,6 +7,7 @@ using System.Windows.Documents;
 using System.Windows.Input;
 using System.Windows.Media;
 using System.Windows.Media.Animation;
+using System.Windows.Shapes;
 using System.Windows.Threading;
 using InstanceManager.Behaviors;
 using InstanceManager.Controls;
@@ -27,6 +29,15 @@ public partial class AccountsPage : UserControl
     private bool _favoriteDragActive;
     private DragAdorner? _favoriteDragAdorner;
     private long _favoritesClosedAtTicks;
+    private bool _marqueeCandidate;
+    private bool _marqueeActive;
+    private Point _marqueeOrigin;
+    private double _marqueeOriginOffset;
+    private MarqueeAnchor _marqueeOriginAnchor;
+    private (int From, int To) _marqueeRange;
+    private readonly HashSet<AccountRowViewModel> _marqueeBase = new();
+    private ScrollViewer? _listScroller;
+    private DispatcherTimer? _marqueeScrollTimer;
 
     public AccountsPage()
     {
@@ -152,7 +163,7 @@ public partial class AccountsPage : UserControl
             foreach (AccountGroup group in vm.AccountList.GroupModels)
             {
                 var header = new StackPanel { Orientation = Orientation.Horizontal };
-                header.Children.Add(new System.Windows.Shapes.Ellipse
+                header.Children.Add(new Ellipse
                 {
                     Width = 8,
                     Height = 8,
@@ -221,19 +232,209 @@ public partial class AccountsPage : UserControl
     private void AccountRow_PreviewMouseLeftButtonDown(object sender, MouseButtonEventArgs e)
     {
         _suppressRowClick = false;
+        _dragRow = null;
 
-        if (TreeWalk.IsInteractive(e.OriginalSource as DependencyObject))
-        {
-            _dragRow = null;
+        var source = e.OriginalSource as DependencyObject;
+        if (TreeWalk.IsInteractive(source) || !IsRowDragHandle(source))
             return;
-        }
 
         if (sender is FrameworkElement { DataContext: AccountRowViewModel row } fe)
         {
+            _marqueeCandidate = false;
             _dragRow = row;
             _dragStartPoint = e.GetPosition(null);
             _grabOffset = e.GetPosition(fe);
         }
+    }
+
+    private static bool IsRowDragHandle(DependencyObject? source) =>
+        source is TextBlock or TextElement or Shape;
+
+    private ScrollViewer? ListScroller => _listScroller ??= FindScrollViewer(AccountsList);
+
+    private static ScrollViewer? FindScrollViewer(DependencyObject root)
+    {
+        int count = VisualTreeHelper.GetChildrenCount(root);
+        for (int i = 0; i < count; i++)
+        {
+            DependencyObject child = VisualTreeHelper.GetChild(root, i);
+            if (child is ScrollViewer viewer)
+                return viewer;
+            if (FindScrollViewer(child) is { } nested)
+                return nested;
+        }
+        return null;
+    }
+
+    private void ListHost_PreviewMouseLeftButtonDown(object sender, MouseButtonEventArgs e)
+    {
+        _marqueeCandidate = false;
+        if (!AccountsList.IsVisible)
+            return;
+
+        var source = e.OriginalSource as DependencyObject;
+        if (TreeWalk.IsInteractive(source) || TreeWalk.HasAncestor<ScrollBar>(source))
+            return;
+
+        _marqueeCandidate = true;
+        _marqueeOrigin = e.GetPosition(ListHost);
+        _marqueeOriginOffset = ListScroller?.VerticalOffset ?? 0;
+    }
+
+    private void ListHost_PreviewMouseMove(object sender, MouseEventArgs e)
+    {
+        if (_marqueeActive)
+        {
+            UpdateMarquee(e.GetPosition(ListHost));
+            return;
+        }
+
+        if (!_marqueeCandidate)
+            return;
+        if (e.LeftButton != MouseButtonState.Pressed)
+        {
+            _marqueeCandidate = false;
+            return;
+        }
+
+        Point position = e.GetPosition(ListHost);
+        if (Math.Abs(position.X - _marqueeOrigin.X) < SystemParameters.MinimumHorizontalDragDistance &&
+            Math.Abs(position.Y - _marqueeOrigin.Y) < SystemParameters.MinimumVerticalDragDistance)
+            return;
+
+        BeginMarquee(position);
+    }
+
+    private void ListHost_PreviewMouseLeftButtonUp(object sender, MouseButtonEventArgs e)
+    {
+        _marqueeCandidate = false;
+        if (!_marqueeActive)
+            return;
+
+        EndMarquee();
+        e.Handled = true;
+    }
+
+    private void ListHost_LostMouseCapture(object sender, MouseEventArgs e)
+    {
+        if (_marqueeActive && !ListHost.IsMouseCaptured)
+            EndMarquee();
+    }
+
+    private void BeginMarquee(Point position)
+    {
+        _marqueeCandidate = false;
+        if (Vm is not { } vm)
+            return;
+
+        double offset = ListScroller?.VerticalOffset ?? 0;
+        _marqueeOriginAnchor = LocateItems(_marqueeOrigin.Y + _marqueeOriginOffset - offset);
+        _marqueeRange = (0, -1);
+        _marqueeBase.Clear();
+        if ((Keyboard.Modifiers & (ModifierKeys.Control | ModifierKeys.Shift)) != 0)
+            _marqueeBase.UnionWith(vm.AccountList.SelectedRows());
+
+        if (!ListHost.CaptureMouse())
+            return;
+
+        _marqueeActive = true;
+        Marquee.Visibility = Visibility.Visible;
+        _marqueeScrollTimer ??= NewMarqueeScrollTimer();
+        _marqueeScrollTimer.Start();
+        vm.AccountList.SelectOnly(_marqueeBase);
+        UpdateMarquee(position);
+    }
+
+    private void EndMarquee()
+    {
+        if (!_marqueeActive)
+            return;
+
+        _marqueeActive = false;
+        _marqueeScrollTimer?.Stop();
+        Marquee.Visibility = Visibility.Collapsed;
+        _marqueeBase.Clear();
+        if (ListHost.IsMouseCaptured)
+            ListHost.ReleaseMouseCapture();
+    }
+
+    private DispatcherTimer NewMarqueeScrollTimer()
+    {
+        var timer = new DispatcherTimer(DispatcherPriority.Input) { Interval = TimeSpan.FromMilliseconds(30) };
+        timer.Tick += (_, _) => ScrollWhileSelecting();
+        return timer;
+    }
+
+    private void ScrollWhileSelecting()
+    {
+        if (!_marqueeActive || ListScroller is not { } scroller)
+            return;
+
+        Point position = Mouse.GetPosition(ListHost);
+        double outside = position.Y < 0 ? position.Y
+            : position.Y > ListHost.ActualHeight ? position.Y - ListHost.ActualHeight
+            : 0;
+        if (outside == 0)
+            return;
+
+        double step = Math.Sign(outside) * Math.Clamp(Math.Abs(outside) * 0.4, 4, 40);
+        double target = Math.Clamp(scroller.VerticalOffset + step, 0, scroller.ScrollableHeight);
+        if (Math.Abs(target - scroller.VerticalOffset) < 0.5)
+            return;
+
+        scroller.ScrollToVerticalOffset(target);
+        AccountsList.UpdateLayout();
+        UpdateMarquee(position);
+    }
+
+    private void UpdateMarquee(Point position)
+    {
+        if (Vm is not { } vm)
+            return;
+
+        double offset = ListScroller?.VerticalOffset ?? 0;
+        double originY = _marqueeOrigin.Y + _marqueeOriginOffset - offset;
+        double currentX = Math.Clamp(position.X, 0, ListHost.ActualWidth);
+        double currentY = Math.Clamp(position.Y, 0, ListHost.ActualHeight);
+
+        double left = Math.Min(_marqueeOrigin.X, currentX);
+        double right = Math.Max(_marqueeOrigin.X, currentX);
+        Canvas.SetLeft(Marquee, left);
+        Canvas.SetTop(Marquee, Math.Min(originY, currentY));
+        Marquee.Width = right - left;
+        Marquee.Height = Math.Abs(currentY - originY);
+
+        double listLeft = AccountsList.TranslatePoint(new Point(), ListHost).X;
+        bool overRows = right >= listLeft && left <= listLeft + AccountsList.ActualWidth;
+        (int From, int To) range = overRows
+            ? MarqueeRange.Between(_marqueeOriginAnchor, LocateItems(currentY), currentY >= originY)
+            : (0, -1);
+        if (range == _marqueeRange)
+            return;
+        _marqueeRange = range;
+
+        var selected = new HashSet<AccountRowViewModel>(_marqueeBase);
+        for (int i = Math.Max(range.From, 0); i <= range.To && i < AccountsList.Items.Count; i++)
+        {
+            if (AccountsList.Items[i] is AccountRowViewModel row)
+                selected.Add(row);
+        }
+        vm.AccountList.SelectOnly(selected);
+    }
+
+    private MarqueeAnchor LocateItems(double y)
+    {
+        var realized = new List<ItemSpan>();
+        for (int i = 0; i < AccountsList.Items.Count; i++)
+        {
+            if (AccountsList.ItemContainerGenerator.ContainerFromIndex(i) is not FrameworkElement { IsVisible: true } container
+                || container.ActualHeight <= 0)
+                continue;
+
+            double top = container.TranslatePoint(new Point(), ListHost).Y;
+            realized.Add(new ItemSpan(i, top, top + container.ActualHeight));
+        }
+        return MarqueeRange.Locate(realized, y);
     }
 
     private void AccountRow_PreviewMouseMove(object sender, MouseEventArgs e)

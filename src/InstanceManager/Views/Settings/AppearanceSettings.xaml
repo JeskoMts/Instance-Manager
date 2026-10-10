@@ -88,7 +88,7 @@
         <Border Style="{StaticResource SettingsCard}" Padding="18,16">
             <StackPanel>
                 <TextBlock Style="{StaticResource RowHint}" Margin="0,0,0,12"
-                           Text="Click a theme to use it, or drag it to change the order. Your own themes can be shared as a code." />
+                           Text="Click a theme to use it, or drag it onto another one to swap their places. Themes you made yourself can be shared as a code." />
                 <ListBox x:Name="ThemesList" ItemsSource="{Binding Theme.Themes}"
                          SelectedItem="{Binding Theme.SelectedTheme, Mode=TwoWay}"
                          ItemContainerStyle="{StaticResource ThemeCardItem}"
@@ -119,9 +119,13 @@
                         </StackPanel>
                     </Button>
                     <Button Style="{StaticResource IconButton}" Content="Rename" Margin="0,0,2,0" Padding="10,0" Height="34"
+                            ToolTip="Rename the selected theme. Only your own themes can be renamed."
+                            ToolTipService.ShowOnDisabled="True"
                             Command="{Binding Theme.EditThemeCommand}" CommandParameter="{Binding Theme.SelectedTheme}"
                             IsEnabled="{Binding Theme.IsCustomSelected}" />
                     <Button Style="{StaticResource IconButton}" Content="Delete" Margin="0,0,2,0" Padding="10,0" Height="34"
+                            ToolTip="Delete the selected theme. Built-in themes can't be deleted."
+                            ToolTipService.ShowOnDisabled="True"
                             Command="{Binding Theme.DeleteThemeCommand}" CommandParameter="{Binding Theme.SelectedTheme}"
                             IsEnabled="{Binding Theme.IsCustomSelected}" />
                     <Button Style="{StaticResource IconButton}" Content="Export" Margin="0,0,2,0" Padding="10,0" Height="34"

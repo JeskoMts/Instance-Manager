@@ -61,7 +61,7 @@
 
             <Border Grid.Row="1" Background="{DynamicResource Brush.Surface}" Padding="14,8" Margin="0">
                 <TextBlock x:Name="StatusText" TextWrapping="Wrap" Foreground="{DynamicResource Brush.TextSecondary}" FontSize="12"
-                           Text="Sign in below as usual. The window closes on its own once you're signed in, and only an encrypted login token is kept. Your password is never stored." />
+                           Text="Sign in to Roblox below as usual. The window closes on its own once you're signed in. Only an encrypted login token is saved on this PC. Your password is never stored." />
             </Border>
 
             <Grid Grid.Row="2">

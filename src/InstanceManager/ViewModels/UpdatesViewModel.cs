@@ -17,6 +17,8 @@ public partial class UpdatesViewModel : ObservableObject
 {
     public const string ReleasesPage = "https://github.com/JeskoMts/Instance-Manager/releases/latest";
 
+    private static readonly TimeSpan CheckInterval = TimeSpan.FromHours(1);
+
     private readonly UpdateService _updater;
     private readonly ISettingsService _settings;
     private readonly IShellCoordinator _shell;
@@ -24,7 +26,6 @@ public partial class UpdatesViewModel : ObservableObject
     private IAppLifetime? _lifetime;
     private DispatcherTimer? _timer;
     private UpdateService.ReleaseInfo? _ready;
-    private bool _loading;
 
     public UpdatesViewModel(UpdateService updater, ISettingsService settings, IShellCoordinator shell, string? previousDirectory = null)
     {
@@ -32,20 +33,11 @@ public partial class UpdatesViewModel : ObservableObject
         _settings = settings;
         _shell = shell;
         _previousDirectory = previousDirectory ?? AppPaths.PreviousVersionDirectory;
-
-        _loading = true;
-        AppSettings s = settings.Settings;
-        checkOnStartup = s.UpdateCheckOnStartup;
-        checkAutomatically = s.UpdateCheckAutomatically;
-        intervalMinutes = s.UpdateCheckIntervalMinutes;
-        includePrereleases = s.UpdateIncludePrereleases;
-        keepPreviousVersion = s.KeepPreviousVersion;
-        _loading = false;
+        updateAutomatically = settings.Settings.UpdateCheckAutomatically;
 
         statusText = _updater.CanUpdate
             ? "Not checked yet."
             : "Updates install only in the downloaded app, not in a build from source.";
-        RefreshSkipped();
         RefreshPrevious();
     }
 
@@ -57,49 +49,24 @@ public partial class UpdatesViewModel : ObservableObject
     [ObservableProperty] private bool isChecking;
     [ObservableProperty] private bool isUpdateReady;
     [ObservableProperty] private string? readyVersion;
-    [ObservableProperty] private string skippedText = string.Empty;
-    [ObservableProperty] private bool hasSkipped;
     [ObservableProperty] private string previousText = string.Empty;
     [ObservableProperty] private bool canRollBack;
+    [ObservableProperty] private bool updateAutomatically;
 
-    [ObservableProperty] private bool checkOnStartup;
-    [ObservableProperty] private bool checkAutomatically;
-    [ObservableProperty] private int intervalMinutes;
-    [ObservableProperty] private bool includePrereleases;
-    [ObservableProperty] private bool keepPreviousVersion;
-
-    partial void OnCheckOnStartupChanged(bool value) => Store(s => s.UpdateCheckOnStartup = value);
-    partial void OnCheckAutomaticallyChanged(bool value)
+    partial void OnUpdateAutomaticallyChanged(bool value)
     {
-        Store(s => s.UpdateCheckAutomatically = value);
-        RestartTimer();
-    }
-    partial void OnIntervalMinutesChanged(int value)
-    {
-        int normalized = Math.Clamp(value, AppSettings.MinUpdateIntervalMinutes, AppSettings.MaxUpdateIntervalMinutes);
-        if (normalized != value)
+        if (_settings.Settings.UpdateCheckAutomatically != value)
         {
-            IntervalMinutes = normalized;
-            return;
+            _settings.Settings.UpdateCheckAutomatically = value;
+            _settings.Save();
         }
-        Store(s => s.UpdateCheckIntervalMinutes = value);
         RestartTimer();
-    }
-    partial void OnIncludePrereleasesChanged(bool value) => Store(s => s.UpdateIncludePrereleases = value);
-    partial void OnKeepPreviousVersionChanged(bool value) => Store(s => s.KeepPreviousVersion = value);
-
-    private void Store(Action<AppSettings> update)
-    {
-        if (_loading)
-            return;
-        update(_settings.Settings);
-        _settings.Save();
     }
 
     public void Start(IAppLifetime lifetime)
     {
         _lifetime = lifetime;
-        if (_updater.CanUpdate && CheckOnStartup)
+        if (_updater.CanUpdate && UpdateAutomatically)
             _ = CheckAsync(startup: true, manual: false);
         RestartTimer();
     }
@@ -107,12 +74,12 @@ public partial class UpdatesViewModel : ObservableObject
     private void RestartTimer()
     {
         _timer?.Stop();
-        if (_lifetime == null || !_updater.CanUpdate || !CheckAutomatically)
+        if (_lifetime == null || !_updater.CanUpdate || !UpdateAutomatically)
             return;
         _timer ??= new DispatcherTimer();
         _timer.Tick -= Timer_Tick;
         _timer.Tick += Timer_Tick;
-        _timer.Interval = TimeSpan.FromMinutes(IntervalMinutes);
+        _timer.Interval = CheckInterval;
         _timer.Start();
     }
 
@@ -136,25 +103,21 @@ public partial class UpdatesViewModel : ObservableObject
         }
 
         IsChecking = true;
-        StatusText = "Checking for updates…";
+        StatusText = "Asking GitHub for the latest version…";
         try
         {
             using var timeout = new CancellationTokenSource(TimeSpan.FromMinutes(2));
-            UpdateService.ReleaseInfo? release = await _updater.CheckAsync(IncludePrereleases, timeout.Token);
+            UpdateService.ReleaseInfo? release = await _updater.CheckAsync(timeout.Token);
             string checkedAt = DateTime.Now.ToString("HH:mm", CultureInfo.InvariantCulture);
             if (release == null)
             {
-                StatusText = $"v{_updater.CurrentVersion.ToString(3)} is the latest version. Checked at {checkedAt}.";
+                StatusText = _updater.UnavailableVersion is { } unavailable
+                    ? $"Version {unavailable.ToString(3)} is on GitHub, but its download can't be verified yet. Try again later or open What's new. Checked at {checkedAt}."
+                    : $"v{_updater.CurrentVersion.ToString(3)} is the latest version. Checked at {checkedAt}.";
                 return;
             }
 
             string version = release.Version.ToString(3);
-            if (!manual && string.Equals(_settings.Settings.SkippedUpdateVersion, version, StringComparison.Ordinal))
-            {
-                StatusText = $"Version {version} is available. Click Check now to download it. Checked at {checkedAt}.";
-                return;
-            }
-
             StatusText = $"Downloading version {version}…";
             if (!await _updater.DownloadAndStageAsync(release, timeout.Token))
             {
@@ -166,7 +129,7 @@ public partial class UpdatesViewModel : ObservableObject
             ReadyVersion = version;
             IsUpdateReady = true;
 
-            if (startup && _lifetime?.IsIdle == true)
+            if ((startup || manual) && _lifetime?.IsIdle == true)
             {
                 InstallAndRestart();
                 return;
@@ -199,8 +162,7 @@ public partial class UpdatesViewModel : ObservableObject
     {
         if (!_updater.HasStagedUpdate)
             return false;
-        if (KeepPreviousVersion)
-            _updater.KeepCurrentVersion(_previousDirectory);
+        _updater.KeepCurrentVersion(_previousDirectory);
         return _updater.Apply();
     }
 
@@ -219,29 +181,6 @@ public partial class UpdatesViewModel : ObservableObject
     }
 
     [RelayCommand]
-    private void SkipVersion()
-    {
-        string? version = ReadyVersion;
-        if (version == null)
-            return;
-        _settings.Settings.SkippedUpdateVersion = version;
-        _settings.Save();
-        _updater.DiscardStaged();
-        _ready = null;
-        IsUpdateReady = false;
-        StatusText = $"Version {version} is skipped. Newer versions still install.";
-        RefreshSkipped();
-    }
-
-    [RelayCommand]
-    private void ClearSkipped()
-    {
-        _settings.Settings.SkippedUpdateVersion = null;
-        _settings.Save();
-        RefreshSkipped();
-    }
-
-    [RelayCommand]
     private void WhatsNew() => OpenUrl(_ready?.PageUrl ?? ReleasesPage);
 
     [RelayCommand]
@@ -257,16 +196,8 @@ public partial class UpdatesViewModel : ObservableObject
             return;
         }
 
-        _settings.Settings.SkippedUpdateVersion = _updater.CurrentVersion.ToString(3);
-        _settings.Save();
+        UpdateAutomatically = false;
         _lifetime.RestartAfterUpdate();
-    }
-
-    private void RefreshSkipped()
-    {
-        string? skipped = _settings.Settings.SkippedUpdateVersion;
-        HasSkipped = !string.IsNullOrEmpty(skipped);
-        SkippedText = HasSkipped ? $"Version {skipped} is skipped. Newer versions still install." : "No version is skipped.";
     }
 
     private void RefreshPrevious()
@@ -274,8 +205,8 @@ public partial class UpdatesViewModel : ObservableObject
         var kept = UpdateService.FindKeptVersion(_previousDirectory);
         CanRollBack = _updater.CanUpdate && kept is { } k && k.Version != _updater.CurrentVersion;
         PreviousText = kept is { } found
-            ? $"Version {found.Version.ToString(3)} is kept and can be restored."
-            : "No previous version is kept yet.";
+            ? $"Version {found.Version.ToString(3)} is kept. Rolling back also turns Update automatically off, so the old version stays."
+            : "No previous version is kept yet. The app keeps a copy of the old version at every update.";
     }
 
     private static void OpenUrl(string url)

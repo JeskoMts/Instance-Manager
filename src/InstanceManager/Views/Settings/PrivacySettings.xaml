@@ -12,7 +12,7 @@
                 <StackPanel Margin="0,0,16,0">
                     <TextBlock Style="{StaticResource RowTitle}" Text="Everything stays on this PC" />
                     <TextBlock Style="{StaticResource RowHint}"
-                               Text="Saved logins are encrypted with Windows DPAPI. The app talks to Roblox and to GitHub for updates. There is no telemetry." />
+                               Text="Saved logins are encrypted with Windows DPAPI, so only your Windows user can open them. The app only connects to Roblox, and to GitHub to look for updates. It collects no usage data." />
                     <TextBlock Text="{Binding Settings.DataFolder}" FontSize="11" TextWrapping="Wrap" Margin="0,8,0,0"
                                Foreground="{DynamicResource Brush.TextMuted}" />
                 </StackPanel>

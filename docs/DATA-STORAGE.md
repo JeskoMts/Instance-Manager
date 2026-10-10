@@ -23,7 +23,7 @@ The main data folder is `%APPDATA%\Instance Manager`, set in [AppPaths.cs](../sr
 
 - `avatars\<userId>.png` caches avatar headshots so rows show them at startup, and `avatars\<userId>.url` holds the Roblox address each picture came from. Every session asks Roblox for the current addresses, up to 100 accounts per request, and downloads a picture again only when its address changed. The folder can be deleted at any time.
 - `webview\` is the WebView2 runtime folder for the login window. The login itself uses an InPrivate profile that is created for each dialog and wiped when it closes.
-- `previous-version\Instance Manager <version>.exe` is a copy of the version the last update replaced, kept for Roll back while Keep the previous version is on. There is never more than one.
+- `previous-version\Instance Manager <version>.exe` is a copy of the version the last update replaced, kept for Roll back. There is never more than one.
 
 The folder with the exe is touched only by the updater. During an update it holds an `.im-update` folder with the new exe and an `.im-old` copy of the replaced one, and both are deleted at the next start. The native WebView2 loader inside the exe is unpacked to `%TEMP%\.net\<exe name>\` when the app starts.
 
@@ -116,7 +116,7 @@ An account in `accounts.json`:
 | Auto Reconnect | `AutoReconnectMaster` (off), `AutoReconnectOnKickError` and `AutoReconnectOnCrash` (both on), `AutoReconnectMaxAttempts` (1 to 30, 31 means no limit, default 3) |
 | Graphics | `FpsCap` (0 for the Roblox default, or 30, 60, 75, 120, 144, 165, 240), `ApplyFastFlags`, `GraphicsApi`, `GraphicsQuality` (0 for automatic, or 1 to 10), `AntiAliasing` (-1 for automatic, or 0, 1, 2, 4, 8), `TextureQuality` (-1 for automatic, or 0 to 3), `IgnoreDisplayScaling`, `HideGrass`, `GraySky`, `FreezeLighting`, `ExclusiveFullscreen`, `CustomFastFlags`, and `AppliedFastFlagsHash`, which remembers the flag file the app wrote |
 | Appearance | `ThemeId` (default `dark`), `ThemeOrder`, `SidebarCollapsed`, `WindowWidth`, `WindowHeight` |
-| Updates | `UpdateCheckOnStartup` and `UpdateCheckAutomatically` (both on), `UpdateCheckIntervalMinutes` (15 to 1440, default 60), `UpdateIncludePrereleases`, `SkippedUpdateVersion`, `KeepPreviousVersion` (on) |
+| Updates | `UpdateCheckAutomatically` (on) |
 | Notifications | `ToastDurationMs` (500 to 5000, default 3000), `NotifyMuteMaster`, `MutedNotifications` |
 | Confirmations | `ConfirmBypassMaster` and one `ConfirmBypass...` switch per action |
 | Anti-AFK | `AntiAfkEnabled` (off), `AntiAfkIntervalMinutes` (1 to 60, default 15), `AntiAfkKey` (the name of a key such as `Space`, `W`, `F13` or `LeftShift`, default `Space`), `AntiAfkReturnFocus` (on) |
@@ -162,6 +162,7 @@ There are no versioned migrations. Old formats are corrected when a file is load
 - `AppSettings.Normalize` clamps the numbers to their ranges, resets graphics values that aren't one of the offered choices, turns the Anti-AFK key of the first version, `Shift`, into `LeftShift`, resets a key that isn't a key name or can't be used, such as `Escape`, to `Space`, sets `ThemeId` when it is empty and creates missing lists.
 - Settings files from before 1.1.2 get the new fields with their defaults. Values you already had, such as your launch pause or Auto Reconnect switch, are kept.
 - A settings file written by a 1.1.2 preview can still hold the fields of the removed hotkeys, local API, Discord webhook, playtime, collectible value, online status and Robux balance. They are ignored and the next save drops them, the encrypted token and webhook URL included. The app deletes `playtime.json` and `diagnostics.log` from those builds when it starts.
+- The update settings `UpdateCheckOnStartup`, `UpdateCheckIntervalMinutes`, `UpdateIncludePrereleases`, `SkippedUpdateVersion` and `KeepPreviousVersion` from 1.1.2 are ignored and dropped at the next save. `UpdateCheckAutomatically` is kept.
 - `automations.json` from a 1.1.2 preview, with separate `Templates` and `Schedules`, is converted once. Each template becomes an automation, a schedule is attached to its template's automation (a second schedule for the same template becomes a copy), and a schedule for a single account becomes an automation of its own. A Close schedule turns into a close time without a start.
 
 ## Consistency

@@ -31,6 +31,18 @@ public static class TreeWalk
         return false;
     }
 
+    public static bool HasAncestor<T>(DependencyObject? source) where T : DependencyObject
+    {
+        DependencyObject? node = source;
+        while (node != null)
+        {
+            if (node is T)
+                return true;
+            node = Parent(node);
+        }
+        return false;
+    }
+
     private static DependencyObject? Parent(DependencyObject node) =>
         node is Visual or System.Windows.Media.Media3D.Visual3D
             ? VisualTreeHelper.GetParent(node)

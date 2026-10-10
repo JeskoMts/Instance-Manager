@@ -258,6 +258,24 @@ public partial class AccountListViewModel : ObservableObject
         RecountSelection();
     }
 
+    public IReadOnlyList<AccountRowViewModel> SelectedRows() =>
+        _allRows.Values.Where(r => r.IsSelected).ToList();
+
+    public void SelectOnly(IReadOnlySet<AccountRowViewModel> rows)
+    {
+        _bulkSelecting = true;
+        try
+        {
+            foreach (var row in _allRows.Values)
+                row.IsSelected = rows.Contains(row);
+        }
+        finally
+        {
+            _bulkSelecting = false;
+        }
+        RecountSelection();
+    }
+
     private void SelectAllVisible() => SetSelection(Groups.SelectMany(g => g.Accounts), true);
 
     [RelayCommand]
@@ -311,18 +329,6 @@ public partial class AccountListViewModel : ObservableObject
     {
         _autoReconnect?.NotifyManualStop(row.Account.Id);
         _tracker.Stop(row.Account.Id);
-    }
-
-    [RelayCommand]
-    private void StopAllInstances()
-    {
-        int n = _tracker.RunningCount;
-        if (n <= 0)
-            return;
-        if (!_dialogs.Confirm(ConfirmAction.StopAllInstances, $"Close {n} running instance{(n == 1 ? "" : "s")}?"))
-            return;
-        _autoReconnect?.NotifyManualStopAll();
-        _tracker.StopAll();
     }
 
     public Task LaunchGroupAsync(GroupViewModel group)

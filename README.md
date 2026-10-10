@@ -64,13 +64,13 @@ The app runs as your normal Windows user and never asks for administrator rights
 2. Sign in on the Roblox page that opens. The window closes by itself once the login is saved.
 3. Repeat this for every account you want to use.
 4. Type a game link or Place ID into the launch bar, or pick a favorite or a game from the Games page.
-5. Select accounts by clicking their rows, then click Launch.
+5. Select accounts by clicking their rows or by dragging a box over them, then click Launch.
 
 ## Updates
 
 The app asks GitHub for a new release when it starts and every 60 minutes after that. A newer version is downloaded, checked against the SHA-256 checksum GitHub publishes, and installed by replacing the exe and restarting, which takes a second or two. If you are launching accounts or Roblox is running, the update waits until you close the app or click Restart to update.
 
-Settings > Updates changes the interval, turns the checks off, includes pre-releases, skips a version or rolls back to the version you had before.
+Settings > Updates has one switch, Update automatically, plus Check now and Roll back to the version you had before.
 
 ## Building from source
 

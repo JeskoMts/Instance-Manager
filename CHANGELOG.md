@@ -2,6 +2,24 @@
 
 Every release of Instance Manager, newest first. Each entry starts with a short summary, followed by what is new, what changed and what was fixed. Downloads are on the [releases page](https://github.com/JeskoMts/Instance-Manager/releases).
 
+## [1.1.3](https://github.com/JeskoMts/Instance-Manager/releases/tag/1.1.3) · 2026-10-10
+
+Accounts can be selected by dragging a box over the list, the Automation page and the header of the account list are tidier, and updates are down to one switch. Stop all works right away, and the hints and tooltips across the app were rewritten.
+
+### New
+
+- Drag a box over the account list to select every account it touches, like on the Windows desktop. Start the drag on an empty part of a row or next to the list. The list scrolls when the pointer leaves it at the top or bottom, and holding Ctrl or Shift keeps the accounts that were already selected.
+
+### Changed
+
+- An account is now dragged by its name or avatar, to reorder it or to drop it on a group. Dragging from the empty part of a row draws the selection box instead.
+- The Automation page is tidier. Stop only appears while accounts of the automation run, Duplicate and Delete moved into a ⋯ menu, the account search shows up from 9 accounts on, the Every day, Weekdays and Weekends shortcuts and most of the hint lines are gone.
+- The header above the account list is plain text now: the selected count with Clear, the running count and Stop all. Stop all no longer asks first, also cancels a launch that is still going, and its confirmation setting is gone.
+- An automation no longer shows "Unknown game" or "A specific server" under its destination. The line only appears once the game's name is known.
+- Updates are simpler. The app asks GitHub for the latest release at startup and once an hour and installs it, and Check now installs a newer version right away when nothing is running. One switch, Update automatically, replaces Check at startup, the check interval, pre-releases, Skip this version and Keep the previous version. A copy of the old version is always kept, and Roll back turns Update automatically off.
+- When a newer release is on GitHub but its package can't be verified, the Updates page says so instead of calling the app up to date.
+- Hints and tooltips across the app were rewritten to say what a control does and what happens when it is off.
+
 ## [1.1.2](https://github.com/JeskoMts/Instance-Manager/releases/tag/1.1.2) · 2026-09-28
 
 The window was redesigned around a sidebar, and the app gained Automation, graphics settings, a tray icon and Anti-AFK, where you choose any key. Private server links work in Server mode, Auto Reconnect no longer closes healthy clients, and the keyboard shortcuts are gone. Settings are sorted into three groups with a search box, the window opens faster, and the download is now one file.

@@ -75,8 +75,10 @@ public sealed class SettingsLayoutTests
         Assert.Contains("Settings.OpenDataFolderCommand", privacy, StringComparison.Ordinal);
 
         string updates = Settings("UpdateSettings.xaml");
-        Assert.Contains("Updates.SkipVersionCommand", updates, StringComparison.Ordinal);
-        Assert.Contains("Updates.ClearSkippedCommand", updates, StringComparison.Ordinal);
+        Assert.Contains("Updates.UpdateAutomatically", updates, StringComparison.Ordinal);
+        Assert.Contains("Updates.CheckNowCommand", updates, StringComparison.Ordinal);
+        Assert.Contains("Updates.RollBackCommand", updates, StringComparison.Ordinal);
+        Assert.DoesNotContain("Skip", updates, StringComparison.Ordinal);
     }
 
     [Fact]

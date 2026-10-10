@@ -21,12 +21,12 @@
             </Grid.ColumnDefinitions>
             <StackPanel VerticalAlignment="Center">
                 <TextBlock Style="{StaticResource PageTitle}" Text="Accounts" />
-                <TextBlock Style="{StaticResource PageSubtitle}" Text="Select accounts and launch them together, each in its own window." />
+                <TextBlock Style="{StaticResource PageSubtitle}" Text="Tick the accounts you want, or drag a box around them, then launch them together. Each one gets its own Roblox window." />
             </StackPanel>
             <StackPanel Grid.Column="1" Orientation="Horizontal" VerticalAlignment="Center">
                 <Button Style="{StaticResource GhostButton}" Margin="0,0,8,0"
                         Command="{Binding AccountList.CheckSessionsCommand}"
-                        ToolTip="Ask Roblox whether every saved login still works">
+                        ToolTip="Check with Roblox whether each saved login still works. Expired ones get a Sign in again button.">
                     <StackPanel Orientation="Horizontal">
                         <Grid Width="15" Height="15" Margin="0,0,8,0">
                             <ui:Icon Kind="ShieldCheck" Size="15"
@@ -43,7 +43,7 @@
                 </Button>
                 <Button Style="{StaticResource GhostButton}" Margin="0,0,8,0"
                         Command="{Binding AccountList.CreateGroupCommand}"
-                        ToolTip="Create a group, then drag accounts onto it">
+                        ToolTip="Create a group. Drag an account by its name onto the group to add it.">
                     <StackPanel Orientation="Horizontal">
                         <ui:Icon Kind="FolderPlus" Margin="0,0,8,0" />
                         <TextBlock Text="New group" VerticalAlignment="Center" />
@@ -51,7 +51,7 @@
                 </Button>
                 <Button Style="{StaticResource PrimaryButton}"
                         Command="{Binding AccountList.AddAccountCommand}"
-                        ToolTip="Sign in with another Roblox account">
+                        ToolTip="Sign in to a Roblox account to add it to the list">
                     <StackPanel Orientation="Horizontal">
                         <ui:Icon Kind="UserPlus" Margin="0,0,8,0" />
                         <TextBlock Text="Add account" VerticalAlignment="Center" />
@@ -90,49 +90,54 @@
                 <ColumnDefinition Width="Auto" />
             </Grid.ColumnDefinitions>
             <StackPanel Orientation="Horizontal" VerticalAlignment="Center" Margin="9,0,0,0">
-                <CheckBox Style="{StaticResource RowCheckBox}" ToolTip="Select all"
+                <CheckBox Style="{StaticResource RowCheckBox}" ToolTip="Select or clear every account in the list"
                           IsChecked="{Binding AccountList.AllSelected, Mode=OneWay}"
                           Command="{Binding AccountList.ToggleSelectAllCommand}" />
                 <TextBlock Text="{Binding AccountList.AccountCountText}" Margin="10,0,0,0"
                            FontSize="12" Foreground="{DynamicResource Brush.TextMuted}" VerticalAlignment="Center"
                            Visibility="{Binding AccountList.HasSelection, Converter={StaticResource InverseBoolToVis}}" />
-                <Border Margin="12,0,0,0" Padding="10,5,6,5" VerticalAlignment="Center"
-                        CornerRadius="7" Background="{DynamicResource Brush.Surface}"
-                        BorderBrush="{DynamicResource Brush.Border}" BorderThickness="1"
-                      Visibility="{Binding AccountList.HasSelection, Converter={StaticResource BoolToVis}}">
-                    <StackPanel Orientation="Horizontal">
-                        <Border Width="3" Height="14" CornerRadius="1.5" Margin="0,0,8,0" Background="{DynamicResource Brush.Accent}" />
-                        <TextBlock Text="{Binding AccountList.SelectionText}" FontSize="12" FontWeight="SemiBold"
-                                   Foreground="{DynamicResource Brush.TextPrimary}" VerticalAlignment="Center" />
-                        <Button Style="{StaticResource ChipCloseButton}" Margin="5,0,0,0"
-                                ToolTip="Clear selection" Command="{Binding AccountList.ClearSelectionCommand}">
-                            <ui:Icon Kind="Close" Size="11" StrokeThickness="2.2" />
-                        </Button>
-                    </StackPanel>
-                </Border>
+                <TextBlock Text="{Binding AccountList.SelectionText}" Margin="10,0,0,0"
+                           FontSize="12" Foreground="{DynamicResource Brush.TextPrimary}" VerticalAlignment="Center"
+                           Visibility="{Binding AccountList.HasSelection, Converter={StaticResource BoolToVis}}" />
+                <Button Style="{StaticResource LinkButton}" Content="Clear" FontSize="12" Padding="8,4" Margin="2,0,0,0"
+                        VerticalAlignment="Center" ToolTip="Clear the selection"
+                        Command="{Binding AccountList.ClearSelectionCommand}"
+                        Visibility="{Binding AccountList.HasSelection, Converter={StaticResource BoolToVis}}" />
             </StackPanel>
 
-            <StackPanel Grid.Column="1" Orientation="Horizontal" VerticalAlignment="Center"
-                    Visibility="{Binding AccountList.HasRunning, Converter={StaticResource BoolToVis}}">
-                <Border Padding="10,6" CornerRadius="7" Background="{DynamicResource Brush.Surface}" Margin="0,0,8,0">
-                    <StackPanel Orientation="Horizontal">
-                        <Ellipse Width="7" Height="7" Fill="{DynamicResource Brush.Success}" VerticalAlignment="Center" Margin="0,0,8,0" />
-                        <TextBlock Text="{Binding AccountList.RunningText}" FontSize="12" FontWeight="SemiBold"
-                                   Foreground="{DynamicResource Brush.TextSecondary}" VerticalAlignment="Center" />
-                    </StackPanel>
-                </Border>
-                <Button Style="{StaticResource GhostButton}" Height="29" Padding="10,0"
-                        Command="{Binding AccountList.StopAllInstancesCommand}"
-                        ToolTip="Close all Roblox clients started by this app">
-                    <StackPanel Orientation="Horizontal">
-                        <ui:Icon Kind="Stop" Size="12" Margin="0,0,7,0" Foreground="{DynamicResource Brush.Danger}" />
-                        <TextBlock Text="Stop all" VerticalAlignment="Center" />
-                    </StackPanel>
+            <StackPanel Grid.Column="1" Orientation="Horizontal" VerticalAlignment="Center" Margin="0,0,-8,0">
+                <StackPanel Orientation="Horizontal" VerticalAlignment="Center"
+                            Visibility="{Binding AccountList.HasRunning, Converter={StaticResource BoolToVis}}">
+                    <Ellipse Width="6" Height="6" Fill="{DynamicResource Brush.Success}" VerticalAlignment="Center" Margin="0,1,7,0" />
+                    <TextBlock Text="{Binding AccountList.RunningText}" FontSize="12"
+                               Foreground="{DynamicResource Brush.TextMuted}" VerticalAlignment="Center" />
+                </StackPanel>
+                <Button Content="Stop all" FontSize="12" Padding="8,4" Margin="4,0,0,0" VerticalAlignment="Center"
+                        Command="{Binding StopAllCommand}"
+                        ToolTip="Closes every Roblox window that Instance Manager started, right away, and cancels a launch that is still going">
+                    <Button.Style>
+                        <Style TargetType="Button" BasedOn="{StaticResource LinkButton}">
+                            <Setter Property="Visibility" Value="Collapsed" />
+                            <Style.Triggers>
+                                <DataTrigger Binding="{Binding AccountList.HasRunning}" Value="True">
+                                    <Setter Property="Visibility" Value="Visible" />
+                                </DataTrigger>
+                                <DataTrigger Binding="{Binding IsBusy}" Value="True">
+                                    <Setter Property="Visibility" Value="Visible" />
+                                </DataTrigger>
+                            </Style.Triggers>
+                        </Style>
+                    </Button.Style>
                 </Button>
             </StackPanel>
         </Grid>
 
-        <Grid Grid.Row="3" Margin="28,0,22,0">
+        <Grid x:Name="ListHost" Grid.Row="3" Background="Transparent" ClipToBounds="True"
+              PreviewMouseLeftButtonDown="ListHost_PreviewMouseLeftButtonDown"
+              PreviewMouseMove="ListHost_PreviewMouseMove"
+              PreviewMouseLeftButtonUp="ListHost_PreviewMouseLeftButtonUp"
+              LostMouseCapture="ListHost_LostMouseCapture">
+        <Grid Margin="28,0,22,0">
             <ListBox x:Name="AccountsList" ItemsSource="{Binding AccountList.Rows}"
                      Background="Transparent" BorderThickness="0" Padding="0,0,6,12"
                      HorizontalContentAlignment="Stretch"
@@ -181,7 +186,7 @@
                                     </Grid.ColumnDefinitions>
                                     <ToggleButton Grid.Column="0" Style="{StaticResource ChevronToggle}" Margin="4,0,2,0"
                                                   IsChecked="{Binding IsExpanded}" VerticalAlignment="Center"
-                                                  ToolTip="Collapse or expand" />
+                                                  ToolTip="Collapse or expand this group" />
                                     <Ellipse Grid.Column="1" Width="8" Height="8" Margin="6,0,10,0" VerticalAlignment="Center"
                                              Fill="{Binding ColorHex, Converter={StaticResource HexToBrush}}" />
                                     <StackPanel Grid.Column="2" Orientation="Horizontal" VerticalAlignment="Center">
@@ -198,7 +203,7 @@
                                         </StackPanel>
                                     </Button>
                                     <Button x:Name="GroupMore" Grid.Column="4" Style="{StaticResource IconButton}" Width="30" Height="30"
-                                            Padding="0" Margin="2,0,0,0" ToolTip="More group actions"
+                                            Padding="0" Margin="2,0,0,0" ToolTip="More: launch, edit or delete this group"
                                             Click="GroupMenu_Click">
                                         <ui:Icon Kind="More" />
                                     </Button>
@@ -269,7 +274,7 @@
                                                  Stroke="{DynamicResource Brush.Window}" StrokeThickness="2" Visibility="Collapsed" />
                                     </Grid>
 
-                                    <StackPanel Grid.Column="2" VerticalAlignment="Center" Margin="0,0,12,0">
+                                    <StackPanel Grid.Column="2" VerticalAlignment="Center" HorizontalAlignment="Left" Margin="0,0,12,0">
                                         <TextBlock Text="{Binding DisplayLabel}" FontWeight="SemiBold" TextTrimming="CharacterEllipsis" />
                                         <TextBlock x:Name="UserLine" Text="{Binding Username, StringFormat=@{0}}" FontSize="12" Margin="0,1,0,0"
                                                    TextTrimming="CharacterEllipsis" Foreground="{DynamicResource Brush.TextMuted}" />
@@ -302,14 +307,14 @@
                                     <Border x:Name="VersionChip" Grid.Column="4" Margin="0,0,10,0" Padding="7,2" CornerRadius="6"
                                             VerticalAlignment="Center" MaxWidth="140"
                                             BorderBrush="{DynamicResource Brush.Border}" BorderThickness="1"
-                                            ToolTip="This account always uses this Roblox version">
+                                            ToolTip="This account always uses this Roblox version. Change it in the ⋯ menu.">
                                         <TextBlock Text="{Binding PinnedVersionLabel}" FontSize="11" TextTrimming="CharacterEllipsis"
                                                    Foreground="{DynamicResource Brush.TextMuted}" />
                                     </Border>
 
                                     <Grid Grid.Column="5" VerticalAlignment="Center">
                                         <Button x:Name="LaunchButton" Style="{StaticResource IconButton}" Width="32" Height="32" Padding="0"
-                                                Command="{Binding LaunchCommand}" ToolTip="Launch this account"
+                                                Command="{Binding LaunchCommand}" ToolTip="Launch only this account"
                                                 IsEnabled="{Binding DataContext.IsBusy, RelativeSource={RelativeSource AncestorType=Window}, Converter={StaticResource InverseBool}}">
                                             <ui:Icon Kind="Play" Size="15" />
                                         </Button>
@@ -383,7 +388,7 @@
                     <ui:Icon Kind="Users" Size="26" Foreground="{DynamicResource Brush.TextSecondary}" />
                 </Border>
                 <TextBlock Text="No accounts yet" FontSize="16" FontWeight="SemiBold" HorizontalAlignment="Center" Margin="0,16,0,0" />
-                <TextBlock Text="Sign in with your first Roblox account. The login stays encrypted on this PC." TextAlignment="Center" TextWrapping="Wrap"
+                <TextBlock Text="Add your first Roblox account to get started. Its login is saved encrypted on this PC and nowhere else." TextAlignment="Center" TextWrapping="Wrap"
                            Foreground="{DynamicResource Brush.TextSecondary}" Margin="0,6,0,0" />
                 <Button Style="{StaticResource PrimaryButton}" HorizontalAlignment="Center" Margin="0,18,0,0"
                         Command="{Binding AccountList.AddAccountCommand}">
@@ -398,11 +403,18 @@
                         Visibility="{Binding AccountList.ShowNoResults, Converter={StaticResource BoolToVis}}">
                 <ui:Icon Kind="Search" Size="30" Foreground="{DynamicResource Brush.TextMuted}" />
                 <TextBlock Text="No matching accounts" FontSize="15" FontWeight="SemiBold" HorizontalAlignment="Center" Margin="0,12,0,0" />
-                <TextBlock Text="{Binding AccountList.SearchText, StringFormat='Nothing matches “{0}”.'}" TextAlignment="Center"
+                <TextBlock Text="{Binding AccountList.SearchText, StringFormat='No account name or username contains “{0}”.'}" TextAlignment="Center"
                            TextWrapping="Wrap" Foreground="{DynamicResource Brush.TextSecondary}" Margin="0,6,0,0" />
                 <Button Style="{StaticResource GhostButton}" Content="Clear search" HorizontalAlignment="Center" Margin="0,14,0,0"
                         Command="{Binding AccountList.ClearSearchCommand}" />
             </StackPanel>
+        </Grid>
+            <Canvas IsHitTestVisible="False">
+                <Grid x:Name="Marquee" Visibility="Collapsed">
+                    <Border CornerRadius="3" Background="{DynamicResource Brush.Accent}" Opacity="0.12" />
+                    <Border CornerRadius="3" BorderBrush="{DynamicResource Brush.Accent}" BorderThickness="1" />
+                </Grid>
+            </Canvas>
         </Grid>
 
         <Border Grid.Row="4" Margin="28,6,28,16" CornerRadius="12" Background="{DynamicResource Brush.Surface}"
@@ -438,7 +450,7 @@
                     <Grid Grid.Column="1" Margin="8,0,0,0" VerticalAlignment="Center">
                         <Grid Visibility="{Binding LaunchPanel.IsJobIdMode, Converter={StaticResource InverseBoolToVis}}">
                             <TextBox x:Name="TargetBox" Style="{StaticResource ModernTextBox}" Height="34" Padding="10,0,40,0"
-                                     ToolTip="Leave empty to open the Roblox home screen instead"
+                                     ToolTip="Paste a game link or a Place ID. Leave it empty to open the Roblox home screen."
                                      Text="{Binding LaunchPanel.TargetInput, UpdateSourceTrigger=PropertyChanged, Delay=300}" />
                             <TextBlock Style="{StaticResource WatermarkText}" Margin="12,0,40,0"
                                        Text="Game link or Place ID (optional)">
@@ -453,7 +465,7 @@
 
                         <Grid Visibility="{Binding LaunchPanel.IsJobIdMode, Converter={StaticResource BoolToVis}}">
                             <TextBox x:Name="JobBox" Style="{StaticResource ModernTextBox}" Height="34" Padding="10,0,40,0"
-                                     ToolTip="Leave empty to open the Roblox home screen instead"
+                                     ToolTip="Paste a server link. Leave it empty to open the Roblox home screen."
                                      Text="{Binding LaunchPanel.JobIdInput, UpdateSourceTrigger=PropertyChanged, Delay=300}" />
                             <TextBlock Style="{StaticResource WatermarkText}" Margin="12,0,40,0"
                                        Text="Server link, private server link or Job ID link (optional)">
@@ -468,14 +480,14 @@
 
                         <Button Style="{StaticResource IconButton}" HorizontalAlignment="Right" VerticalAlignment="Center"
                                 Width="28" Height="28" Padding="0" Margin="0,0,3,0"
-                                Command="{Binding LaunchPanel.AddFavoriteCommand}" ToolTip="Save as a favorite">
+                                Command="{Binding LaunchPanel.AddFavoriteCommand}" ToolTip="Save this game or server as a favorite">
                             <ui:Icon Kind="Star" Size="15" />
                         </Button>
                     </Grid>
 
                     <ComboBox x:Name="FavoritesCombo" Grid.Column="2" Style="{StaticResource FavoritesComboBox}"
                               Width="190" Margin="8,0,0,0" VerticalAlignment="Center"
-                              ToolTip="Saved games"
+                              ToolTip="Your favorites. Pick one to use it as the launch target."
                               DropDownOpened="FavoritesCombo_DropDownOpened"
                               DropDownClosed="FavoritesCombo_DropDownClosed"
                               Tag="{Binding LaunchPanel.FavoriteSearchText, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
@@ -540,13 +552,13 @@
                                                             <ui:Icon Kind="ChevronDown" Size="14" />
                                                         </Button>
                                                         <Button Style="{StaticResource IconButton}" Width="26" Height="26" Padding="0"
-                                                                ToolTip="Edit" Click="FavoriteRowButton_Click"
+                                                                ToolTip="Edit name and link" Click="FavoriteRowButton_Click"
                                                                 Command="{Binding DataContext.LaunchPanel.EditFavoriteCommand, RelativeSource={RelativeSource AncestorType=ComboBox}}"
                                                                 CommandParameter="{Binding}">
                                                             <ui:Icon Kind="Pencil" Size="14" />
                                                         </Button>
                                                         <Button Style="{StaticResource IconButton}" Width="26" Height="26" Padding="0"
-                                                                ToolTip="Delete" Click="FavoriteRowButton_Click"
+                                                                ToolTip="Delete this favorite" Click="FavoriteRowButton_Click"
                                                                 Command="{Binding DataContext.LaunchPanel.RemoveFavoriteCommand, RelativeSource={RelativeSource AncestorType=ComboBox}}"
                                                                 CommandParameter="{Binding}">
                                                             <ui:Icon Kind="Trash" Size="14" Foreground="{DynamicResource Brush.Danger}" />
@@ -574,7 +586,7 @@
                         <Button MinWidth="170" Padding="16,0"
                                 Command="{Binding LaunchSelectedCommand}"
                                 IsEnabled="{Binding AccountList.HasSelection}"
-                                ToolTip="Start the selected accounts one after another"
+                                ToolTip="Launch the selected accounts one after another. Select at least one account first."
                                 ToolTipService.ShowOnDisabled="True"
                                 Visibility="{Binding IsBusy, Converter={StaticResource InverseBoolToVis}}"
                                 Style="{StaticResource PrimaryButton}">

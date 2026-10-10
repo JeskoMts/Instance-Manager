@@ -184,15 +184,15 @@ Every 15 seconds the view model asks `ScheduleClock.DueStop` and `DueStart` what
 The app ships as one framework-dependent single-file exe, `Instance Manager.exe`. The project's assembly is still called `InstanceManager`, so `dotnet publish` writes `InstanceManager.exe`, and the release script gives it its shipped name. The native `WebView2Loader.dll` is bundled too, and the .NET host unpacks it to `%TEMP%\.net\<exe name>\` when the app starts. `UpdateService` works on the exe that is running, whatever its name, and only when it runs as a single-file bundle (an empty `Assembly.Location`), so builds from source never update themselves.
 
 1. `CleanupPreviousUpdate` deletes `*.im-old` files and the `.im-update` folder that the previous update left in the app folder. See [Replacing a folder install](#replacing-a-folder-install) for the extra cleanup of old installs.
-2. `CheckAsync` asks `api.github.com` for the latest release of `JeskoMts/Instance-Manager`, or for the 15 newest releases when pre-releases are included (drafts are ignored). The tag, for example `1.1.2`, is read as a version, and nothing happens unless it is newer than the running build. A GitHub error is reported as such instead of looking like "no update".
+2. `CheckAsync` asks `api.github.com` for the latest release of `JeskoMts/Instance-Manager`. The tag, for example `1.1.2`, is read as a version, and nothing happens unless it is newer than the running build. A GitHub error is reported as such instead of looking like "no update", and so is a newer release whose package can't be verified (`UnavailableVersion`). A 404, which GitHub sends while there is no release, counts as up to date.
 3. It looks for the asset `InstanceManager-<tag>.zip`. The parsed download URL must be exactly `https://github.com/JeskoMts/Instance-Manager/releases/download/<tag>/InstanceManager-<tag>.zip`, and the asset must have a `sha256:` digest in the API response.
 4. The zip is downloaded with redirects followed by hand: at most five, HTTPS only, and only to `github.com`, `objects.githubusercontent.com` or `release-assets.githubusercontent.com`. The download is capped at 64 MB, and its SHA-256 must match the digest.
 5. Every entry must be a plain file name with no folders, no invalid characters and no duplicates, and the unpacked size is capped. Only `Instance Manager.exe` is extracted, into `.im-update` inside the app folder.
 6. `Apply` renames the running exe to `<name>.im-old` and moves the new one into its place under the same name, so shortcuts keep working. Windows allows renaming a running executable. If the move fails, the old exe is put back.
 
-`UpdatesViewModel` decides when to call `Apply`. For the startup check, if no launch is running, no Roblox instance is tracked and no dialog is open, it applies the update right away, shuts down and starts the exe again with `--updated`, which shows a notification with the new version. Otherwise the update waits for Restart to update or for the app to close. Skipping a version deletes the staged exe, so nothing is installed on exit.
+`UpdatesViewModel` decides when to call `Apply`. With Update automatically on, it checks at startup and once an hour. For the startup check and for Check now, if no launch is running, no Roblox instance is tracked and no dialog is open, it applies the update right away, shuts down and starts the exe again with `--updated`, which shows a notification with the new version. Otherwise the update waits for Restart to update or for the app to close.
 
-Before `Apply`, `KeepCurrentVersion` copies the running exe to `%LOCALAPPDATA%\Instance Manager\previous-version\Instance Manager <version>.exe`, replacing any older copy. Roll back stages that copy with `StageLocal`, applies it the same way and marks the version it left as skipped, so the timer doesn't install it again right away.
+Before `Apply`, `KeepCurrentVersion` copies the running exe to `%LOCALAPPDATA%\Instance Manager\previous-version\Instance Manager <version>.exe`, replacing any older copy. Roll back stages that copy with `StageLocal`, applies it the same way and turns Update automatically off, so the next check doesn't install the newer version again.
 
 ### Release assets
 
@@ -219,7 +219,6 @@ All network calls go through one shared `HttpClient`: cookies off, automatic red
 | `www.roblox.com` | Login page in the WebView2 window, server link resolution |
 | `assetgame.roblox.com/game/PlaceLauncher.ashx` | Part of the launch URI, not fetched by the app |
 | `api.github.com/repos/JeskoMts/Instance-Manager/releases/latest` | Update check |
-| `api.github.com/repos/JeskoMts/Instance-Manager/releases?per_page=15` | Update check with pre-releases |
 | `github.com/.../releases/download/...` and its CDN redirect | Update download |
 
 The login dialog creates its own WebView2 environment with an InPrivate profile and disposes it on close. The WebView2 processes use most of the app's memory while the dialog is open and are released as soon as it closes.

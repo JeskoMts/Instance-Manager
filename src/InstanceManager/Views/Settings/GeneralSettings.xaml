@@ -8,7 +8,7 @@
                 <Grid Style="{StaticResource SettingRow}">
                     <StackPanel VerticalAlignment="Center" Margin="0,0,70,0">
                         <TextBlock Style="{StaticResource RowTitle}" Text="Start with Windows" />
-                        <TextBlock Style="{StaticResource RowHint}" Text="Opens Instance Manager when you sign in to Windows." />
+                        <TextBlock Style="{StaticResource RowHint}" Text="Opens Instance Manager on its own when you sign in to Windows." />
                     </StackPanel>
                     <CheckBox Style="{StaticResource ToggleSwitch}" HorizontalAlignment="Right"
                               IsEnabled="{Binding Settings.CanStartWithWindows}"
@@ -18,7 +18,7 @@
                 <Grid Style="{StaticResource SettingRow}">
                     <StackPanel VerticalAlignment="Center" Margin="0,0,70,0">
                         <TextBlock Style="{StaticResource RowTitle}" Text="Start in the tray" />
-                        <TextBlock Style="{StaticResource RowHint}" Text="When started with Windows, stay in the system tray instead of opening the window." />
+                        <TextBlock Style="{StaticResource RowHint}" Text="When Windows starts the app, it stays in the system tray and opens no window. Open it from the tray icon." />
                     </StackPanel>
                     <CheckBox Style="{StaticResource ToggleSwitch}" HorizontalAlignment="Right"
                               IsChecked="{Binding Settings.StartInTray}" />
@@ -27,7 +27,7 @@
                 <Grid Style="{StaticResource SettingRow}">
                     <StackPanel VerticalAlignment="Center" Margin="0,0,70,0">
                         <TextBlock Style="{StaticResource RowTitle}" Text="Close to tray" />
-                        <TextBlock Style="{StaticResource RowHint}" Text="The close button hides the window, so automations and Auto Reconnect keep running. Quit from the tray icon." />
+                        <TextBlock Style="{StaticResource RowHint}" Text="The close button only hides the window, so automations, Auto Reconnect and Anti-AFK keep running. To quit, pick Quit in the tray icon menu." />
                     </StackPanel>
                     <CheckBox Style="{StaticResource ToggleSwitch}" HorizontalAlignment="Right"
                               IsChecked="{Binding Settings.CloseToTray}" />
@@ -52,7 +52,7 @@
             <Grid Style="{StaticResource SettingRow}">
                 <StackPanel VerticalAlignment="Center" Margin="0,0,70,0">
                     <TextBlock Style="{StaticResource RowTitle}" Text="Switch to Accounts after picking a game" />
-                    <TextBlock Style="{StaticResource RowHint}" Text="When off, picking a game only sets the launch target and you stay on the Games page." />
+                    <TextBlock Style="{StaticResource RowHint}" Text="Takes you straight to your accounts once a game is picked. When off, you stay on the Games page." />
                 </StackPanel>
                 <CheckBox Style="{StaticResource ToggleSwitch}" HorizontalAlignment="Right"
                           IsChecked="{Binding Settings.SwitchToAccountsOnGameSelect}" />
@@ -65,7 +65,7 @@
                 <Grid Style="{StaticResource SettingRow}">
                     <StackPanel VerticalAlignment="Center" Margin="0,0,70,0">
                         <TextBlock Style="{StaticResource RowTitle}" Text="Skip every confirmation" />
-                        <TextBlock Style="{StaticResource RowHint}" Text="Remove, delete and stop without asking first. When off, the list below decides." />
+                        <TextBlock Style="{StaticResource RowHint}" Text="Removes and deletes right away without asking first. When off, the list below decides." />
                     </StackPanel>
                     <CheckBox Style="{StaticResource ToggleSwitch}" HorizontalAlignment="Right"
                               IsChecked="{Binding Settings.ConfirmBypassMaster}" />
@@ -85,10 +85,6 @@
                     <Grid Style="{StaticResource SubRow}">
                         <TextBlock Style="{StaticResource SubRowText}" Text="Deleting a favorite" />
                         <CheckBox Style="{StaticResource ToggleSwitch}" HorizontalAlignment="Right" IsChecked="{Binding Settings.ConfirmBypassDeleteFavorite}" />
-                    </Grid>
-                    <Grid Style="{StaticResource SubRow}">
-                        <TextBlock Style="{StaticResource SubRowText}" Text="Stopping every running account" />
-                        <CheckBox Style="{StaticResource ToggleSwitch}" HorizontalAlignment="Right" IsChecked="{Binding Settings.ConfirmBypassStopAllInstances}" />
                     </Grid>
                     <Grid Style="{StaticResource SubRow}">
                         <TextBlock Style="{StaticResource SubRowText}" Text="Taking an account out of all groups" />

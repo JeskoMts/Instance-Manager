@@ -12,7 +12,7 @@
 
         <StackPanel Grid.Row="0" Margin="28,4,28,18">
             <TextBlock Style="{StaticResource PageTitle}" Text="Games" />
-            <TextBlock Style="{StaticResource PageSubtitle}" Text="Pick a game to make it the launch target for your accounts." />
+            <TextBlock Style="{StaticResource PageSubtitle}" Text="Search for a game and pick it to set it as the launch target on the Accounts page." />
         </StackPanel>
 
         <Grid Grid.Row="1" Margin="28,0,28,12">

@@ -41,7 +41,7 @@ The app contacts only Roblox and GitHub. The Discord button next to the bell ope
 
 ## Updates
 
-When the published app starts, and then at the interval set under Settings > Updates, it asks `api.github.com` for the latest release of `JeskoMts/Instance-Manager`, or for the newest releases including pre-releases if you turned that on. The request carries only a user agent with the app version. If the release is newer than the running build, the update has to pass these checks, none of which can be turned off:
+When the published app starts, and then once an hour, it asks `api.github.com` for the latest release of `JeskoMts/Instance-Manager`. Update automatically under Settings > Updates turns both off. The request carries only a user agent with the app version. If the release is newer than the running build, the update has to pass these checks, none of which can be turned off:
 
 - The asset must be named `InstanceManager-<tag>.zip`, and its download URL, once `../` segments are resolved, must be exactly `https://github.com/JeskoMts/Instance-Manager/releases/download/<tag>/InstanceManager-<tag>.zip`.
 - Redirects are followed by hand: at most five, HTTPS only, and only to `github.com`, `objects.githubusercontent.com` and `release-assets.githubusercontent.com`.

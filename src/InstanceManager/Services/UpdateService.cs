@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Diagnostics.CodeAnalysis;
 using System.IO;
 using System.IO.Compression;
+using System.Net;
 using System.Net.Http;
 using System.Net.Http.Headers;
 using System.Security.Cryptography;
@@ -22,7 +23,6 @@ public sealed class UpdateService
     internal const string LegacyMarkerName = "InstanceManager.deps.json";
 
     private const string LatestReleaseUrl = "https://api.github.com/repos/JeskoMts/Instance-Manager/releases/latest";
-    private const string ReleasesUrl = "https://api.github.com/repos/JeskoMts/Instance-Manager/releases?per_page=15";
     private const string PreviousPrefix = "Instance Manager ";
     private const string DownloadPrefix = "https://github.com/JeskoMts/Instance-Manager/releases/download/";
     private const string BackupSuffix = ".im-old";
@@ -116,21 +116,26 @@ public sealed class UpdateService
 
     public async Task<Version?> DownloadAsync(CancellationToken cancellationToken = default)
     {
-        ReleaseInfo? release = await CheckAsync(includePrereleases: false, cancellationToken).ConfigureAwait(false);
+        ReleaseInfo? release = await CheckAsync(cancellationToken).ConfigureAwait(false);
         return release != null && await DownloadAndStageAsync(release, cancellationToken).ConfigureAwait(false)
             ? release.Version
             : null;
     }
 
-    public async Task<ReleaseInfo?> CheckAsync(bool includePrereleases, CancellationToken cancellationToken = default)
+    public Version? UnavailableVersion { get; private set; }
+
+    public async Task<ReleaseInfo?> CheckAsync(CancellationToken cancellationToken = default)
     {
+        UnavailableVersion = null;
         if (!_isSingleFile)
             return null;
 
         byte[]? json;
         using (HttpResponseMessage response = await SendAsync(
-                   new Uri(includePrereleases ? ReleasesUrl : LatestReleaseUrl), "application/vnd.github+json", cancellationToken).ConfigureAwait(false))
+                   new Uri(LatestReleaseUrl), "application/vnd.github+json", cancellationToken).ConfigureAwait(false))
         {
+            if (response.StatusCode == HttpStatusCode.NotFound)
+                return null;
             if (!response.IsSuccessStatusCode)
                 throw new HttpRequestException($"GitHub answered {(int)response.StatusCode}.");
             json = await BoundedHttpContentReader.ReadAsync(
@@ -140,8 +145,12 @@ public sealed class UpdateService
         if (json is null)
             return null;
 
-        ReleaseInfo? release = includePrereleases ? PickNewest(json) : TryParseRelease(json, out ReleaseInfo? latest) ? latest : null;
-        return release != null && release.Version > CurrentVersion ? release : null;
+        if (TryParseRelease(json, out ReleaseInfo? release))
+            return release!.Version > CurrentVersion ? release : null;
+
+        if (TryReadVersion(json) is { } version && version > CurrentVersion)
+            UnavailableVersion = version;
+        return null;
     }
 
     public async Task<bool> DownloadAndStageAsync(ReleaseInfo release, CancellationToken cancellationToken = default)
@@ -284,27 +293,17 @@ public sealed class UpdateService
         return dto != null && TryParseRelease(dto, out release);
     }
 
-    internal static ReleaseInfo? PickNewest(byte[] json)
+    private static Version? TryReadVersion(byte[] json)
     {
-        List<ReleaseDto>? releases;
         try
         {
-            releases = JsonSerializer.Deserialize<List<ReleaseDto>>(json);
+            string? tag = JsonSerializer.Deserialize<ReleaseDto>(json)?.TagName?.Trim().TrimStart('v', 'V');
+            return tag != null && Version.TryParse(tag, out Version? parsed) ? Normalize(parsed) : null;
         }
         catch (JsonException)
         {
             return null;
         }
-
-        ReleaseInfo? newest = null;
-        foreach (ReleaseDto dto in releases ?? new List<ReleaseDto>())
-        {
-            if (dto.Draft || !TryParseRelease(dto, out ReleaseInfo? candidate))
-                continue;
-            if (newest == null || candidate!.Version > newest.Version)
-                newest = candidate;
-        }
-        return newest;
     }
 
     private static bool TryParseRelease(ReleaseDto dto, out ReleaseInfo? release)
@@ -327,7 +326,7 @@ public sealed class UpdateService
         }
 
         release = new ReleaseInfo(Normalize(parsed), uri, asset.Digest[DigestPrefix.Length..],
-            IsReleasePage(dto.HtmlUrl) ? dto.HtmlUrl : null, dto.Prerelease);
+            IsReleasePage(dto.HtmlUrl) ? dto.HtmlUrl : null);
         return true;
     }
 
@@ -449,15 +448,12 @@ public sealed class UpdateService
         }
     }
 
-    public sealed record ReleaseInfo(Version Version, Uri DownloadUri, string Sha256,
-        string? PageUrl = null, bool IsPrerelease = false);
+    public sealed record ReleaseInfo(Version Version, Uri DownloadUri, string Sha256, string? PageUrl = null);
 
     private sealed class ReleaseDto
     {
         [JsonPropertyName("tag_name")] public string? TagName { get; set; }
         [JsonPropertyName("html_url")] public string? HtmlUrl { get; set; }
-        [JsonPropertyName("draft")] public bool Draft { get; set; }
-        [JsonPropertyName("prerelease")] public bool Prerelease { get; set; }
         [JsonPropertyName("assets")] public List<AssetDto>? Assets { get; set; }
     }
 

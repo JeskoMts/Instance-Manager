@@ -254,33 +254,48 @@ public sealed class UpdateServiceTests : IDisposable
     }
 
     [Fact]
-    public async Task CheckAsync_WithPrereleases_PicksTheNewestPublishedRelease()
+    public async Task CheckAsync_AsksOnlyForTheLatestRelease()
     {
         byte[] package = Zip(("Instance Manager.exe", "new exe"));
-        string digest = "sha256:" + Sha256(package);
-        string stable = ReleaseJson("1.2.0", (DownloadUrl, digest));
-        string beta = ReleaseJson("1.3.0", (DownloadRoot.Replace("1.2.0", "1.3.0") + "InstanceManager-1.3.0.zip", digest))
-            .Replace("{\"tag_name\"", "{\"prerelease\":true,\"tag_name\"");
-        string draft = ReleaseJson("1.4.0", (DownloadRoot.Replace("1.2.0", "1.4.0") + "InstanceManager-1.4.0.zip", digest))
-            .Replace("{\"tag_name\"", "{\"draft\":true,\"tag_name\"");
         var requests = new List<Uri>();
         var http = new HttpClient(new StubHandler(request =>
         {
             requests.Add(request.RequestUri!);
-            return request.RequestUri!.AbsolutePath.EndsWith("/latest", StringComparison.Ordinal)
-                ? Json(stable)
-                : Json($"[{stable},{beta},{draft}]");
+            return Json(ReleaseJson("1.2.0", (DownloadUrl, "sha256:" + Sha256(package))));
         }));
         var updater = new UpdateService(http, _exe, new Version(1, 1, 2), isSingleFile: true);
 
-        UpdateService.ReleaseInfo? latest = await updater.CheckAsync(includePrereleases: false);
-        UpdateService.ReleaseInfo? newest = await updater.CheckAsync(includePrereleases: true);
+        UpdateService.ReleaseInfo? latest = await updater.CheckAsync();
 
         Assert.Equal(new Version(1, 2, 0), latest?.Version);
-        Assert.False(latest!.IsPrerelease);
-        Assert.Equal(new Version(1, 3, 0), newest?.Version);
-        Assert.True(newest!.IsPrerelease);
-        Assert.Contains("per_page", requests[1].Query, StringComparison.Ordinal);
+        Assert.Null(updater.UnavailableVersion);
+        Assert.Equal("https://api.github.com/repos/JeskoMts/Instance-Manager/releases/latest", Assert.Single(requests).AbsoluteUri);
+    }
+
+    [Fact]
+    public async Task CheckAsync_NewerReleaseWithoutAVerifiablePackage_IsNamedButNotOffered()
+    {
+        var http = new HttpClient(new StubHandler(_ => Json(ReleaseJson("v1.2.0", (DownloadUrl, null)))));
+        var updater = new UpdateService(http, _exe, new Version(1, 1, 2), isSingleFile: true);
+
+        Assert.Null(await updater.CheckAsync());
+        Assert.Equal(new Version(1, 2, 0), updater.UnavailableVersion);
+    }
+
+    [Fact]
+    public async Task CheckAsync_OlderOrMissingRelease_LooksUpToDate()
+    {
+        var older = new UpdateService(
+            new HttpClient(new StubHandler(_ => Json(ReleaseJson("1.1.0", (DownloadUrl, null))))),
+            _exe, new Version(1, 1, 2), isSingleFile: true);
+        var none = new UpdateService(
+            new HttpClient(new StubHandler(_ => new HttpResponseMessage(HttpStatusCode.NotFound))),
+            _exe, new Version(1, 1, 2), isSingleFile: true);
+
+        Assert.Null(await older.CheckAsync());
+        Assert.Null(older.UnavailableVersion);
+        Assert.Null(await none.CheckAsync());
+        Assert.Null(none.UnavailableVersion);
     }
 
     [Fact]
@@ -289,7 +304,7 @@ public sealed class UpdateServiceTests : IDisposable
         var http = new HttpClient(new StubHandler(_ => new HttpResponseMessage(HttpStatusCode.Forbidden)));
         var updater = new UpdateService(http, _exe, new Version(1, 1, 2), isSingleFile: true);
 
-        await Assert.ThrowsAsync<HttpRequestException>(() => updater.CheckAsync(includePrereleases: false));
+        await Assert.ThrowsAsync<HttpRequestException>(() => updater.CheckAsync());
     }
 
     [Fact]
@@ -317,7 +332,7 @@ public sealed class UpdateServiceTests : IDisposable
     }
 
     [Fact]
-    public async Task SkippingAReadyUpdate_DiscardsItSoNothingInstallsOnExit()
+    public async Task AutomaticCheck_StagesTheLatestRelease_AndInstallsItOnExitWithACopyOfTheOldVersion()
     {
         byte[] package = Zip(("Instance Manager.exe", "new exe"));
         int downloads = 0;
@@ -329,24 +344,39 @@ public sealed class UpdateServiceTests : IDisposable
             return new HttpResponseMessage(HttpStatusCode.OK) { Content = new ByteArrayContent(package) };
         }));
         var updater = new UpdateService(http, _exe, new Version(1, 1, 2), isSingleFile: true);
-        var settings = new UpdateSettings();
-        var vm = new InstanceManager.ViewModels.UpdatesViewModel(updater, settings, new SilentShell(), Path.Combine(_appDir, "previous"));
-
-        await vm.CheckAsync(startup: false, manual: true);
-        Assert.True(vm.IsUpdateReady);
-        Assert.True(updater.HasStagedUpdate);
-
-        vm.SkipVersionCommand.Execute(null);
-
-        Assert.False(vm.IsUpdateReady);
-        Assert.False(updater.HasStagedUpdate);
-        Assert.Equal("1.2.0", settings.Settings.SkippedUpdateVersion);
-        Assert.False(vm.ApplyOnExit());
-        Assert.Equal("old exe", File.ReadAllText(_exe));
+        string previous = Path.Combine(_appDir, "previous");
+        var vm = new InstanceManager.ViewModels.UpdatesViewModel(updater, new UpdateSettings(), new SilentShell(), previous);
 
         await vm.CheckAsync(startup: false, manual: false);
-        Assert.False(vm.IsUpdateReady);
+        Assert.True(vm.IsUpdateReady);
+        Assert.Equal("1.2.0", vm.ReadyVersion);
+        Assert.True(updater.HasStagedUpdate);
+
+        await vm.CheckAsync(startup: false, manual: false);
         Assert.Equal(1, downloads);
+
+        Assert.True(vm.ApplyOnExit());
+        Assert.Equal("new exe", File.ReadAllText(_exe));
+        Assert.Equal("old exe", File.ReadAllText(Path.Combine(previous, "Instance Manager 1.1.2.exe")));
+    }
+
+    [Fact]
+    public void UpdateAutomatically_IsTheOnlyUpdateSetting_AndIsSaved()
+    {
+        var settings = new UpdateSettings();
+        var updater = new UpdateService(new HttpClient(), _exe, new Version(1, 1, 2), isSingleFile: true);
+        var vm = new InstanceManager.ViewModels.UpdatesViewModel(updater, settings, new SilentShell(), Path.Combine(_appDir, "previous"));
+
+        Assert.True(vm.UpdateAutomatically);
+        vm.UpdateAutomatically = false;
+
+        Assert.False(settings.Settings.UpdateCheckAutomatically);
+        foreach (string gone in new[]
+                 {
+                     "UpdateCheckOnStartup", "UpdateCheckIntervalMinutes", "UpdateIncludePrereleases",
+                     "SkippedUpdateVersion", "KeepPreviousVersion"
+                 })
+            Assert.Null(typeof(InstanceManager.Models.AppSettings).GetProperty(gone));
     }
 
     private sealed class UpdateSettings : InstanceManager.Storage.ISettingsService

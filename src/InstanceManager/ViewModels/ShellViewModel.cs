@@ -105,7 +105,7 @@ public partial class ShellViewModel : ObservableObject, IShellCoordinator
     public OperationsViewModel Operations { get; }
 
     public string AppVersion =>
-        "v" + (Assembly.GetExecutingAssembly().GetName().Version?.ToString(3) ?? "1.1.2");
+        "v" + (Assembly.GetExecutingAssembly().GetName().Version?.ToString(3) ?? "1.1.3");
 
     public string ClientsRunningText => AccountList.ClientsRunningText;
 
@@ -367,6 +367,14 @@ public partial class ShellViewModel : ObservableObject, IShellCoordinator
 
     [RelayCommand]
     private void CancelLaunch() => _launchCts?.Cancel();
+
+    [RelayCommand]
+    private void StopAll()
+    {
+        _launchCts?.Cancel();
+        _autoReconnect.NotifyManualStopAll();
+        _tracker.StopAll();
+    }
 
     [RelayCommand]
     private void OpenSettings(SettingsCategory category)

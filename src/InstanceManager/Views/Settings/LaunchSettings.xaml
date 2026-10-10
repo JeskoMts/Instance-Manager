@@ -21,7 +21,7 @@
                 <Grid Style="{StaticResource SettingRow}">
                     <StackPanel VerticalAlignment="Center" Margin="0,0,70,0">
                         <TextBlock Style="{StaticResource RowTitle}" Text="Multi-instance" />
-                        <TextBlock Style="{StaticResource RowHint}" Text="Lets every account run in its own Roblox window at the same time." />
+                        <TextBlock Style="{StaticResource RowHint}" Text="Lets every account run in its own Roblox window at the same time. When off, Roblox allows only one window." />
                     </StackPanel>
                     <CheckBox Style="{StaticResource ToggleSwitch}" HorizontalAlignment="Right"
                               IsChecked="{Binding Settings.MultiInstanceEnabled}" />
@@ -40,7 +40,7 @@
                     </Grid.ColumnDefinitions>
                     <StackPanel Margin="0,0,16,0" VerticalAlignment="Center">
                         <TextBlock Style="{StaticResource RowTitle}" Text="Default version" />
-                        <TextBlock Style="{StaticResource RowHint}" Text="Every account uses it unless you pick another one in the account's ⋯ menu." />
+                        <TextBlock Style="{StaticResource RowHint}" Text="Every account launches with this version, unless you pick another one in that account's ⋯ menu." />
                     </StackPanel>
                     <ComboBox Grid.Column="1" Style="{StaticResource ModernComboBox}" Width="200" VerticalAlignment="Center"
                               ItemsSource="{Binding VersionBar.Versions}" SelectedItem="{Binding VersionBar.SelectedVersion}">
@@ -60,7 +60,7 @@
                 <Border Style="{StaticResource RowDivider}" />
                 <StackPanel Margin="0,12,0,14">
                     <TextBlock Style="{StaticResource RowTitle}" Text="Custom versions folder" />
-                    <TextBlock Style="{StaticResource RowHint}" Text="Leave it empty to use the normal Roblox folder. Network and removable drives aren't allowed." Margin="0,3,0,10" />
+                    <TextBlock Style="{StaticResource RowHint}" Text="A folder with your own Roblox versions. Leave it empty to use the normal Roblox folder. Network and removable drives aren't allowed." Margin="0,3,0,10" />
                     <Grid>
                         <Grid.ColumnDefinitions>
                             <ColumnDefinition Width="*" />
@@ -71,6 +71,7 @@
                         <Button Grid.Column="1" Style="{StaticResource GhostButton}" Content="Browse…" Margin="8,0,0,0"
                                 Command="{Binding Settings.BrowseVersionsPathCommand}" />
                         <Button Grid.Column="2" Style="{StaticResource IconButton}" Content="Reset" Margin="4,0,0,0" Padding="10,0" Height="34"
+                                ToolTip="Go back to the normal Roblox folder"
                                 Command="{Binding Settings.ResetVersionsPathCommand}" />
                     </Grid>
                 </StackPanel>

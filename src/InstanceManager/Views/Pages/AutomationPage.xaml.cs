@@ -1,6 +1,7 @@
 using System;
 using System.Windows;
 using System.Windows.Controls;
+using System.Windows.Controls.Primitives;
 using System.Windows.Input;
 using System.Windows.Threading;
 using InstanceManager.Services;
@@ -37,6 +38,17 @@ public partial class AutomationPage : UserControl
             NameBox.Focus();
             NameBox.SelectAll();
         }));
+    }
+
+    private void More_Click(object sender, RoutedEventArgs e)
+    {
+        if (sender is not Button { ContextMenu: { } menu } button)
+            return;
+
+        menu.DataContext = button.DataContext;
+        menu.PlacementTarget = button;
+        menu.Placement = PlacementMode.Bottom;
+        menu.IsOpen = true;
     }
 
     private void TimeBox_PreviewKeyDown(object sender, KeyEventArgs e)

@@ -13,8 +13,6 @@ public sealed class AppSettings
 
     public const int UnlimitedAutoReconnectAttempts = MaxAutoReconnectAttempts + 1;
     public const string DefaultThemeId = "dark";
-    public const int MinUpdateIntervalMinutes = 15;
-    public const int MaxUpdateIntervalMinutes = 1440;
     public const int MaxGraphicsQuality = 10;
 
     public static readonly int[] FpsCapChoices = { 0, 30, 60, 75, 120, 144, 165, 240 };
@@ -78,17 +76,7 @@ public sealed class AppSettings
 
     public string? AppliedFastFlagsHash { get; set; }
 
-    public bool UpdateCheckOnStartup { get; set; } = true;
-
     public bool UpdateCheckAutomatically { get; set; } = true;
-
-    public int UpdateCheckIntervalMinutes { get; set; } = 60;
-
-    public bool UpdateIncludePrereleases { get; set; }
-
-    public string? SkippedUpdateVersion { get; set; }
-
-    public bool KeepPreviousVersion { get; set; } = true;
 
     public System.Guid? LastSelectedFavoriteId { get; set; }
 
@@ -103,7 +91,6 @@ public sealed class AppSettings
     public bool ConfirmBypassRemoveAccount { get; set; }
     public bool ConfirmBypassDeleteGroup { get; set; }
     public bool ConfirmBypassDeleteFavorite { get; set; }
-    public bool ConfirmBypassStopAllInstances { get; set; }
     public bool ConfirmBypassClearAccountGroups { get; set; }
     public bool ConfirmBypassDeleteTheme { get; set; }
 
@@ -167,7 +154,6 @@ public sealed class AppSettings
         ConfirmAction.RemoveAccount => ConfirmBypassRemoveAccount,
         ConfirmAction.DeleteGroup => ConfirmBypassDeleteGroup,
         ConfirmAction.DeleteFavorite => ConfirmBypassDeleteFavorite,
-        ConfirmAction.StopAllInstances => ConfirmBypassStopAllInstances,
         ConfirmAction.ClearAccountGroups => ConfirmBypassClearAccountGroups,
         ConfirmAction.DeleteTheme => ConfirmBypassDeleteTheme,
         _ => false
@@ -279,13 +265,6 @@ public sealed class AppSettings
         if (afkKey != AntiAfkKey) { AntiAfkKey = afkKey; changed = true; }
 
         changed |= NormalizeGraphics();
-
-        int interval = System.Math.Clamp(UpdateCheckIntervalMinutes, MinUpdateIntervalMinutes, MaxUpdateIntervalMinutes);
-        if (interval != UpdateCheckIntervalMinutes)
-        {
-            UpdateCheckIntervalMinutes = interval;
-            changed = true;
-        }
 
         return changed;
     }

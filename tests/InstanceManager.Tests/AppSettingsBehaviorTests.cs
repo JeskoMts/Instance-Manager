@@ -105,7 +105,7 @@ public sealed class AppSettingsBehaviorTests
         }
 
         string[] confirmNames = Enum.GetNames(typeof(ConfirmAction));
-        foreach (string name in new[] { "StopAllInstances", "ClearAccountGroups", "DeleteTheme" })
+        foreach (string name in new[] { "ClearAccountGroups", "DeleteTheme" })
             Assert.Contains(name, confirmNames);
     }
 

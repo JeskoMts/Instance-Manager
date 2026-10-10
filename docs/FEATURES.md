@@ -28,7 +28,7 @@ Open an account's ⋯ menu, or right-click its row, to rename it, pin a Roblox v
 
 Groups keep related accounts together, for example all alts for one game. Each group has a name and a color, can be collapsed, and starts as a whole with Launch group in its header. Pick the color in the color field and hue bar, or type a hex code.
 
-Click New group to create one, then drag accounts onto its header or tick groups in an account's ⋯ menu. An account can be in more than one group. If you drag an account that already has a group onto another one, the app asks whether to move it or keep it in both. Dropping an account on the Ungrouped header takes it out of every group, and deleting a group keeps its accounts.
+Click New group to create one, then drag accounts by their name onto its header or tick groups in an account's ⋯ menu. An account can be in more than one group. If you drag an account that already has a group onto another one, the app asks whether to move it or keep it in both. Dropping an account on the Ungrouped header takes it out of every group, and deleting a group keeps its accounts.
 
 ### Launching
 
@@ -38,11 +38,11 @@ The launch bar decides where the selected accounts go.
 - Server mode takes a server link, a private server link or a Job ID link and puts every account into that one server. Private server links work in both forms, `roblox.com/share?code=...&type=Server` and the older `roblox.com/games/<id>?privateServerLinkCode=...`, and so do invite links. Roblox opens a share link only for a signed-in account, so the app looks it up with the saved login of one of the accounts you are launching. The app accepts only HTTPS links on Roblox domains and follows at most five redirects.
 - An empty field opens the Roblox home screen.
 
-Select accounts by clicking their rows or with the checkbox in the list header, then click Launch. The accounts start one after another. The app waits until each Roblox window is open and has joined the game, then waits the pause from Settings (2 seconds by default) before the next one. Each row shows what its account is doing, and the launch bar shows the progress. Cancel stops the batch after the account that is starting at that moment.
+Select accounts by clicking their rows, with the checkbox in the list header, or by dragging a box over them like on the Windows desktop. Start the box on an empty part of a row or next to the list; the list scrolls along, and Ctrl or Shift keeps what was already selected. Then click Launch. The accounts start one after another. The app waits until each Roblox window is open and has joined the game, then waits the pause from Settings (2 seconds by default) before the next one. Each row shows what its account is doing, and the launch bar shows the progress. Cancel stops the batch after the account that is starting at that moment.
 
 If one account fails, for example because its login expired, the others still start. The summary at the end counts the started, failed and already running accounts.
 
-Running accounts show a green dot, and the stop button on a row closes that account's Roblox window. While anything runs, the list header shows "3 running | Stop all". It also shows how many accounts are selected, and the × next to that count clears the selection.
+Running accounts show a green dot, and the stop button on a row closes that account's Roblox window. While anything runs, the list header shows "3 running" and Stop all. Stop all closes every Roblox window the app started right away, without asking, and also cancels a launch that is still going. It also shows how many accounts are selected, and the × next to that count clears the selection.
 
 ### Moving to another server
 
@@ -68,18 +68,18 @@ The list on the left shows every automation with its accounts, destination and s
 
 New automation starts with the accounts selected on the Accounts page and the game or server in the launch bar. So the quickest way is to select the accounts, set the game, open Automation and click New automation. The name field is ready to type in.
 
-- Accounts: tick accounts in the grid, find one by name, select or clear all accounts shown, or click a group to add or remove all of its accounts at once.
+- Accounts: tick accounts in the grid, select or clear all of them, or click a group to add or remove all of its accounts at once.
 - Destination: Game, Server or Home screen, with the game link, Place ID or server link. The game's name appears under the field. A favorite fills it in with one click, and Use launch bar target copies the launch bar.
 
-Run starts the accounts one after another, the same way the Launch button does. Close closes their Roblox windows. Duplicate makes a copy with its schedule turned off, and Delete can be undone from the notification that follows.
+Run starts the accounts one after another, the same way the Launch button does. While any of them run, a Stop button next to Run closes their Roblox windows. Duplicate and Delete are in the ⋯ menu: Duplicate makes a copy with its schedule turned off, and Delete can be undone from the notification that follows. With more than 8 accounts, a search box above the grid finds one by name.
 
 ### Schedules
 
 The schedule is off until you turn it on. It has:
 
-- the days, where Every day, Weekdays and Weekends set them in one click and no picked day means every day
+- the days, where no picked day means every day
 - a start time on the 24-hour clock, which you can turn off to only close accounts at a set time
-- Close again: keep the accounts open, close them after a number of minutes (1 to 1440), or close them at a time
+- Close: never, so the accounts stay open, after a number of minutes (1 to 1440), or at a time
 
 A close time that isn't after the start time belongs to the next day, so 22:00 to 02:00 works. "Close after" counts from the last start, including a start with Run while the schedule is on, and closing by hand cancels it. In the time fields, Up and Down change the time by 5 minutes, and by an hour with Shift.
 
@@ -99,11 +99,11 @@ The list on the left sorts the settings into three groups: App, Roblox and Syste
 
 Clicking the tray icon opens the window. Its menu can also close every Roblox window or quit the app.
 
-Confirmations let you skip the "are you sure?" question, either for everything or only for some actions: removing an account, deleting a group, a favorite or a theme, stopping every running account and taking an account out of all groups.
+Confirmations let you skip the "are you sure?" question, either for everything or only for some actions: removing an account, deleting a group, a favorite or a theme, and taking an account out of all groups.
 
 ### Appearance
 
-Click a theme to use it, or drag it to change the order. New theme copies the current one so you can change it, and your own themes can be renamed, deleted, exported as a short code and imported from one.
+Click a theme to use it, or drag it onto another one to swap their places. New theme copies the current one so you can change it, and your own themes can be renamed, deleted, exported as a short code and imported from one.
 
 Custom colors lists every color of the current theme with a swatch and its hex code. Click a swatch to open the color picker or type a hex code. Built-in themes stay as they are; Customize makes a copy you can change.
 
@@ -153,13 +153,12 @@ Anti-AFK reaches only clients the app started, and it skips a window Windows won
 
 The card at the top shows the version you're on, with What's new and Check now.
 
-- Check at startup looks for a new version every time the app starts and installs it right away if nothing is running. The app restarts within a few seconds and names the new version in a notification.
-- Check while running looks again in the background, every 60 minutes unless you change it (15 to 1440 minutes).
-- Include pre-releases also offers test versions.
-- An update found while you're busy installs when you close the app, or right away with Restart to update. Skip this version deletes its download, and Offer it again undoes the skip.
-- Keep the previous version saves a copy of the version being replaced, and Roll back returns to it.
+- Update automatically asks GitHub for the latest version every time the app starts and once an hour. At startup a newer version installs right away if nothing is running. The app restarts within a few seconds and names the new version in a notification.
+- An update found while you're busy installs when you close the app, or right away with Restart to update.
+- Check now asks GitHub right away, also while Update automatically is off, and installs a newer version on the spot if nothing is running.
+- Every update keeps a copy of the version it replaces. Roll back returns to it and turns Update automatically off, so the old version stays until you update again.
 
-Both checks and Keep the previous version are on by default. Every download has to match the SHA-256 checksum GitHub publishes for it, and that check can't be turned off.
+Update automatically is on by default. Every download has to match the SHA-256 checksum GitHub publishes for it, and that check can't be turned off.
 
 ### Data & privacy
 

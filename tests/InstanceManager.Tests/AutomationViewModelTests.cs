@@ -247,7 +247,8 @@ public sealed class AutomationViewModelTests
 
         item.ScheduleEnabled = true;
         item.StartTime = "18:00";
-        item.PickWeekdaysCommand.Execute(null);
+        foreach (DayToggleViewModel day in item.Days.Where(d => d.Day is not (DayOfWeek.Saturday or DayOfWeek.Sunday)))
+            day.IsChecked = true;
         item.StopMode = AutomationStop.AtTime;
         item.StopTime = "23:00";
 
