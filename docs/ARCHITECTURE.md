@@ -187,7 +187,7 @@ The app ships as one framework-dependent single-file exe, `Instance Manager.exe`
 2. `CheckAsync` asks `api.github.com` for the latest release of `JeskoMts/Instance-Manager`. The tag, for example `1.1.2`, is read as a version, and nothing happens unless it is newer than the running build. A GitHub error is reported as such instead of looking like "no update", and so is a newer release whose package can't be verified (`UnavailableVersion`). A 404, which GitHub sends while there is no release, counts as up to date.
 3. It looks for the asset `InstanceManager-<tag>.zip`. The parsed download URL must be exactly `https://github.com/JeskoMts/Instance-Manager/releases/download/<tag>/InstanceManager-<tag>.zip`, and the asset must have a `sha256:` digest in the API response.
 4. The zip is downloaded with redirects followed by hand: at most five, HTTPS only, and only to `github.com`, `objects.githubusercontent.com` or `release-assets.githubusercontent.com`. The download is capped at 64 MB, and its SHA-256 must match the digest.
-5. Every entry must be a plain file name with no folders, no invalid characters and no duplicates, and the unpacked size is capped. Only `Instance Manager.exe` is extracted, into `.im-update` inside the app folder.
+5. Every entry must be a plain file name with no folders, no invalid characters and no duplicates, and the unpacked size is capped. Only `Instance Manager.exe` is extracted, into `.im-update` inside the app folder; the two bridge files in the package are ignored.
 6. `Apply` renames the running exe to `<name>.im-old` and moves the new one into its place under the same name, so shortcuts keep working. Windows allows renaming a running executable. If the move fails, the old exe is put back.
 
 `UpdatesViewModel` decides when to call `Apply`. With Update automatically on, it checks at startup and once an hour. For the startup check and for Check now, if no launch is running, no Roblox instance is tracked and no dialog is open, it applies the update right away, shuts down and starts the exe again with `--updated`, which shows a notification with the new version. Otherwise the update waits for Restart to update or for the app to close.
@@ -196,13 +196,15 @@ Before `Apply`, `KeepCurrentVersion` copies the running exe to `%LOCALAPPDATA%\I
 
 ### Release assets
 
-`scripts/build-release.ps1` publishes the exe and writes the two assets every release carries: `InstanceManager-<version>.zip` with `Instance Manager.exe` as its only entry, and `InstanceManager-Source-Code-<version>.zip`. In a git checkout the source zip holds the tracked files plus new files that aren't ignored; in an unpacked source archive it holds everything except build output. The same script is part of the source of every release since 1.0.0, so each one can be built again the same way.
+`scripts/build-release.ps1` publishes the exe and writes the two assets every release carries: `InstanceManager-<version>.zip` with `Instance Manager.exe` plus the two bridge files described under [Replacing a folder install](#replacing-a-folder-install), and `InstanceManager-Source-Code-<version>.zip`. In a git checkout the source zip holds the tracked files plus new files that aren't ignored; in an unpacked source archive it holds everything except build output. The same script is part of the source of every release since 1.0.0, so each one can be built again the same way.
 
 ### Replacing a folder install
 
 Releases up to 1.1.1 were first published as a folder of files next to `InstanceManager.exe`. When the single-file exe finds an `InstanceManager.deps.json` beside it, it is sitting in such a folder, and `CleanupPreviousUpdate` deletes the files of the old version, including the old `InstanceManager.exe` unless that is the exe running. A file the old process still holds is renamed to `.im-old` instead and removed at the next start. The bundle never loads those loose files, so they can't get in the way before they are gone.
 
-The 1.1.1 updater that shipped in the first 1.1.1 download expects a package with both `InstanceManager.exe` and `InstanceManager.dll` and ignores a one-file package. Those installs are updated once by hand; the rebuilt 1.1.1 accepts the one-file package.
+The 1.1.1 on GitHub is such a folder install, and its updater only accepts a package that contains both `InstanceManager.exe` and `InstanceManager.dll`. It then copies every file of the package into the app folder and starts `InstanceManager.exe`. The one-file packages of 1.1.2 and 1.1.3 failed that check, so 1.1.1 never updated to them and said nothing. From 1.1.4 on the package is a bridge: it holds the app twice, as `Instance Manager.exe` and as `InstanceManager.exe`, and a short text file named `InstanceManager.dll`. The 1.1.1 updater installs it and starts the app under its old name, so shortcuts and the Start with Windows entry keep working, and later updates replace that exe under the same name. Newer updaters still extract only `Instance Manager.exe`.
+
+`CleanupPreviousUpdate` removes what the bridge leaves behind: the text file, recognized by its exact content, and the second copy of the exe, deleted only when it is byte for byte the same as the running one. That also tidies a fresh download, where all three files sit next to each other after unzipping.
 
 ## External services
 

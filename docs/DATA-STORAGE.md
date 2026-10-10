@@ -25,7 +25,7 @@ The main data folder is `%APPDATA%\Instance Manager`, set in [AppPaths.cs](../sr
 - `webview\` is the WebView2 runtime folder for the login window. The login itself uses an InPrivate profile that is created for each dialog and wiped when it closes.
 - `previous-version\Instance Manager <version>.exe` is a copy of the version the last update replaced, kept for Roll back. There is never more than one.
 
-The folder with the exe is touched only by the updater. During an update it holds an `.im-update` folder with the new exe and an `.im-old` copy of the replaced one, and both are deleted at the next start. The native WebView2 loader inside the exe is unpacked to `%TEMP%\.net\<exe name>\` when the app starts.
+The folder with the exe is touched only by the updater. At startup it also deletes the two extra files a release zip carries for the 1.1.1 updater, `InstanceManager.dll` (a text note) and the second copy of the exe, when they sit next to the app. During an update it holds an `.im-update` folder with the new exe and an `.im-old` copy of the replaced one, and both are deleted at the next start. The native WebView2 loader inside the exe is unpacked to `%TEMP%\.net\<exe name>\` when the app starts.
 
 The app also works with these Roblox files:
 

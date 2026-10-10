@@ -62,7 +62,9 @@ The app couldn't replace its own exe. Usually it sits in a folder your Windows u
 
 ### Version 1.1.1 doesn't update to a newer version
 
-A 1.1.1 that came as a folder with several DLL files expects an update package with several files, and newer releases ship a single exe. Update once by hand: download `InstanceManager-<version>.zip`, unzip it and put `Instance Manager.exe` into your old folder. Its first start deletes the files of the old version, including the old `InstanceManager.exe`, or renames them to `.im-old` if they are still in use, and those go away on the next start. Point your shortcuts to the new exe. After that, updates install by themselves again.
+The 1.1.1 download was a folder with several DLL files, and its updater only takes a package that still contains `InstanceManager.exe` and `InstanceManager.dll`. Versions 1.1.2 and 1.1.3 shipped a single exe, so 1.1.1 ignored them without a message. From 1.1.4 on the package carries both, and 1.1.1 updates by itself at its next start. The app keeps the name `InstanceManager.exe` in that folder, so your shortcuts still work, and the old DLL files are deleted.
+
+If it still doesn't update, do it once by hand: download `InstanceManager-<version>.zip`, unzip it and put `Instance Manager.exe` into your old folder. Its first start deletes the files of the old version, including the old `InstanceManager.exe`, or renames them to `.im-old` if they are still in use, and those go away on the next start. Point your shortcuts to the new exe. After that, updates install by themselves again.
 
 ### The app never updates
 

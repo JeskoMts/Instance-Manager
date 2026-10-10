@@ -42,7 +42,7 @@ The app runs entirely on your PC. It has no account system of its own, no server
 ## Download
 
 1. Download `InstanceManager-<version>.zip` from the [latest release](https://github.com/JeskoMts/Instance-Manager/releases/latest).
-2. Unzip it. Inside is one file, `Instance Manager.exe`.
+2. Unzip it and use `Instance Manager.exe`. The two other files in the zip are only there so version 1.1.1 can update, and the app deletes them at its first start.
 3. Put it in any folder you can write to, for example the desktop or `Documents`, and start it.
 
 That file is the whole app. Accounts and settings are stored in `%APPDATA%\Instance Manager`, so you can move or rename the exe at any time. Only one copy runs at once, and starting it again brings the open window to the front. Avoid read-only places such as `C:\Program Files`, because the updater replaces the exe where it is.

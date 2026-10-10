@@ -2,6 +2,18 @@
 
 Every release of Instance Manager, newest first. Each entry starts with a short summary, followed by what is new, what changed and what was fixed. Downloads are on the [releases page](https://github.com/JeskoMts/Instance-Manager/releases).
 
+## [1.1.4](https://github.com/JeskoMts/Instance-Manager/releases/tag/1.1.4) · 2026-10-10
+
+Version 1.1.1 can update by itself again.
+
+### Fixed
+
+- Version 1.1.1 never updated to 1.1.2 or 1.1.3. Its updater only accepts a package that contains `InstanceManager.exe` and `InstanceManager.dll`, and the newer packages held a single `Instance Manager.exe`, so it dropped them without a message. The package now carries the app under both names plus a small file named `InstanceManager.dll`, which 1.1.1 installs at its next start. In such a folder the app keeps the name `InstanceManager.exe`, so shortcuts keep working, and the old DLL files are removed.
+
+### Changed
+
+- `InstanceManager-1.1.4.zip` holds three files instead of one. Run `Instance Manager.exe`; its first start deletes the other two, which are only there for the 1.1.1 updater.
+
 ## [1.1.3](https://github.com/JeskoMts/Instance-Manager/releases/tag/1.1.3) · 2026-10-10
 
 Accounts can be selected by dragging a box over the list, the Automation page and the header of the account list are tidier, and updates are down to one switch. Stop all works right away, and the hints and tooltips across the app were rewritten.

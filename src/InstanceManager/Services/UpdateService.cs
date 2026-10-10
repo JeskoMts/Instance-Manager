@@ -21,6 +21,8 @@ public sealed class UpdateService
     internal const string ExecutableName = "Instance Manager.exe";
     internal const string LegacyExecutableName = "InstanceManager.exe";
     internal const string LegacyMarkerName = "InstanceManager.deps.json";
+    internal const string BridgeAssemblyName = "InstanceManager.dll";
+    internal const string BridgeNote = "This file lets Instance Manager 1.1.1 install this update. The app deletes it at its next start.";
 
     private const string LatestReleaseUrl = "https://api.github.com/repos/JeskoMts/Instance-Manager/releases/latest";
     private const string PreviousPrefix = "Instance Manager ";
@@ -110,6 +112,7 @@ public sealed class UpdateService
 
         TryDeleteDirectory(StagingDirectory);
         RemoveLegacyInstall();
+        RemoveBridgeFiles();
     }
 
     public bool CanUpdate => _isSingleFile;
@@ -428,6 +431,51 @@ public sealed class UpdateService
                 catch (Exception moveError) when (moveError is IOException or UnauthorizedAccessException) { }
             }
         }
+    }
+
+    private void RemoveBridgeFiles()
+    {
+        if (!_isSingleFile)
+            return;
+
+        try
+        {
+            string note = Path.Combine(_appDirectory, BridgeAssemblyName);
+            if (File.Exists(note) && IsBridgeNote(note))
+                File.Delete(note);
+
+            foreach (string name in new[] { ExecutableName, LegacyExecutableName })
+            {
+                string twin = Path.Combine(_appDirectory, name);
+                if (!string.Equals(twin, ExecutablePath, StringComparison.OrdinalIgnoreCase) &&
+                    File.Exists(twin) && HaveSameContent(twin, ExecutablePath))
+                {
+                    File.Delete(twin);
+                }
+            }
+        }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+        {
+        }
+    }
+
+    private static bool IsBridgeNote(string path)
+    {
+        byte[] expected = System.Text.Encoding.UTF8.GetBytes(BridgeNote);
+        return new FileInfo(path).Length == expected.Length && File.ReadAllBytes(path).AsSpan().SequenceEqual(expected);
+    }
+
+    private static bool HaveSameContent(string first, string second)
+    {
+        if (new FileInfo(first).Length != new FileInfo(second).Length)
+            return false;
+
+        using FileStream a = Open(first);
+        using FileStream b = Open(second);
+        return SHA256.HashData(a).AsSpan().SequenceEqual(SHA256.HashData(b));
+
+        static FileStream Open(string path) =>
+            new(path, FileMode.Open, FileAccess.Read, FileShare.ReadWrite | FileShare.Delete);
     }
 
     [UnconditionalSuppressMessage("SingleFile", "IL3000")]

@@ -46,7 +46,7 @@ When the published app starts, and then once an hour, it asks `api.github.com` f
 - The asset must be named `InstanceManager-<tag>.zip`, and its download URL, once `../` segments are resolved, must be exactly `https://github.com/JeskoMts/Instance-Manager/releases/download/<tag>/InstanceManager-<tag>.zip`.
 - Redirects are followed by hand: at most five, HTTPS only, and only to `github.com`, `objects.githubusercontent.com` and `release-assets.githubusercontent.com`.
 - The download is capped at 64 MB, and its SHA-256 must match the `sha256:` digest GitHub reports for the asset. Without a digest there is no update.
-- The zip may contain only plain file names (no folders, no `..`, no alternate data streams, no invalid characters, no duplicates), its unpacked size is capped, and only `Instance Manager.exe` is extracted.
+- The zip may contain only plain file names (no folders, no `..`, no alternate data streams, no invalid characters, no duplicates), its unpacked size is capped, and only `Instance Manager.exe` is extracted. The package also holds a second copy of the exe named `InstanceManager.exe` and a text file named `InstanceManager.dll`, which only the updater of 1.1.1 uses.
 - The running exe is swapped by renaming, and a failed swap puts the old exe back.
 
 Roll back uses only the copy the app made of the exe it ran before the last update, in `%LOCALAPPDATA%\Instance Manager\previous-version`. That folder is as writable by your Windows user as the exe itself, so it adds no new way in.

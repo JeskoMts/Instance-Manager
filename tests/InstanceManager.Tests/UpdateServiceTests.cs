@@ -379,6 +379,83 @@ public sealed class UpdateServiceTests : IDisposable
             Assert.Null(typeof(InstanceManager.Models.AppSettings).GetProperty(gone));
     }
 
+    [Fact]
+    public void BridgePackage_PassesTheRulesOfThe111Updater_AndTheCurrentOneTakesOnlyTheApp()
+    {
+        byte[] package = Zip(
+            ("Instance Manager.exe", "new exe"), ("InstanceManager.exe", "new exe"),
+            (UpdateService.BridgeAssemblyName, UpdateService.BridgeNote));
+
+        using (var archive = new ZipArchive(new MemoryStream(package), ZipArchiveMode.Read))
+        {
+            var names = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+            foreach (ZipArchiveEntry entry in archive.Entries)
+            {
+                Assert.True(entry.FullName.IndexOfAny(Path.GetInvalidFileNameChars()) < 0);
+                Assert.True(names.Add(entry.FullName));
+            }
+            Assert.Contains("InstanceManager.exe", names);
+            Assert.Contains("InstanceManager.dll", names);
+        }
+
+        var updater = new UpdateService(new HttpClient(), _exe, new Version(1, 1, 2), isSingleFile: true);
+        Assert.True(updater.Stage(package));
+        Assert.Equal(new[] { "update.exe" }, Array.ConvertAll(Directory.GetFiles(Path.Combine(_appDir, ".im-update")), Path.GetFileName));
+        Assert.True(updater.Apply());
+        Assert.Equal("new exe", File.ReadAllText(_exe));
+    }
+
+    [Fact]
+    public void AfterThe111UpdaterInstalledTheBridgePackage_TheAppKeepsItsOldNameAndTheFolderIsCleaned()
+    {
+        string running = Path.Combine(_appDir, "InstanceManager.exe");
+        File.WriteAllText(running, "new exe");
+        File.WriteAllText(_exe, "new exe");
+        File.WriteAllText(Path.Combine(_appDir, "InstanceManager.dll"), UpdateService.BridgeNote);
+        File.WriteAllText(Path.Combine(_appDir, "InstanceManager.deps.json"), "{}");
+        File.WriteAllText(Path.Combine(_appDir, "InstanceManager.runtimeconfig.json"), "{}");
+        File.WriteAllText(Path.Combine(_appDir, "CommunityToolkit.Mvvm.dll"), "old");
+        File.WriteAllText(Path.Combine(_appDir, "InstanceManager.exe.im-old"), "old host");
+        File.WriteAllText(Path.Combine(_appDir, "notes.txt"), "mine");
+        var updater = new UpdateService(new HttpClient(), running, new Version(1, 1, 4), isSingleFile: true);
+
+        updater.CleanupPreviousUpdate();
+
+        Assert.Equal(new[] { "InstanceManager.exe", "notes.txt" },
+            Array.ConvertAll(Sorted(Directory.GetFiles(_appDir)), Path.GetFileName));
+    }
+
+    [Fact]
+    public void AFreshDownload_RemovesTheTwoBridgeFilesNextToTheApp_ButNothingThatOnlyLooksLikeThem()
+    {
+        File.WriteAllText(_exe, "new exe");
+        File.WriteAllText(Path.Combine(_appDir, "InstanceManager.exe"), "new exe");
+        File.WriteAllText(Path.Combine(_appDir, "InstanceManager.dll"), UpdateService.BridgeNote);
+        var updater = new UpdateService(new HttpClient(), _exe, new Version(1, 1, 4), isSingleFile: true);
+
+        updater.CleanupPreviousUpdate();
+        Assert.Equal(new[] { "Instance Manager.exe" }, Array.ConvertAll(Directory.GetFiles(_appDir), Path.GetFileName));
+
+        File.WriteAllText(Path.Combine(_appDir, "InstanceManager.exe"), "another program");
+        File.WriteAllText(Path.Combine(_appDir, "InstanceManager.dll"), "a real library");
+        updater.CleanupPreviousUpdate();
+        Assert.Equal(3, Directory.GetFiles(_appDir).Length);
+    }
+
+    [Fact]
+    public void ReleaseScript_BuildsTheBridgePackageWithTheSameNote()
+    {
+        DirectoryInfo? directory = new(AppContext.BaseDirectory);
+        while (directory != null && !File.Exists(Path.Combine(directory.FullName, "scripts", "build-release.ps1")))
+            directory = directory.Parent;
+        string script = File.ReadAllText(Path.Combine(directory!.FullName, "scripts", "build-release.ps1"));
+
+        Assert.Contains("'" + UpdateService.BridgeNote + "'", script, StringComparison.Ordinal);
+        Assert.Contains("Name = 'Instance Manager.exe'", script, StringComparison.Ordinal);
+        Assert.Contains("Name = 'InstanceManager.exe'", script, StringComparison.Ordinal);
+        Assert.Contains("Name = 'InstanceManager.dll'", script, StringComparison.Ordinal);
+    }
+
     private sealed class UpdateSettings : InstanceManager.Storage.ISettingsService
     {
         public InstanceManager.Models.AppSettings Settings { get; } = new();

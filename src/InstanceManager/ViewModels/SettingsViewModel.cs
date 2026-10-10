@@ -87,7 +87,7 @@ public partial class SettingsViewModel : ObservableObject
         MultiInstanceEnabled ? "Multi-instance active" : "Multi-instance off";
 
     public string AppVersion =>
-        Assembly.GetExecutingAssembly().GetName().Version?.ToString(3) ?? "1.1.3";
+        Assembly.GetExecutingAssembly().GetName().Version?.ToString(3) ?? "1.1.4";
 
     public string DataFolder => AppPaths.DataDirectory;
 

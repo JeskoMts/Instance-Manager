@@ -105,7 +105,7 @@ public partial class ShellViewModel : ObservableObject, IShellCoordinator
     public OperationsViewModel Operations { get; }
 
     public string AppVersion =>
-        "v" + (Assembly.GetExecutingAssembly().GetName().Version?.ToString(3) ?? "1.1.3");
+        "v" + (Assembly.GetExecutingAssembly().GetName().Version?.ToString(3) ?? "1.1.4");
 
     public string ClientsRunningText => AccountList.ClientsRunningText;
 

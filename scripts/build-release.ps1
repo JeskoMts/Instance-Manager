@@ -1,5 +1,5 @@
 # Builds the release assets for the version set in src\InstanceManager\InstanceManager.csproj:
-#   InstanceManager-<version>.zip              the app: one file, "Instance Manager.exe"
+#   InstanceManager-<version>.zip              the app, "Instance Manager.exe", plus two files for the 1.1.1 updater
 #   InstanceManager-Source-Code-<version>.zip  the source code the app was built from
 param(
     [string]$OutputDirectory
@@ -21,8 +21,16 @@ function New-Zip {
     $zip = [IO.Compression.ZipFile]::Open($Path, [IO.Compression.ZipArchiveMode]::Create)
     try {
         foreach ($entry in $Entries) {
-            [void][IO.Compression.ZipFileExtensions]::CreateEntryFromFile(
-                $zip, $entry.File, $entry.Name, [IO.Compression.CompressionLevel]::Optimal)
+            if ($entry.Text) {
+                $bytes = [Text.Encoding]::UTF8.GetBytes($entry.Text)
+                $stream = $zip.CreateEntry($entry.Name, [IO.Compression.CompressionLevel]::Optimal).Open()
+                try { $stream.Write($bytes, 0, $bytes.Length) }
+                finally { $stream.Dispose() }
+            }
+            else {
+                [void][IO.Compression.ZipFileExtensions]::CreateEntryFromFile(
+                    $zip, $entry.File, $entry.Name, [IO.Compression.CompressionLevel]::Optimal)
+            }
         }
     }
     finally {
@@ -117,7 +125,13 @@ try {
     $appZip = Join-Path $OutputDirectory "InstanceManager-$version.zip"
     $sourceZip = Join-Path $OutputDirectory "InstanceManager-Source-Code-$version.zip"
 
-    New-Zip $appZip @(@{ File = $published[0].FullName; Name = 'Instance Manager.exe' })
+    # The updater of the 1.1.1 folder install only takes a package with InstanceManager.exe and InstanceManager.dll,
+    # copies every file and starts InstanceManager.exe. So the app is in the zip under both names, next to a note
+    # named like the old library. The app deletes the spare copy and the note at its first start.
+    New-Zip $appZip @(
+        @{ File = $published[0].FullName; Name = 'Instance Manager.exe' },
+        @{ File = $published[0].FullName; Name = 'InstanceManager.exe' },
+        @{ Text = 'This file lets Instance Manager 1.1.1 install this update. The app deletes it at its next start.'; Name = 'InstanceManager.dll' })
     New-Zip $sourceZip @($files | ForEach-Object { @{ File = (Join-Path $root $_); Name = $_ } })
 
     foreach ($zip in @($appZip, $sourceZip)) {
