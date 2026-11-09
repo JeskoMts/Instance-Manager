@@ -136,10 +136,12 @@ Then the cause is shared. Check that a Roblox version is selected under Settings
 
 ### A second account closes the first one
 
-Roblox allows one client per PC and enforces it with two named system objects. Instance Manager holds both so more windows can open. If a Roblox client was already running when the app tried to take them, it can't, and you get one window at a time. The app says so with "Only one window at a time" as soon as a launch would need a second window. To fix it:
+Roblox allows one client per PC with two named system objects. A new client that finds them tells the old one to quit. Before every launch, Instance Manager closes those objects inside the clients that are already running, so the new one starts as if it were alone. It also ends Roblox's hidden tray process (Roblox starts it with Windows and whenever a game window closes), because that process would otherwise take over the launch.
 
-1. Close every Roblox window, including any `RobloxPlayerBeta.exe` still listed in Task Manager. Roblox can also stay in the tray or start with Windows, so quit it from its tray icon too.
-2. Close any other account manager or multi-instance tool.
+This only fails when a Roblox process can't be changed, which in practice means it was started as administrator. The app then says "Only one window at a time" and names the process. To fix it:
+
+1. End that `RobloxPlayerBeta.exe` in Task Manager, or run Instance Manager as administrator too.
+2. Close any other account manager or multi-instance tool. Tools that hold the Roblox objects themselves no longer work with Roblox 0.746 and get in the way.
 3. Make sure Multi-instance is on under Settings > Launching, then launch again.
 
 ## Roblox versions

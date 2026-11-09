@@ -263,6 +263,9 @@ public sealed class LaunchService
         Process proc = await Task.Run(() =>
         {
             _graphics?.PrepareLaunch(version);
+            // Right before the start: end Roblox tray processes (they would take the launch over) and, with
+            // multi-instance on, free the single-instance lock so running clients aren't closed by this one.
+            _multiInstance.PrepareForLaunch();
             return _launcher.Launch(version, url);
         }, ct);
         _tracker.Track(account.Id, proc);

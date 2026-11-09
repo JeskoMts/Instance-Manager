@@ -105,7 +105,7 @@ public partial class ShellViewModel : ObservableObject, IShellCoordinator
     public OperationsViewModel Operations { get; }
 
     public string AppVersion =>
-        "v" + (Assembly.GetExecutingAssembly().GetName().Version?.ToString(3) ?? "1.1.4");
+        "v" + (Assembly.GetExecutingAssembly().GetName().Version?.ToString(3) ?? "1.1.5");
 
     public string ClientsRunningText => AccountList.ClientsRunningText;
 
@@ -223,12 +223,16 @@ public partial class ShellViewModel : ObservableObject, IShellCoordinator
             }
 
             int starting = accounts.Count(account => !_tracker.IsRunning(account.Id));
-            if (NeedsOwnWindows(starting, _tracker.RunningCount) && _settings.Settings.MultiInstanceEnabled
-                && !_multiInstance.TryApply(true))
+            if (NeedsOwnWindows(starting, _tracker.RunningCount) && _settings.Settings.MultiInstanceEnabled)
             {
-                Notify(NotificationId.MultiInstanceUnavailable, NotificationKind.Error,
-                    "Only one window at a time",
-                    "Roblox was already running when Instance Manager started, so extra accounts can't get their own window. Close every Roblox window, quit Roblox from its tray icon if it has one, and launch again.");
+                _multiInstance.TryApply(true);
+                MultiInstancePreparation preparation = await Task.Run(_multiInstance.PrepareForLaunch);
+                if (!preparation.IsReady)
+                {
+                    Notify(NotificationId.MultiInstanceUnavailable, NotificationKind.Error,
+                        "Only one window at a time",
+                        DescribeBlockedClients(preparation.BlockedProcessIds));
+                }
             }
 
             AccountList.ClearLaunchStages();
@@ -315,6 +319,15 @@ public partial class ShellViewModel : ObservableObject, IShellCoordinator
 
     internal static bool NeedsOwnWindows(int starting, int alreadyRunning) =>
         starting > 0 && starting + alreadyRunning > 1;
+
+    internal static string DescribeBlockedClients(IReadOnlyList<int> processIds)
+    {
+        string which = processIds.Count == 1
+            ? $"A Roblox process (PID {processIds[0]})"
+            : $"{processIds.Count} Roblox processes (PID {string.Join(", ", processIds)})";
+        return $"{which} can't be changed by Instance Manager, usually because it was started as administrator. " +
+               "Extra accounts would close it. End RobloxPlayerBeta.exe in Task Manager (or run Instance Manager as administrator) and launch again.";
+    }
 
     internal static PublicServer? PickServer(IReadOnlyList<PublicServer> servers, int seats, string? currentJobId)
     {

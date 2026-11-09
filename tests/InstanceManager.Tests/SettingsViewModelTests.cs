@@ -18,44 +18,37 @@ public class SettingsViewModelTests
     [Fact]
     public void MultiInstanceEnabled_DefaultsToTrue()
     {
-        using var manager = new MultiInstanceManager();
+        using var manager = TestMultiInstance.Create();
         var vm = Create(new FakeSettingsService(), manager);
 
         Assert.True(vm.MultiInstanceEnabled);
     }
 
     [Fact]
-    public void DisablingMultiInstance_PersistsAndReleasesMutex()
+    public void DisablingMultiInstance_PersistsAndDeactivates()
     {
         var settings = new FakeSettingsService();
-        using var manager = new MultiInstanceManager();
+        using var manager = TestMultiInstance.Create();
         var vm = Create(settings, manager);
 
         vm.MultiInstanceEnabled = false;
 
         Assert.False(settings.Settings.MultiInstanceEnabled);
-        Assert.False(manager.IsHeld);
+        Assert.False(manager.IsActive);
     }
 
     [Fact]
-    public void EnablingMultiInstance_PersistsAndHoldsMutex()
+    public void EnablingMultiInstance_PersistsAndActivates()
     {
         var settings = new FakeSettingsService();
         settings.Settings.MultiInstanceEnabled = false;
-        (string current, string legacy) = UniqueNames();
-        using var manager = new MultiInstanceManager(current, legacy);
+        using var manager = TestMultiInstance.Create();
         var vm = Create(settings, manager);
 
         vm.MultiInstanceEnabled = true;
 
         Assert.True(settings.Settings.MultiInstanceEnabled);
-        Assert.True(manager.IsHeld);
-    }
-
-    private static (string Current, string Legacy) UniqueNames()
-    {
-        string suffix = Guid.NewGuid().ToString("N");
-        return ($"INSTANCEMANAGER_TEST_singletonEvent_{suffix}", $"INSTANCEMANAGER_TEST_singletonMutex_{suffix}");
+        Assert.True(manager.IsActive);
     }
 
     [Fact]
@@ -64,7 +57,7 @@ public class SettingsViewModelTests
         var settings = new FakeSettingsService();
         settings.Settings.ConfirmBypassDeleteFavorite = true;
         settings.Settings.MutedNotifications.Add(NotificationId.AccountAdded);
-        using var manager = new MultiInstanceManager();
+        using var manager = TestMultiInstance.Create();
         var vm = Create(settings, manager);
 
         vm.ConfirmBypassMaster = true;
@@ -77,7 +70,7 @@ public class SettingsViewModelTests
     [Fact]
     public void NotificationMutes_ExposeAllPersistentNotificationIds()
     {
-        using var manager = new MultiInstanceManager();
+        using var manager = TestMultiInstance.Create();
         var vm = Create(new FakeSettingsService(), manager);
 
         foreach (string name in new[]
@@ -114,7 +107,7 @@ public class SettingsViewModelTests
     public void LaunchDelay_NormalizesLiveChanges(int input, int expected)
     {
         var settings = new FakeSettingsService();
-        using var manager = new MultiInstanceManager();
+        using var manager = TestMultiInstance.Create();
         var vm = Create(settings, manager);
 
         vm.LaunchDelayMs = input;
@@ -131,7 +124,7 @@ public class SettingsViewModelTests
     public void DisplayTime_RoundsToHundredAndClamps(int input, int expected)
     {
         var settings = new FakeSettingsService();
-        using var manager = new MultiInstanceManager();
+        using var manager = TestMultiInstance.Create();
         var vm = Create(settings, manager);
 
         vm.ToastDurationMs = input;
@@ -144,7 +137,7 @@ public class SettingsViewModelTests
     [Fact]
     public void AutoReconnect_MasterDefaultsOff_WithEveryTriggerReady()
     {
-        using var manager = new MultiInstanceManager();
+        using var manager = TestMultiInstance.Create();
         var vm = Create(new FakeSettingsService(), manager);
 
         Assert.False(vm.AutoReconnectMaster);
@@ -157,7 +150,7 @@ public class SettingsViewModelTests
     public void AutoReconnectToggles_Persist()
     {
         var settings = new FakeSettingsService();
-        using var manager = new MultiInstanceManager();
+        using var manager = TestMultiInstance.Create();
         var vm = Create(settings, manager);
 
         vm.AutoReconnectMaster = true;
@@ -176,7 +169,7 @@ public class SettingsViewModelTests
     public void AutoReconnectMaxAttempts_ClampsLiveChanges(int input, int expected)
     {
         var settings = new FakeSettingsService();
-        using var manager = new MultiInstanceManager();
+        using var manager = TestMultiInstance.Create();
         var vm = Create(settings, manager);
 
         vm.AutoReconnectMaxAttempts = input;

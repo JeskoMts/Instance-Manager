@@ -86,14 +86,14 @@ Models are plain data classes. The only behavior in them is `Account.NormalizeGr
 1. Takes the `Local\JeskoMts.InstanceManager.Instance` mutex through [SingleInstance](../src/InstanceManager/Services/SingleInstance.cs). If another copy holds it, the new process sets the `.Activate` event, which makes the running copy show its window, and exits. After an update restart (`--updated`) it waits up to 15 seconds for the old process to let go.
 2. Deletes an old roaming WebView2 folder and the leftover files of removed features (`playtime.json`, `diagnostics.log`), then builds the `ServiceProvider`.
 3. Applies the saved theme before any window exists, so the default palette never flashes.
-4. Takes the Roblox singletons if multi-instance is on, as far as possible.
+4. Turns on multi-instance if the setting is on, which starts the background sweep of running Roblox clients.
 5. Resolves `ShellViewModel`, starts Anti-AFK through `OperationsViewModel.Start`, resolves `MainWindow`, wires the tray icon and the activation event and refreshes the autostart entry in case the exe moved.
 6. Shows the window and runs `ShellViewModel.InitializeAsync`, or only runs it when Windows started the app with `--startup` and Start in the tray is on.
 7. Cleans up after the previous update, shows the "updated" notification after an update restart, and starts the update timer (with the startup check, if enabled) and the automation timer.
 
 In Debug builds WPF binding warnings go to `binding-errors.log`.
 
-[App.OnExit](../src/InstanceManager/App.xaml.cs) removes the tray icon, stops the automation timer and Anti-AFK, installs a waiting update, disposes the provider (which releases the Roblox singletons and lets go of tracked processes) and releases the single-instance mutex. If an update asked for a restart, the new exe is started last.
+[App.OnExit](../src/InstanceManager/App.xaml.cs) removes the tray icon, stops the automation timer and Anti-AFK, installs a waiting update, disposes the provider (which stops the multi-instance sweep and lets go of tracked processes) and releases the single-instance mutex. If an update asked for a restart, the new exe is started last.
 
 With Close to tray on, the window's close button only hides the window, and the app keeps running until Quit in the tray menu.
 
@@ -101,7 +101,7 @@ With Close to tray on, the window's close button only hides the window, and the 
 
 - [RobloxAuthService](../src/InstanceManager/Services/RobloxAuthService.cs) trades an account's session cookie for a one-time authentication ticket and reads the signed-in user. It handles the CSRF handshake (a 403 with an `x-csrf-token` header, retried with that token) and backs off on HTTP 429 using `Retry-After`, clamped to 1 to 30 seconds, for up to five attempts. `CheckSessionAsync` answers Valid, Expired (401 or 403, or a different user) or Unknown (no answer), which [SessionCheckService](../src/InstanceManager/Services/SessionCheckService.cs) uses for Check sessions.
 - [RobloxLauncher](../src/InstanceManager/Services/RobloxLauncher.cs) builds the `PlaceLauncher` URL and the `roblox-player:` URI and starts `RobloxPlayerBeta.exe` with that URI as its only argument. URL building is static and has no side effects, which keeps it easy to test.
-- [MultiInstanceManager](../src/InstanceManager/Services/MultiInstanceManager.cs) holds the Roblox singleton objects. See [Multi-instance](#multi-instance).
+- [MultiInstanceManager](../src/InstanceManager/Services/MultiInstanceManager.cs) closes Roblox's single-instance handles in running clients and ends its tray process before a launch. See [Multi-instance](#multi-instance).
 - [InstanceTracker](../src/InstanceManager/Services/InstanceTracker.cs) maps each account to its Roblox process, raises `RunningChanged` on start and exit, and stops one instance or all of them. It listens to `Process.Exited` so it notices clients that close on their own, and it lists the running processes for Anti-AFK.
 - [AutoReconnectService](../src/InstanceManager/Services/AutoReconnectService.cs) decides whether a dropped instance comes back. It listens to `InstanceTracker` for exits and to one `RobloxLogWatcher` per instance for in-game events, and hands the relaunch back to `LaunchService`.
 - [RobloxLogWatcher](../src/InstanceManager/Services/RobloxLogWatcher.cs) follows one Roblox client log and reports the lines that matter. [LogSessionRegistry](../src/InstanceManager/Services/LogSessionRegistry.cs) makes sure no two watchers follow the same file.
@@ -124,7 +124,7 @@ With Close to tray on, the window's close button only hides the window, and the 
 `ShellViewModel.LaunchAsync` hands off to `LaunchService.LaunchAsync`:
 
 1. The launch panel turns the input into a [ServerTarget](../src/InstanceManager/Models/ServerTarget.cs): a public game (Place ID), a specific server (Place ID and Job ID), a private server (Place ID and link code) or the Roblox home screen when the field is empty. `ServerLinkResolver` checks server links first.
-2. `MultiInstanceManager.TryApply` makes sure the singletons are held. If that fails, the user is told and the launch goes on anyway.
+2. If the launch leaves more than one client open, `MultiInstanceManager.PrepareForLaunch` checks that every running Roblox process can be prepared. If one can't, the user is told and the launch goes on anyway. The same preparation runs again right before each individual start (see [Multi-instance](#multi-instance)).
 3. Then, for each account in order:
    - Pick the Roblox version: the account's pinned version if it is installed, otherwise the default one.
    - Decrypt the cookie with `DpapiSecureStore.TryUnprotect`. A cookie from another Windows user fails here and counts as one failed account.
@@ -160,9 +160,16 @@ That alone breaks when several clients start close together, because a client ca
 
 ## Multi-instance
 
-A Windows mutex belongs to the thread that acquired it. To hold one for the app's whole lifetime, `MultiInstanceManager` gives each named object its own background thread (a `MutexSlot`). The thread opens or creates the mutex, acquires it, reports that it is ready and then waits on a stop event. When the app exits or the user turns the feature off, the stop event fires, each slot releases its mutex and its thread ends.
+Roblox 0.74x allows one client per user with the event `ROBLOX_singletonEvent` and the mutex `ROBLOX_singletonMutex`. A starting client creates both. If they already exist, it signals the event, the older client quits, and the new one waits for the mutex. Up to 1.1.4 the app held both names itself. That broke in two ways. A Roblox tray process started with Windows already owned them, which showed "Only one window at a time" after every reboot. And since 0.746 a client that can't create the event gives up.
 
-If the name exists but belongs to an object that isn't a mutex, opening it throws a specific error and the feature reports itself as unavailable. An `AbandonedMutexException` counts as a successful acquisition, because an abandoned mutex is free. `TryApply` wraps all of this so startup, the settings switch and a launch can ask for multi-instance without handling failures; `Apply` and `EnsureHeld` still throw for callers that want the details.
+`MultiInstanceManager` now works the other way round. It never holds the names. Instead it removes them from running clients, so every new client finds nothing and starts as if it were alone:
+
+- `PrepareForLaunch` runs inside `LaunchService` right before every `RobloxPlayerBeta.exe` start, so it covers single launches, Auto Reconnect and schedules. It first ends tray-only processes: no visible window, and either `--launch-to-tray` on the command line or no launch URL after 10 seconds. Since 0.746 a game launch is handed to such a process ("WebPlay NoReload with Tray only") and the launched process exits, so they are ended even with multi-instance off. With multi-instance on, it then closes both singleton handles in every remaining client. It waits a few seconds for a client that is still starting.
+- While multi-instance is on, a background timer (every 2 s) does the same handle closing for any client that has a window or is at least 10 seconds old and hasn't been handled yet. That covers clients started from the browser or by Roblox itself.
+
+[NamedObjectCloser](../src/InstanceManager/Services/NamedObjectCloser.cs) does the Win32 part. It reads the system handle table (`NtQuerySystemInformation`, `SystemExtendedHandleInformation`) for the target processes and duplicates each handle with `PROCESS_DUP_HANDLE`. It keeps only `Event` and `Mutant` objects (names are queried only for those types, because a name query can hang on other types) and compares the last path segment of the name. Matches are closed remotely with `DuplicateHandle(DUPLICATE_CLOSE_SOURCE)`. Once the last handle is gone, Windows drops the name. A process that can't be opened (started as administrator) is reported as blocked, and `ShellViewModel` turns that into the "Only one window at a time" notification. The OS calls sit behind `IRobloxProcessHost`, so the policy is tested with a fake host. The handle closing itself is tested against objects held by a helper process.
+
+What isn't covered: since 0.746 a `launchmode:app` start (the Roblox home screen) is handed to any running Roblox app ("App NoReload"), whatever the singleton objects say. Opening several accounts on the home screen at the same time therefore still ends up in one window. Game and server launches are not affected.
 
 ## Automation
 
@@ -228,7 +235,7 @@ The login dialog creates its own WebView2 environment with an InPrivate profile 
 ## Threads
 
 - The UI thread runs all view model updates and WPF binding.
-- Each held singleton has its own background thread, parked on a stop event.
+- Multi-instance uses one timer that only reads the handle table while there are Roblox clients it hasn't handled yet (about 25 ms per sweep).
 - Each `RobloxLogWatcher` runs a one-second timer; the classifier and the callback run on that timer thread.
 - `Process.Exited` fires on a thread-pool thread.
 - `SettingsService` saves on a debounced thread-pool timer.

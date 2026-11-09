@@ -114,7 +114,7 @@ public sealed class LaunchServiceTests
             new RobloxAuthService(new HttpClient()),
             new RobloxLauncher(),
             tracker,
-            new MultiInstanceManager(),
+            TestMultiInstance.Create(),
             settings);
     }
 

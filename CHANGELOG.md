@@ -2,6 +2,19 @@
 
 Every release of Instance Manager, newest first. Each entry starts with a short summary, followed by what is new, what changed and what was fixed. Downloads are on the [releases page](https://github.com/JeskoMts/Instance-Manager/releases).
 
+## [1.1.5](https://github.com/JeskoMts/Instance-Manager/releases/tag/1.1.5) · 2026-11-09
+
+Several accounts run side by side again on Roblox 0.746, and the "Only one window at a time" warning no longer appears after a restart.
+
+### Fixed
+
+- Multi-instance stopped working with the Roblox update in early November (0.746). Instance Manager no longer holds Roblox's single-instance objects itself. Right before each launch it closes them inside the clients that are already running, so the new client starts as if it were alone and the others stay open. A client started from the browser while others run is handled the same way within a few seconds.
+- "Only one window at a time" appeared after restarting the PC even though no Roblox window was open. Roblox now starts a hidden tray process with Windows (`RobloxPlayerBeta.exe --launch-to-tray`), and it starts one again whenever a game window is closed. That process held the objects the app needed. Since 0.746 it also takes over the next game launch, and the launched process exits. Instance Manager now ends these tray processes before every launch. They hold no game.
+
+### Changed
+
+- "Only one window at a time" now only appears when a Roblox process can't be changed, which in practice means it was started as administrator. The message names the process.
+
 ## [1.1.4](https://github.com/JeskoMts/Instance-Manager/releases/tag/1.1.4) · 2026-10-10
 
 Version 1.1.1 can update by itself again.
@@ -177,3 +190,7 @@ The download was rebuilt on 2026-09-28 as a single `Instance Manager.exe`; the a
 - Color themes with an editor, shareable as a short code.
 - Notifications with an adjustable display time and muting, confirmations that can be skipped, and Undo after removing an account, a group or a favorite.
 - Everything stays on the PC. The app has no server of its own and no telemetry, and it runs without administrator rights.
+
+## Documentation maintenance — 2026-10-23
+
+- Added common installation/building/index entry points and aligned source/download organization; existing 1.1.4 binary retained.

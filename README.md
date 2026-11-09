@@ -121,6 +121,8 @@ scripts/                           Release build and secret scan
 
 ## Documentation
 
+[Installation](docs/INSTALLATION.md) · [Building](docs/BUILDING.md) · [Documentation index](docs/README.md)
+
 | Document | What it covers |
 |---|---|
 | [FEATURES.md](docs/FEATURES.md) | Every page and setting and how to use it |
